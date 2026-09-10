@@ -1,0 +1,22 @@
+{
+  "name": "smartbilling",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lingkungan pengembangan Capstone A05",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "check": "node --check src/server.js && node --check src/connections.js && node --check scripts/smoke.js && node --check scripts/init-local.js",
+    "init:local": "node scripts/init-local.js",
+    "smoke": "node scripts/smoke.js",
+    "verify:persistence": "node scripts/smoke.js --verify-persistence"
+  },
+  "dependencies": {
+    "express": "5.2.1",
+    "mqtt": "5.15.2",
+    "pg": "8.23.0"
+  }
+}
