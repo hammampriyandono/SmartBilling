@@ -1,0 +1,236 @@
+erDiagram
+    direction LR
+    USERS {
+        uuid id PK
+        varchar name
+        varchar email UK
+        text password_hash
+        varchar role
+        boolean is_active
+        timestamptz created_at
+    }
+    PROPERTIES {
+        uuid id PK
+        uuid owner_id FK
+        varchar name
+        varchar timezone
+        timestamptz created_at
+    }
+    ROOMS {
+        uuid id PK
+        uuid property_id FK
+        varchar code
+        varchar name
+        timestamptz active_from
+        timestamptz active_until
+    }
+    OCCUPANCIES {
+        uuid id PK
+        uuid user_id FK
+        uuid room_id FK
+        timestamptz starts_at
+        timestamptz ends_at
+        timestamptz created_at
+    }
+    RFID_CARDS {
+        uuid id PK
+        uuid user_id FK
+        varchar uid
+        timestamptz registered_at
+        timestamptz revoked_at
+    }
+    DEVICES {
+        uuid id PK
+        uuid property_id FK
+        varchar device_uid UK
+        varchar firmware_version
+        varchar status
+        timestamptz last_seen_at
+        timestamptz created_at
+    }
+    COMMUNAL_LOADS {
+        uuid id PK
+        uuid property_id FK
+        varchar name
+        varchar load_type
+        boolean is_active
+    }
+    METERS {
+        uuid id PK
+        uuid device_id FK
+        uuid room_id FK
+        uuid communal_load_id FK
+        varchar kind
+        integer channel_no
+        varchar serial_number
+        timestamptz installed_at
+        timestamptz retired_at
+    }
+    METER_READINGS {
+        bigint id PK
+        uuid meter_id FK
+        uuid boot_id
+        bigint sequence_no
+        integer counter_epoch
+        timestamptz measured_at
+        timestamptz received_at
+        numeric voltage_v
+        numeric current_a
+        numeric power_w
+        numeric energy_kwh
+        numeric frequency_hz
+        numeric power_factor
+        varchar quality
+    }
+    DEVICE_EVENTS {
+        bigint id PK
+        uuid device_id FK
+        uuid boot_id
+        bigint sequence_no
+        varchar event_type
+        timestamptz occurred_at
+        timestamptz received_at
+        jsonb payload
+        varchar processing_status
+        text error_message
+    }
+    USAGE_SESSIONS {
+        uuid id PK
+        uuid meter_id FK
+        varchar device_session_key
+        bigint start_event_id FK
+        bigint end_event_id FK
+        timestamptz started_at
+        timestamptz ended_at
+        bigint start_reading_id FK
+        bigint end_reading_id FK
+        numeric start_energy_kwh
+        numeric end_energy_kwh
+        numeric energy_kwh
+        varchar allocation_method
+        varchar status
+    }
+    SESSION_PARTICIPANTS {
+        uuid id PK
+        uuid usage_session_id FK
+        uuid occupancy_id FK
+        uuid rfid_card_id FK
+        bigint join_event_id FK
+        timestamptz registered_at
+        numeric allocation_weight
+    }
+    BILLING_PERIODS {
+        uuid id PK
+        uuid property_id FK
+        timestamptz starts_at
+        timestamptz ends_at
+        integer revision_no
+        uuid supersedes_period_id FK,UK
+        numeric total_bill_rp
+        numeric main_energy_kwh
+        numeric shared_energy_kwh
+        numeric effective_rate_rp_kwh
+        varchar calculation_version
+        jsonb policy_snapshot
+        varchar status
+        timestamptz finalized_at
+        uuid finalized_by FK
+    }
+    PERIOD_METER_TOTALS {
+        uuid id PK
+        uuid billing_period_id FK
+        uuid meter_id FK
+        timestamptz segment_starts_at
+        timestamptz segment_ends_at
+        bigint start_reading_id FK
+        bigint end_reading_id FK
+        numeric start_energy_kwh
+        numeric end_energy_kwh
+        numeric consumption_kwh
+        varchar quality
+        jsonb calculation_evidence
+    }
+    ROOM_BILLS {
+        uuid id PK
+        uuid billing_period_id FK
+        uuid room_id FK
+        numeric room_energy_kwh
+        numeric attributable_energy_kwh
+        numeric shared_energy_kwh
+        numeric room_cost_rp
+        numeric attributable_cost_rp
+        numeric shared_cost_rp
+        numeric rounding_adjustment_rp
+        numeric total_cost_rp
+    }
+    BILL_SHARES {
+        uuid id PK
+        uuid room_bill_id FK
+        uuid occupancy_id FK
+        numeric room_energy_kwh
+        numeric attributable_energy_kwh
+        numeric shared_energy_kwh
+        numeric room_cost_rp
+        numeric attributable_cost_rp
+        numeric shared_cost_rp
+        numeric rounding_adjustment_rp
+        numeric total_cost_rp
+        jsonb allocation_evidence
+    }
+    BILL_SESSION_ALLOCATIONS {
+        uuid id PK
+        uuid bill_share_id FK
+        uuid session_participant_id FK
+        timestamptz slice_starts_at
+        timestamptz slice_ends_at
+        numeric allocated_energy_kwh
+        jsonb calculation_evidence
+    }
+    AUDIT_LOGS {
+        bigint id PK
+        uuid property_id FK
+        uuid actor_user_id FK
+        timestamptz occurred_at
+        varchar action
+        varchar entity_type
+        varchar entity_id
+        jsonb before_data
+        jsonb after_data
+        text reason
+    }
+    USERS ||--o{ PROPERTIES : "owner_id"
+    PROPERTIES ||--o{ ROOMS : "property_id"
+    USERS ||--o{ OCCUPANCIES : "user_id"
+    ROOMS ||--o{ OCCUPANCIES : "room_id"
+    USERS ||--o{ RFID_CARDS : "user_id"
+    PROPERTIES ||--o{ DEVICES : "property_id"
+    PROPERTIES ||--o{ COMMUNAL_LOADS : "property_id"
+    DEVICES ||--o{ METERS : "device_id"
+    ROOMS |o--o{ METERS : "room_id"
+    COMMUNAL_LOADS |o--o{ METERS : "communal_load_id"
+    METERS ||--o{ METER_READINGS : "meter_id"
+    DEVICES ||--o{ DEVICE_EVENTS : "device_id"
+    METERS ||--o{ USAGE_SESSIONS : "meter_id"
+    DEVICE_EVENTS |o--o{ USAGE_SESSIONS : "start_event_id"
+    DEVICE_EVENTS |o--o{ USAGE_SESSIONS : "end_event_id"
+    METER_READINGS |o--o{ USAGE_SESSIONS : "start_reading_id"
+    METER_READINGS |o--o{ USAGE_SESSIONS : "end_reading_id"
+    USAGE_SESSIONS ||--o{ SESSION_PARTICIPANTS : "usage_session_id"
+    OCCUPANCIES ||--o{ SESSION_PARTICIPANTS : "occupancy_id"
+    RFID_CARDS ||--o{ SESSION_PARTICIPANTS : "rfid_card_id"
+    DEVICE_EVENTS |o--o{ SESSION_PARTICIPANTS : "join_event_id"
+    PROPERTIES ||--o{ BILLING_PERIODS : "property_id"
+    BILLING_PERIODS |o--o{ BILLING_PERIODS : "supersedes_period_id"
+    USERS |o--o{ BILLING_PERIODS : "finalized_by"
+    BILLING_PERIODS ||--o{ PERIOD_METER_TOTALS : "billing_period_id"
+    METERS ||--o{ PERIOD_METER_TOTALS : "meter_id"
+    METER_READINGS |o--o{ PERIOD_METER_TOTALS : "start_reading_id"
+    METER_READINGS |o--o{ PERIOD_METER_TOTALS : "end_reading_id"
+    BILLING_PERIODS ||--o{ ROOM_BILLS : "billing_period_id"
+    ROOMS ||--o{ ROOM_BILLS : "room_id"
+    ROOM_BILLS ||--o{ BILL_SHARES : "room_bill_id"
+    OCCUPANCIES |o--o{ BILL_SHARES : "occupancy_id"
+    BILL_SHARES ||--o{ BILL_SESSION_ALLOCATIONS : "bill_share_id"
+    SESSION_PARTICIPANTS ||--o{ BILL_SESSION_ALLOCATIONS : "session_participant_id"
+    PROPERTIES ||--o{ AUDIT_LOGS : "property_id"
+    USERS |o--o{ AUDIT_LOGS : "actor_user_id"

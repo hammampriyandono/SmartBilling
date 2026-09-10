@@ -1,0 +1,335 @@
+Project cpstn_final_v1 {
+  database_type: 'PostgreSQL'
+  Note: 'ERD final v1 untuk capstone. Baca aturan-integritas di panduan sebelum membuat migration. DBML tidak menegakkan seluruh aturan lintas tabel.'
+}
+
+Table users {
+  Note: 'Satu sumber akun owner dan tenant. Kredensial tidak disimpan pada tabel kamar.'
+  id uuid [pk]
+  name varchar(120) [not null]
+  email varchar(254) [not null, unique]
+  password_hash text [not null]
+  role varchar(16) [not null, note: 'owner atau tenant; validasi role saat menetapkan kepemilikan dan penghuni']
+  is_active boolean [not null]
+  created_at timestamptz [not null]
+}
+
+Table properties {
+  Note: 'Satu bangunan kost dan batas rekonsiliasi energi/tagihan.'
+  id uuid [pk]
+  owner_id uuid [not null]
+  name varchar(120) [not null]
+  timezone varchar(64) [not null, note: 'Zona waktu IANA untuk batas periode, bukan asumsi dari zona waktu server']
+  created_at timestamptz [not null]
+}
+
+Table rooms {
+  Note: 'Kamar fisik; status keterhunian diperoleh dari occupancies.'
+  id uuid [pk]
+  property_id uuid [not null]
+  code varchar(32) [not null]
+  name varchar(120) [not null]
+  active_from timestamptz [not null]
+  active_until timestamptz
+  indexes {
+    (property_id, code) [unique]
+  }
+}
+
+Table occupancies {
+  Note: 'Riwayat penghuni-kamar. Banyak penghuni boleh berada dalam satu kamar.'
+  id uuid [pk]
+  user_id uuid [not null]
+  room_id uuid [not null]
+  starts_at timestamptz [not null]
+  ends_at timestamptz [note: 'Interval setengah terbuka; null berarti masih tinggal']
+  created_at timestamptz [not null]
+}
+
+Table rfid_cards {
+  Note: 'Pendaftaran kartu kepada pengguna tidak boleh dipindah dengan mengubah user_id.'
+  id uuid [pk]
+  user_id uuid [not null]
+  uid varchar(64) [not null, note: 'UID dinormalisasi; hanya satu pendaftaran aktif per UID']
+  registered_at timestamptz [not null]
+  revoked_at timestamptz
+}
+
+Table devices {
+  Note: 'Identitas pengirim MQTT. Boot ID dan nomor urut berasal dari firmware.'
+  id uuid [pk]
+  property_id uuid [not null]
+  device_uid varchar(80) [not null, unique]
+  firmware_version varchar(40)
+  status varchar(20) [not null]
+  last_seen_at timestamptz
+  created_at timestamptz [not null]
+}
+
+Table communal_loads {
+  Note: 'Fasilitas yang diukur khusus, terutama mesin cuci. Shared murni boleh diperoleh sebagai residual.'
+  id uuid [pk]
+  property_id uuid [not null]
+  name varchar(120) [not null]
+  load_type varchar(20) [not null, note: 'shared atau attributable']
+  is_active boolean [not null]
+}
+
+Table meters {
+  Note: 'Satu pemasangan meter pada satu jalur. Buat record baru ketika meter dipindah/diganti.'
+  id uuid [pk]
+  device_id uuid [not null]
+  room_id uuid
+  communal_load_id uuid
+  kind varchar(20) [not null, note: 'main, room, atau communal; aturan eksklusif target ada di panduan']
+  channel_no integer [not null]
+  serial_number varchar(100)
+  installed_at timestamptz [not null]
+  retired_at timestamptz
+}
+
+Table meter_readings {
+  Note: 'Data ukur mentah, immutable. Energy adalah counter kumulatif, bukan pemakaian per sampel.'
+  id bigint [pk, increment]
+  meter_id uuid [not null]
+  boot_id uuid [not null]
+  sequence_no bigint [not null]
+  counter_epoch integer [not null, note: 'Naik saat counter PZEM direset; berbeda dari boot ESP32']
+  measured_at timestamptz [not null]
+  received_at timestamptz [not null]
+  voltage_v numeric(12,4)
+  current_a numeric(12,6)
+  power_w numeric(16,6)
+  energy_kwh numeric(20,9) [not null]
+  frequency_hz numeric(10,4)
+  power_factor numeric(7,6)
+  quality varchar(20) [not null, note: 'valid, suspect, invalid; jangan ganti data hilang dengan nol']
+  indexes {
+    (meter_id, boot_id, sequence_no) [unique]
+  }
+}
+
+Table device_events {
+  Note: 'Inbox kejadian RFID, sesi, dan reset. Event kartu tidak dikenal tetap dapat dicatat.'
+  id bigint [pk, increment]
+  device_id uuid [not null]
+  boot_id uuid [not null]
+  sequence_no bigint [not null]
+  event_type varchar(40) [not null]
+  occurred_at timestamptz [not null]
+  received_at timestamptz [not null]
+  payload jsonb [not null, note: 'Data kejadian terbatas; bukan pengganti tabel relasional']
+  processing_status varchar(20) [not null]
+  error_message text
+  indexes {
+    (device_id, boot_id, sequence_no) [unique]
+  }
+}
+
+Table usage_sessions {
+  Note: 'Satu interval penggunaan fasilitas; anggota dibekukan ketika sesi aktif.'
+  id uuid [pk]
+  meter_id uuid [not null, note: 'Harus meter communal pada fasilitas attributable']
+  device_session_key varchar(100) [not null]
+  start_event_id bigint
+  end_event_id bigint
+  started_at timestamptz [not null]
+  ended_at timestamptz
+  start_reading_id bigint
+  end_reading_id bigint
+  start_energy_kwh numeric(20,9)
+  end_energy_kwh numeric(20,9)
+  energy_kwh numeric(20,9) [note: 'Hanya hasil valid; null jika belum bisa direkonsiliasi']
+  allocation_method varchar(30) [not null, note: 'equal_registered; versi aturan dibekukan']
+  status varchar(20) [not null, note: 'pending, active, completed, review, cancelled']
+  indexes {
+    (meter_id, device_session_key) [unique]
+  }
+}
+
+Table session_participants {
+  Note: 'Tabel penghubung many-to-many antara sesi dan masa tinggal penghuni.'
+  id uuid [pk]
+  usage_session_id uuid [not null]
+  occupancy_id uuid [not null]
+  rfid_card_id uuid [not null]
+  join_event_id bigint
+  registered_at timestamptz [not null]
+  allocation_weight numeric(12,6) [not null, note: 'Default 1; seluruh anggota versi ini berbobot sama']
+  indexes {
+    (usage_session_id, occupancy_id) [unique]
+  }
+}
+
+Table billing_periods {
+  Note: 'Tagihan total bangunan dan snapshot aturan untuk satu periode.'
+  id uuid [pk]
+  property_id uuid [not null]
+  starts_at timestamptz [not null]
+  ends_at timestamptz [not null]
+  revision_no integer [not null, note: 'Mulai 1; revisi menggantikan perhitungan, bukan menambah tagihan']
+  supersedes_period_id uuid [unique, note: 'Revisi sebelumnya untuk rentang yang sama']
+  total_bill_rp numeric(18,0) [not null]
+  main_energy_kwh numeric(20,9)
+  shared_energy_kwh numeric(20,9)
+  effective_rate_rp_kwh numeric(24,12)
+  calculation_version varchar(40) [not null]
+  policy_snapshot jsonb [not null, note: 'Pembagi shared, kamar peserta, metode alokasi, rounding, dan kebijakan data']
+  status varchar(20) [not null, note: 'draft, review, finalized, superseded']
+  finalized_at timestamptz
+  finalized_by uuid
+  indexes {
+    (property_id, starts_at, ends_at, revision_no) [unique]
+  }
+}
+
+Table period_meter_totals {
+  Note: 'Snapshot konsumsi per pemasangan meter dalam irisan periode.'
+  id uuid [pk]
+  billing_period_id uuid [not null]
+  meter_id uuid [not null]
+  segment_starts_at timestamptz [not null]
+  segment_ends_at timestamptz [not null]
+  start_reading_id bigint
+  end_reading_id bigint
+  start_energy_kwh numeric(20,9)
+  end_energy_kwh numeric(20,9)
+  consumption_kwh numeric(20,9) [not null]
+  quality varchar(20) [not null]
+  calculation_evidence jsonb [not null, note: 'Referensi sampel pembatas, interpolasi/koreksi, epoch dan segmen jika reset']
+  indexes {
+    (billing_period_id, meter_id) [unique]
+  }
+}
+
+Table room_bills {
+  Note: 'Satu ringkasan tagihan kamar per periode; bukan satu tagihan penuh per penghuni.'
+  id uuid [pk]
+  billing_period_id uuid [not null]
+  room_id uuid [not null]
+  room_energy_kwh numeric(20,9) [not null]
+  attributable_energy_kwh numeric(20,9) [not null]
+  shared_energy_kwh numeric(20,9) [not null]
+  room_cost_rp numeric(18,0) [not null]
+  attributable_cost_rp numeric(18,0) [not null]
+  shared_cost_rp numeric(18,0) [not null]
+  rounding_adjustment_rp numeric(18,0) [not null]
+  total_cost_rp numeric(18,0) [not null]
+  indexes {
+    (billing_period_id, room_id) [unique]
+  }
+}
+
+Table bill_shares {
+  Note: 'Bagian tagihan kamar per masa tinggal; null occupancy adalah bagian pemilik saat kamar kosong.'
+  id uuid [pk]
+  room_bill_id uuid [not null]
+  occupancy_id uuid
+  room_energy_kwh numeric(20,9) [not null]
+  attributable_energy_kwh numeric(20,9) [not null]
+  shared_energy_kwh numeric(20,9) [not null]
+  room_cost_rp numeric(18,0) [not null]
+  attributable_cost_rp numeric(18,0) [not null]
+  shared_cost_rp numeric(18,0) [not null]
+  rounding_adjustment_rp numeric(18,0) [not null]
+  total_cost_rp numeric(18,0) [not null]
+  allocation_evidence jsonb [not null, note: 'Interval hunian, anggota per interval, sampel acuan, bobot dan pembulatan']
+  indexes {
+    (room_bill_id, occupancy_id) [unique]
+  }
+}
+
+Table bill_session_allocations {
+  Note: 'Jejak energi peserta sesi yang dibebankan pada suatu periode. Sesi lintas bulan dipecah.'
+  id uuid [pk]
+  bill_share_id uuid [not null]
+  session_participant_id uuid [not null]
+  slice_starts_at timestamptz [not null]
+  slice_ends_at timestamptz [not null]
+  allocated_energy_kwh numeric(20,9) [not null]
+  calculation_evidence jsonb [not null, note: 'Referensi sampel, energi sesi pada irisan periode, jumlah anggota']
+  indexes {
+    (bill_share_id, session_participant_id) [unique]
+  }
+}
+
+Table audit_logs {
+  Note: 'Riwayat perubahan konfigurasi, koreksi dan finalisasi; bukan seluruh telemetri.'
+  id bigint [pk, increment]
+  property_id uuid [not null]
+  actor_user_id uuid [note: 'Null untuk proses sistem']
+  occurred_at timestamptz [not null]
+  action varchar(64) [not null]
+  entity_type varchar(64) [not null, note: 'Penunjuk audit polimorfik, bukan foreign key generik']
+  entity_id varchar(100) [not null]
+  before_data jsonb
+  after_data jsonb
+  reason text
+}
+
+Ref: properties.owner_id > users.id [delete: restrict, update: no action]
+Ref: rooms.property_id > properties.id [delete: restrict, update: no action]
+Ref: occupancies.user_id > users.id [delete: restrict, update: no action]
+Ref: occupancies.room_id > rooms.id [delete: restrict, update: no action]
+Ref: rfid_cards.user_id > users.id [delete: restrict, update: no action]
+Ref: devices.property_id > properties.id [delete: restrict, update: no action]
+Ref: communal_loads.property_id > properties.id [delete: restrict, update: no action]
+Ref: meters.device_id > devices.id [delete: restrict, update: no action]
+Ref: meters.room_id > rooms.id [delete: restrict, update: no action]
+Ref: meters.communal_load_id > communal_loads.id [delete: restrict, update: no action]
+Ref: meter_readings.meter_id > meters.id [delete: restrict, update: no action]
+Ref: device_events.device_id > devices.id [delete: restrict, update: no action]
+Ref: usage_sessions.meter_id > meters.id [delete: restrict, update: no action]
+Ref: usage_sessions.start_event_id > device_events.id [delete: restrict, update: no action]
+Ref: usage_sessions.end_event_id > device_events.id [delete: restrict, update: no action]
+Ref: usage_sessions.start_reading_id > meter_readings.id [delete: restrict, update: no action]
+Ref: usage_sessions.end_reading_id > meter_readings.id [delete: restrict, update: no action]
+Ref: session_participants.usage_session_id > usage_sessions.id [delete: restrict, update: no action]
+Ref: session_participants.occupancy_id > occupancies.id [delete: restrict, update: no action]
+Ref: session_participants.rfid_card_id > rfid_cards.id [delete: restrict, update: no action]
+Ref: session_participants.join_event_id > device_events.id [delete: restrict, update: no action]
+Ref: billing_periods.property_id > properties.id [delete: restrict, update: no action]
+Ref: billing_periods.supersedes_period_id > billing_periods.id [delete: restrict, update: no action]
+Ref: billing_periods.finalized_by > users.id [delete: restrict, update: no action]
+Ref: period_meter_totals.billing_period_id > billing_periods.id [delete: restrict, update: no action]
+Ref: period_meter_totals.meter_id > meters.id [delete: restrict, update: no action]
+Ref: period_meter_totals.start_reading_id > meter_readings.id [delete: restrict, update: no action]
+Ref: period_meter_totals.end_reading_id > meter_readings.id [delete: restrict, update: no action]
+Ref: room_bills.billing_period_id > billing_periods.id [delete: restrict, update: no action]
+Ref: room_bills.room_id > rooms.id [delete: restrict, update: no action]
+Ref: bill_shares.room_bill_id > room_bills.id [delete: restrict, update: no action]
+Ref: bill_shares.occupancy_id > occupancies.id [delete: restrict, update: no action]
+Ref: bill_session_allocations.bill_share_id > bill_shares.id [delete: restrict, update: no action]
+Ref: bill_session_allocations.session_participant_id > session_participants.id [delete: restrict, update: no action]
+Ref: audit_logs.property_id > properties.id [delete: restrict, update: no action]
+Ref: audit_logs.actor_user_id > users.id [delete: restrict, update: no action]
+
+TableGroup group_1 {
+  users
+  properties
+  rooms
+  occupancies
+  rfid_cards
+}
+
+TableGroup group_2 {
+  devices
+  communal_loads
+  meters
+  meter_readings
+  device_events
+}
+
+TableGroup group_3 {
+  usage_sessions
+  session_participants
+}
+
+TableGroup group_4 {
+  billing_periods
+  period_meter_totals
+  room_bills
+  bill_shares
+  bill_session_allocations
+  audit_logs
+}
