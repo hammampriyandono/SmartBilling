@@ -1,0 +1,86 @@
+name: smartbilling-a05-dev
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: smartbilling_dev
+      POSTGRES_DB: smartbilling_dev
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartbilling_dev -d smartbilling_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+    networks: [development]
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    entrypoint: ["/bin/sh", "/opt/a05/start.sh"]
+    secrets:
+      - mqtt_password
+    volumes:
+      - ./docker/mosquitto/start.sh:/opt/a05/start.sh:ro
+      - ./docker/mosquitto/health.sh:/opt/a05/health.sh:ro
+      - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqtt_data:/mosquitto/data
+    healthcheck:
+      test: ["CMD", "/bin/sh", "/opt/a05/health.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
+    networks: [development]
+
+  backend:
+    build: .
+    init: true
+    environment:
+      APP_ENV: development
+      PORT: 3000
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: smartbilling_dev
+      PGDATABASE: smartbilling_dev
+      PGPASSWORD_FILE: /run/secrets/postgres_password
+      MQTT_URL: mqtt://mqtt:1883
+      MQTT_USERNAME: smartbilling_dev
+      MQTT_PASSWORD_FILE: /run/secrets/mqtt_password
+    secrets:
+      - postgres_password
+      - mqtt_password
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mqtt:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health/ready',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
+    networks: [development]
+
+networks:
+  development:
+
+volumes:
+  postgres_data:
+  mqtt_data:
+
+secrets:
+  postgres_password:
+    file: ./.local/secrets/postgres_password
+  mqtt_password:
+    file: ./.local/secrets/mqtt_password
