@@ -1,6 +1,7 @@
 import express from 'express';
 import { randomUUID } from 'node:crypto';
 import { createPool, createMqtt, requireDevelopment, testTopic, replyPrefix } from './connections.js';
+import { monitoringApi, apiError } from './monitoring-api.js';
 
 requireDevelopment();
 const pool = createPool();
@@ -28,6 +29,7 @@ client.on('message', (topic, bytes) => {
 
 const app = express();
 app.disable('x-powered-by');
+app.use('/api', monitoringApi(pool, { maxGapSeconds: Number(process.env.MONITORING_MAX_GAP_SECONDS || 120) }));
 app.get('/health/live', (_req, res) => res.json({ status: 'ok', environment: 'development' }));
 app.get('/health/ready', async (_req, res) => {
   let database = false;
@@ -36,7 +38,8 @@ app.get('/health/ready', async (_req, res) => {
   const ready = database && broker && !stopping;
   res.status(ready ? 200 : 503).json({ status: ready ? 'ready' : 'not-ready', database, mqtt: broker });
 });
-const server = app.listen(Number(process.env.PORT || 3000), '0.0.0.0', () => {
+app.use(apiError);
+const server = app.listen(Number(process.env.PORT || 3000), process.env.BIND_HOST || '127.0.0.1', () => {
   console.info('Backend minimum berjalan; endpoint /health/live dan /health/ready tersedia.');
 });
 

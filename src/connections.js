@@ -14,12 +14,12 @@ function secret(name) {
   return readFileSync(path, 'utf8').trim();
 }
 
-export function createPool() {
+export function createPool({ timeout = 3000 } = {}) {
   const pool = new pg.Pool({
     password: secret('PGPASSWORD'),
     connectionTimeoutMillis: 3000,
-    query_timeout: 3000,
-    statement_timeout: 3000,
+    query_timeout: timeout,
+    statement_timeout: timeout,
     max: 5,
   });
   // Hindari mencetak error mentah yang dapat memuat detail koneksi.

@@ -45,6 +45,8 @@ services:
     environment:
       APP_ENV: development
       PORT: 3000
+      BIND_HOST: 0.0.0.0
+      MONITORING_MAX_GAP_SECONDS: ${MONITORING_MAX_GAP_SECONDS:-120}
       PGHOST: postgres
       PGPORT: 5432
       PGUSER: smartbilling_dev

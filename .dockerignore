@@ -4,4 +4,8 @@
 !src/
 !src/**
 !scripts/
-!scripts/smoke.js
+!scripts/*.js
+!migrations/
+!migrations/*.sql
+!test/
+!test/*.js
