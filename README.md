@@ -9,7 +9,7 @@ Repository: `C:\Users\Admin\source\repos\SmartBilling`.
 1. Baca [AGENTS.md](AGENTS.md), [handoff](docs/HANDOFF.md), [PRD](docs/PRD.md), [arsitektur](docs/ARCHITECTURE.md), dan [ERD](docs/database/cpstn-erd-final.md).
 2. Ikuti [petunjuk lingkungan lokal](docs/LOCAL-DEVELOPMENT.md) untuk inisialisasi, build, startup, dan smoke test.
 
-Lingkup saat ini adalah Node.js/Express minimum, PostgreSQL, dan Mosquitto dalam Docker Compose. Belum ada frontend, autentikasi aplikasi, ingest sensor, sesi RFID, billing, atau migration ERD. Stack minimum yang disetujui: JavaScript, Express, `pg` tanpa ORM, MQTT.js, dan Eclipse Mosquitto. Frontend dan ORM aplikasi belum dipilih.
+Lingkup saat ini adalah Node.js/Express, PostgreSQL, dan Mosquitto dalam Docker Compose. Migration inti monitoring serta API daftar/latest/histori telah ditulis; lihat [API monitoring](docs/API-MONITORING.md) untuk status uji dan batasnya. Ingest sensor serta simulator menunggu keputusan [usulan kontrak MQTT](docs/MQTT-CONTRACT.md). Belum ada frontend, autentikasi aplikasi, sesi RFID, atau billing. Stack yang disetujui: JavaScript, Express, `pg` tanpa ORM, MQTT.js, dan Eclipse Mosquitto. Frontend dan ORM aplikasi belum dipilih.
 
 ## Keputusan produk
 

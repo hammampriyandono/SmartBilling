@@ -75,7 +75,26 @@ npm run check
 
 Backend berjalan dari image. Setelah mengubah kode, build ulang seperti di atas. Tidak ada hot reload atau frontend pada tahap persiapan ini. `compose stop` mempertahankan container/volume. Jangan memakai `down -v`, volume prune, factory reset, atau menghapus distro WSL sebagai langkah startup rutin.
 
-Belum ada migration ERD untuk dijalankan. Pembuatan `dev_checks.probes` adalah pemeriksaan infrastruktur saja. Pengamatan nyata nanti memerlukan database/dataset tersendiri, mapping perangkat, kontrak MQTT firmware, hak akses, dan migration yang tervalidasi. Konfigurasi ini belum merupakan konfigurasi deployment Railway atau broker untuk akses LAN/ESP32.
+Migration inti monitoring kini tersedia. Pembuatan `dev_checks.probes` tetap hanya pemeriksaan infrastruktur. Pengamatan nyata nanti memerlukan database/dataset tersendiri, kontrak MQTT firmware, hak akses, dan migration yang tervalidasi. Konfigurasi ini belum merupakan konfigurasi deployment Railway atau broker untuk akses LAN/ESP32.
+
+## Monitoring — tambahan 11 September 2026
+
+Setelah Engine siap dan image dibangun ulang:
+
+```powershell
+.\scripts\docker.ps1 compose exec -T backend npm run smoke
+.\scripts\docker.ps1 compose exec -T backend npm run migrate
+.\scripts\docker.ps1 compose exec -T backend npm run seed:demo
+.\scripts\docker.ps1 compose exec -T -e INTEGRATION_DB=1 backend npm test
+```
+
+Migration menggunakan transaksi, advisory lock, dan checksum. Migration yang telah diterapkan tidak boleh diedit; buat migration berikutnya. Tidak ada perintah down migration/destructive reset. Extension PostgreSQL `btree_gist` diperlukan untuk constraint interval pemasangan yang tidak boleh overlap. Script hanya mengizinkan database `smartbilling_dev`, dan tidak menyentuh tabel `dev_checks` existing.
+
+Seed hanya memasukkan akun owner simulasi nonaktif, bangunan, kamar, perangkat, fasilitas, dan tiga meter (channel 0 utama, 1 kamar, 2 komunal). Tidak ada password login yang dapat digunakan, dan tidak ada pembacaan sensor yang dibuat oleh seed. ID tetap memakai prefix `00000000-0000-4000-8000-` agar dapat dirujuk saat development; seed tidak menimpa ID existing. Database ini khusus simulasi dan tidak boleh dipakai menyimpan pengamatan nyata.
+
+Lihat `API-MONITORING.md` untuk endpoint. Readiness infrastruktur tidak membuktikan migration sudah diterapkan. `npm test` pada host menjalankan unit/API test dengan database tiruan; test PostgreSQL dilewati kecuali `INTEGRATION_DB=1`. Test PostgreSQL memakai transaksi yang di-rollback, sehingga tidak menghapus data existing. Konsumsi harian memakai aturan konservatif yang disetujui dengan `MONITORING_MAX_GAP_SECONDS=120` untuk simulasi. Ingest/simulator masih menunggu keputusan kontrak MQTT pengguna.
+
+Docker diperiksa ulang 11 September: startup masih gagal saat rename socket `sailor-ingest.sock` ke `.stale`. Tindakan manual: tutup dialog error dengan **Quit**, bukan factory reset. Engine perlu dipulihkan sebelum perintah container di atas bisa dijalankan. Pengubahan socket di luar repository belum diizinkan; tidak dilakukan penghapusan socket/volume/distro maupun perubahan fitur Windows. Instalasi ulang dan restart Windows belum terbukti wajib.
 
 ## Rujukan teknis
 

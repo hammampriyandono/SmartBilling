@@ -1,6 +1,6 @@
 # Handoff Capstone A05
 
-Diperbarui: 10 September 2026. Konteks awal berasal dari diskusi 9 September; lihat catatan persiapan di bawah untuk status repository terkini.
+Diperbarui: 11 September 2026. Konteks awal berasal dari diskusi 9 September; lihat catatan terbaru di bawah untuk status repository terkini.
 
 ## Status awal sebelum audit repository (9 September 2026)
 
@@ -81,3 +81,40 @@ Pada pekerjaan berikutnya, tambahkan tanggal dan bagian: perubahan yang benar-be
 - Build image, health check container, round trip MQTT runtime, dan persistensi setelah restart **belum terverifikasi** karena Engine belum siap. Ulangi langkah build/start/smoke/restart dalam `LOCAL-DEVELOPMENT.md` setelah Engine pulih.
 - Backend minimum khusus development, bukan deployment produksi. Batas schema/integritas ERD, autentikasi owner/tenant, dashboard, ingest sensor, RFID, billing dan retry data produksi belum diimplementasikan.
 - Belum ada integrasi ESP32, pengamatan nyata tujuh hari, atau deployment Railway. Tahap fitur berikutnya mengikuti PRD setelah lingkungan siap; detail firmware dan fairness tetap dikoordinasikan ke anggota terkait.
+
+## Backend monitoring dan histori — 11 September 2026
+
+### Kondisi awal dan batas kerja
+
+- Working tree bersih saat pemeriksaan. Persiapan sebelumnya telah masuk commit existing, HEAD `a2bc58c` (`chore: add development environment configuration`), didahului `109872a` dan `da6b40e`. Commit/perubahan existing dipertahankan; tidak ada commit/push baru oleh agent pada tahap ini.
+- Terverifikasi masih hanya backend health/MQTT probe, koneksi pg/MQTT.js, Docker, dan smoke test. Tidak ditemukan firmware, kontrak sensor, migration aplikasi atau API histori existing.
+- Stack dipertahankan: JavaScript, Express, pg, MQTT.js, Mosquitto. Tidak menambah ORM atau dependency baru.
+
+### Perubahan kode dan dokumentasi
+
+- Migration `001_monitoring.sql` menambahkan tujuh tabel inti berdasarkan ERD: users, properties, rooms, devices, communal_loads, meters, meter_readings. Termasuk FK, CHECK, unique identitas pesan, indeks histori, batas mapping lintas bangunan dan interval pemasangan tidak overlap menggunakan btree_gist. Rincian/pengecualian ada di `database/MONITORING-MIGRATIONS.md`.
+- Runner migration transaksional, advisory lock, checksum; seed mapping simulasi idempoten tanpa pembacaan sensor dan tanpa akun login aktif. Keduanya dibatasi database `smartbilling_dev`. Data `dev_checks` existing tidak dihapus/diubah.
+- API lokal: daftar kamar/meter, latest, histori `[from,to)` dengan pagination keyset, dan konsumsi harian per zona bangunan. Batas limit 1000, rentang 31 hari, query harian maksimum 100.000 sampel. Numeric tetap string; detail API dan contoh ilustratif di `API-MONITORING.md`.
+- Default bind Node langsung diperketat ke 127.0.0.1; Compose menggunakan bind dalam container dengan port host tetap 127.0.0.1. Belum ada autentikasi dan tidak siap dipublikasikan.
+- Dockerfile mencakup migration/script/test, pemeriksaan sintaks mencakup seluruh JavaScript, unit/API test dan test PostgreSQL opsional ditambahkan. Semua materi ERD lama dipertahankan.
+
+### Keputusan pengguna dan bagian yang menunggu
+
+- **Disetujui:** aturan konsumsi harian konservatif, tanpa interpolasi, batas hari berdasarkan zona bangunan, total null jika batas hilang/reset/gap, subtotal hanya interval valid. Sampling simulasi 60 detik dan toleransi gap default 120 detik yang dapat dikonfigurasi. Bukan aturan firmware nyata.
+- **Belum ada jawaban:** usulan kontrak MQTT sensor simulasi v1 di `MQTT-CONTRACT.md`. Pertanyaan telah diajukan dengan topik, contoh JSON, identitas boot/sequence/epoch, timestamp dan satuan. Karena pengguna meminta persetujuan terlebih dahulu, ingest sensor, validasi payload, penanganan invalid/konflik MQTT dan simulator **belum diimplementasikan**. Subscriber probe lama tetap tersedia.
+
+### Hasil yang benar-benar diuji
+
+- `npm run check`: lulus untuk semua file JavaScript.
+- `npm test`: **6 lulus, 1 dilewati**. Yang lulus: validasi timestamp; API dengan database tiruan (input invalid, 404, pagination, presisi); delta desimal; hari kosong/parsial/gap; reset/rebound/timestamp ambigu; durasi hari DST dan pemutusan interval oleh kualitas invalid.
+- Test constraint PostgreSQL dilewati secara eksplisit karena Engine tidak tersedia. Tersedia perintah `compose exec -T -e INTEGRATION_DB=1 backend npm test` setelah migration. Test memakai transaksi rollback tanpa penghapusan data existing.
+- `compose config --quiet`: lulus. `git diff --check`: lulus; Git hanya memberi pemberitahuan konversi LF/CRLF pada beberapa file.
+- Docker CLI/Compose tersedia, tetapi Engine tidak menjawab. Desktop dicoba dinyalakan lagi; log **11 September 2026 05:49 UTC** mereproduksi kegagalan rename `sailor-ingest.sock` ke `.stale` dengan `The file cannot be accessed by the system`. Tidak dilakukan pengubahan socket, factory reset, penghapusan volume, atau unregister WSL.
+
+### Keterbatasan dan langkah berikutnya
+
+1. Tunggu keputusan kontrak MQTT sebelum mengerjakan ingest dan simulator; persetujuan aturan harian tidak dianggap sebagai persetujuan kontrak.
+2. Pemulihan Engine Docker masih diperlukan. Jika dialog error terbuka, pilih Quit, bukan factory reset. Diagnosis menunjuk socket runtime di luar repository; tindakan pemulihannya belum diizinkan. Tidak ada bukti instalasi ulang/aktivasi fitur/restart Windows wajib.
+3. Setelah Engine pulih: build ulang, smoke test existing, migration, seed demo, test PostgreSQL. SQL migration, API terhadap PostgreSQL, MQTT→DB→API dan persistensi histori setelah restart **belum terverifikasi**. Jangan menyebut target alur lengkap sudah selesai.
+4. Setelah kontrak disepakati: implementasikan pemetaan, validasi, deduplikasi/konflik, pencatatan invalid, simulator, dan uji alur/restart yang diminta pengguna.
+5. Tetap di luar tahap: dashboard penuh, RFID, billing, deployment Railway, pengamatan tujuh hari, autentikasi produksi, commit/push.
