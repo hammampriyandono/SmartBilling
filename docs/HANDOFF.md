@@ -1,6 +1,6 @@
 # Handoff Capstone A05
 
-Diperbarui: 11 September 2026. Konteks awal berasal dari diskusi 9 September; lihat catatan terbaru di bawah untuk status repository terkini.
+Diperbarui: 12 September 2026. Konteks awal berasal dari diskusi 9 September; lihat catatan terbaru di bawah untuk status repository terkini.
 
 ## Status awal sebelum audit repository (9 September 2026)
 
@@ -118,3 +118,43 @@ Pada pekerjaan berikutnya, tambahkan tanggal dan bagian: perubahan yang benar-be
 3. Setelah Engine pulih: build ulang, smoke test existing, migration, seed demo, test PostgreSQL. SQL migration, API terhadap PostgreSQL, MQTT→DB→API dan persistensi histori setelah restart **belum terverifikasi**. Jangan menyebut target alur lengkap sudah selesai.
 4. Setelah kontrak disepakati: implementasikan pemetaan, validasi, deduplikasi/konflik, pencatatan invalid, simulator, dan uji alur/restart yang diminta pengguna.
 5. Tetap di luar tahap: dashboard penuh, RFID, billing, deployment Railway, pengamatan tujuh hari, autentikasi produksi, commit/push.
+
+## Pemulihan Docker Desktop — 11 September 2026, 19:29 WIB
+
+- Pengguna meminta perbaikan error startup Docker. Working tree bersih sebelum pekerjaan pemulihan ini.
+- Rename langsung socket `sailor-ingest.sock` ditolak Windows dengan error 1920. Folder induk runtime dapat dicadangkan tanpa mengakses isi socket.
+- Setelah folder `Docker/run` dicadangkan, startup melewati error pertama lalu gagal pada `docker-secrets-engine/engine.sock`. Pemeriksaan folder kedua hanya menemukan `engine.sock` dan `engine.sock.stale`, keduanya socket reparse point berukuran nol; tidak ada berkas kredensial lain.
+- Pemulihan berhasil setelah proses Desktop yang gagal dihentikan dan **kedua direktori runtime dicadangkan bersamaan**, kemudian dibuat ulang kosong sebelum startup. Percobaan bertahap sebelumnya meninggalkan socket baru pada direktori pertama.
+- Cadangan dipertahankan di `%LOCALAPPDATA%\Docker\run.backup-20260911-192642`, `%LOCALAPPDATA%\Docker\run.backup-20260911-192916`, `%LOCALAPPDATA%\docker-secrets-engine.backup-20260911-192825`, dan `%LOCALAPPDATA%\docker-secrets-engine.backup-20260911-192916`.
+- Terverifikasi: `docker version` menampilkan Server Docker Desktop 4.89.0 / Engine 29.7.2 linux/amd64; `docker info` berhasil; Compose 5.5.0 dan `compose config --quiet` berhasil. Engine melaporkan 0 container; daftar volume kosong saat diperiksa. Tidak ada container/volume yang dihapus oleh pemulihan ini.
+- Tidak melakukan factory reset, unregister WSL, instalasi ulang, restart Windows, perubahan kredensial atau konfigurasi aplikasi. Docker Desktop dibiarkan berjalan.
+- Pemulihan startup sudah berhasil; pengujian restart Desktop berikutnya belum dilakukan. Pola socket serupa juga dilaporkan di [Docker desktop-feedback #554](https://github.com/docker/desktop-feedback/issues/554); ini rujukan pendukung, bukan bukti penyebab awal pada mesin ini.
+- Status ini menggantikan hambatan Engine pada catatan sebelumnya. Build aplikasi, migration, smoke test PostgreSQL/MQTT dan persistensi histori belum dijalankan dalam pekerjaan perbaikan Docker ini. Kontrak MQTT tetap menunggu keputusan pengguna.
+
+## Verifikasi backend lokal — 12 September 2026
+
+### Kondisi awal dan perbaikan
+
+- HEAD existing `c7b8356`; perubahan dokumentasi pemulihan Docker sebelumnya pada HANDOFF dan LOCAL-DEVELOPMENT dipertahankan. Tidak melakukan commit, push, deploy, reset database atau penghapusan volume.
+- Engine awalnya berhenti. Startup mereproduksi error socket pada log 12 September 08:33 UTC. Pemulihan yang sudah diizinkan diulang: kedua folder runtime dicadangkan bersamaan menjadi `%LOCALAPPDATA%\Docker\run.backup-20260912-153415` dan `%LOCALAPPDATA%\docker-secrets-engine.backup-20260912-153415`. Engine kembali berjalan. Ini pemulihan operasional; belum membuktikan bug socket tidak akan berulang setelah Desktop berhenti.
+- Integration test PostgreSQL dilengkapi pemeriksaan API latest, pagination histori dua halaman, dan konsumsi harian dengan koneksi PostgreSQL nyata. Dua pembacaan fixture berada dalam transaksi yang di-rollback, sehingga tidak meninggalkan histori sensor permanen. Tidak mengimplementasikan kontrak MQTT atau simulator.
+
+### Hasil verifikasi nyata
+
+- `compose up -d --build --wait --wait-timeout 120`: **lulus**. Backend, PostgreSQL dan MQTT healthy. Build memakai dependency lockfile existing; tidak menambah dependency. PostgreSQL aktual 17.11.
+- `compose exec -T backend npm run migrate`: **lulus**, `001_monitoring.sql` diterapkan secara transaksional.
+- `compose exec -T backend npm run seed:demo`: **lulus**; 1 kamar, 3 meter (utama/kamar/komunal), akun nonaktif dan mapping demo tersedia. Seed tidak membuat pembacaan sensor.
+- `compose exec -T backend npm run smoke`: **lulus**; readiness, MQTT request→backend→reply dan PostgreSQL tulis/baca probe.
+- `compose exec -T -e INTEGRATION_DB=1 backend npm test`: **7 lulus, 0 gagal, 0 skipped**. Test constraint SQL, deduplikasi, immutable readings serta API dengan pembacaan fixture PostgreSQL nyata benar-benar berjalan. Hasil ini menggantikan status test PostgreSQL dilewati pada catatan sebelumnya.
+- Endpoint dari host `http://127.0.0.1:3000`: `/health/live`, `/health/ready`, `/api/rooms`, `/api/meters`, `/api/meters/<meter-demo>/latest`, `/readings`, dan `/daily` semuanya **HTTP 200**.
+- Readiness: database=true, mqtt=true. Daftar: 1 kamar, 3 meter. Latest demo: data=null. Histori 11–13 September: data=[]; harian 11 dan 12 September: status=no_data, total/subtotal=null, coverage=0. Ini keadaan benar karena belum ada ingest/pembacaan sensor, bukan konsumsi nol.
+- `compose restart postgres mqtt backend`, kemudian `compose up -d --wait --wait-timeout 120`: **lulus**, ketiga layanan kembali healthy.
+- `npm run verify:persistence` setelah restart: **lulus**, 1 probe yang dibuat sebelumnya tetap ada. Jumlah dan sidik jari kumpulan ID probe identik sebelum/sesudah restart; 1 kamar dan 3 meter tetap ada; meter_readings tetap 0. Smoke test baru setelah perbandingan juga lulus dan menambahkan probe kedua.
+- `npm run check`: lulus. Tidak ditemukan kegagalan migration, seed, endpoint, atau aplikasi yang memerlukan perubahan kode produksi pada verifikasi ini.
+
+### Batas bukti dan langkah berikutnya
+
+- Terbukti: persistensi **probe dan mapping demo** setelah restart layanan. Belum terbukti: persistensi histori sensor permanen, karena meter_readings kosong dan fixture integration test di-rollback. Tidak menyatakan integrasi ESP32 atau MQTT sensor sudah berhasil.
+- Layanan dibiarkan berjalan. Backend hanya dipublikasikan di 127.0.0.1:3000; PostgreSQL/MQTT tidak dipublikasikan ke host/LAN. API belum memiliki autentikasi.
+- Usulan `MQTT-CONTRACT.md` masih menunggu persetujuan. Rekomendasi: setujui kontrak simulasi v1 untuk melanjutkan validasi/pemetaan/deduplikasi/invalid logging dan simulator tanpa hardware; penyelarasan firmware nyata tetap diperlukan. Alternatif: pengguna menyediakan kontrak firmware lebih dulu, sehingga ingest menunggu kontrak tersebut.
+- Aturan konsumsi harian yang telah disetujui tidak ditanyakan ulang. Tidak mengimplementasikan bagian yang bergantung pada kontrak sebelum ada keputusan pengguna.

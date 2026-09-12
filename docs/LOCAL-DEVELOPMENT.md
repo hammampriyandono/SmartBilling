@@ -94,7 +94,13 @@ Seed hanya memasukkan akun owner simulasi nonaktif, bangunan, kamar, perangkat, 
 
 Lihat `API-MONITORING.md` untuk endpoint. Readiness infrastruktur tidak membuktikan migration sudah diterapkan. `npm test` pada host menjalankan unit/API test dengan database tiruan; test PostgreSQL dilewati kecuali `INTEGRATION_DB=1`. Test PostgreSQL memakai transaksi yang di-rollback, sehingga tidak menghapus data existing. Konsumsi harian memakai aturan konservatif yang disetujui dengan `MONITORING_MAX_GAP_SECONDS=120` untuk simulasi. Ingest/simulator masih menunggu keputusan kontrak MQTT pengguna.
 
-Docker diperiksa ulang 11 September: startup masih gagal saat rename socket `sailor-ingest.sock` ke `.stale`. Tindakan manual: tutup dialog error dengan **Quit**, bukan factory reset. Engine perlu dipulihkan sebelum perintah container di atas bisa dijalankan. Pengubahan socket di luar repository belum diizinkan; tidak dilakukan penghapusan socket/volume/distro maupun perubahan fitur Windows. Instalasi ulang dan restart Windows belum terbukti wajib.
+Docker berhasil dipulihkan 11 September, tetapi error socket berulang saat startup 12 September. Kedua direktori runtime dicadangkan bersamaan lagi sebelum startup; lokasi cadangan ada di HANDOFF. Engine kemudian berhasil menjalankan build dan seluruh layanan. Pemulihan ini belum merupakan jaminan bug socket hilang pada startup Desktop berikutnya. Jangan melakukan reset atau penghapusan volume untuk mengatasinya.
+
+## Hasil verifikasi 12 September 2026
+
+Build, migration, seed, smoke test, dan test dengan `INTEGRATION_DB=1` berhasil: **7 lulus, 0 skipped**. Seluruh endpoint health/daftar/latest/histori/harian memberikan HTTP 200 dari host. Ada 1 kamar dan 3 meter demo; latest null, histori kosong, harian no_data. Integration test menggunakan dua pembacaan sementara dalam transaksi rollback, bukan data pengamatan.
+
+Restart postgres, mqtt, dan backend berhasil. `verify:persistence` lulus dan sidik jari kumpulan ID probe identik sebelum/sesudah restart. Mapping demo juga bertahan. Smoke test baru setelah restart berhasil. Bukti persistensi ini untuk probe dan mapping; histori sensor permanen belum diuji karena masih kosong. Ketiga layanan dibiarkan healthy, backend pada localhost:3000. Kontrak MQTT sensor tetap menunggu persetujuan pengguna.
 
 ## Rujukan teknis
 

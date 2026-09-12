@@ -1,6 +1,6 @@
 # API monitoring lokal
 
-Status 11 September 2026: endpoint daftar, latest, histori, dan konsumsi harian telah ditulis. Validasi/perilaku API diuji dengan database tiruan; hitungan harian diuji sebagai unit. Belum diuji terhadap PostgreSQL karena Engine Docker belum tersedia. Aturan kualitas harian telah disetujui pengguna. Ingest dan simulator menunggu persetujuan `MQTT-CONTRACT.md`.
+Status 12 September 2026: endpoint daftar, latest, histori, dan konsumsi harian telah diverifikasi HTTP 200 pada backend Docker dengan PostgreSQL 17.11. Integration test juga menguji latest, pagination histori, dan konsumsi harian dengan pembacaan fixture PostgreSQL nyata dalam transaksi rollback. Seluruh 7 test lulus, 0 skipped. Histori permanen masih kosong karena ingest dan simulator menunggu persetujuan `MQTT-CONTRACT.md`. Aturan kualitas harian sudah disetujui pengguna.
 
 Base URL `http://127.0.0.1:3000/api`. Belum ada autentikasi. Compose mempertahankan publikasi hanya ke loopback host; saat berjalan langsung dengan Node, bind default juga loopback. Jangan membuka API ini ke LAN/internet. Semua endpoint mengembalikan metadata `source: simulation`, `environment: development`, `authenticated: false`. Backend tetap dibatasi ke database `smartbilling_dev`; database tersebut hanya untuk development, bukan pengamatan nyata.
 
