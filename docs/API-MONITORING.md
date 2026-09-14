@@ -1,6 +1,14 @@
 # API monitoring lokal
 
-Status 12 September 2026: endpoint daftar, latest, histori, dan konsumsi harian telah diverifikasi HTTP 200 pada backend Docker dengan PostgreSQL 17.11. Integration test juga menguji latest, pagination histori, dan konsumsi harian dengan pembacaan fixture PostgreSQL nyata dalam transaksi rollback. Seluruh 7 test lulus, 0 skipped. Histori permanen masih kosong karena ingest dan simulator menunggu persetujuan `MQTT-CONTRACT.md`. Aturan kualitas harian sudah disetujui pengguna.
+Status 13 September 2026: ingest simulasi MQTT aktif; 1441 pembacaan permanen pada meter demo kamar telah diuji melalui latest, histori dua halaman (1000 + 441), dan harian 12 September 2026 (1.440000000 kWh, complete). Histori bertahan setelah restart layanan. Suite Docker/PostgreSQL: 10 lulus, 0 skipped; uji end-to-end MQTT terpisah juga lulus. Ini data simulasi, bukan pengamatan hardware.
+
+URL data yang tersedia:
+
+- Latest: `http://127.0.0.1:3000/api/meters/00000000-0000-4000-8000-000000000005/latest`
+- Histori: `http://127.0.0.1:3000/api/meters/00000000-0000-4000-8000-000000000005/readings?from=2026-09-11T17:00:00Z&to=2026-09-12T17:00:00.001Z&limit=1000`
+- Harian: `http://127.0.0.1:3000/api/meters/00000000-0000-4000-8000-000000000005/daily?from=2026-09-12&to=2026-09-13`
+
+Tambahan 1 milidetik pada akhir URL histori memasukkan sampel batas akhir. Ikuti next_cursor untuk halaman kedua. Meter utama/komunal belum diberi sampel simulator.
 
 Base URL `http://127.0.0.1:3000/api`. Belum ada autentikasi. Compose mempertahankan publikasi hanya ke loopback host; saat berjalan langsung dengan Node, bind default juga loopback. Jangan membuka API ini ke LAN/internet. Semua endpoint mengembalikan metadata `source: simulation`, `environment: development`, `authenticated: false`. Backend tetap dibatasi ke database `smartbilling_dev`; database tersebut hanya untuk development, bukan pengamatan nyata.
 
