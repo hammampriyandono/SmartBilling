@@ -9,3 +9,6 @@
 !migrations/*.sql
 !test/
 !test/*.js
+!web/
+!web/**
+!vite.config.js
