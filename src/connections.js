@@ -27,7 +27,7 @@ export function createPool({ timeout = 3000 } = {}) {
   return pool;
 }
 
-export function createMqtt(clientId) {
+export function createMqtt(clientId, options = {}) {
   return mqtt.connect(process.env.MQTT_URL, {
     clientId,
     username: process.env.MQTT_USERNAME,
@@ -37,6 +37,7 @@ export function createMqtt(clientId) {
     clean: true,
     resubscribe: false,
     queueQoSZero: false,
+    ...options,
   });
 }
 

@@ -1,19 +1,42 @@
 import express from 'express';
-import { randomUUID } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { setTimeout as delay } from 'node:timers/promises';
 import { createPool, createMqtt, requireDevelopment, testTopic, replyPrefix } from './connections.js';
 import { monitoringApi, apiError } from './monitoring-api.js';
+import { sensorTopic, sensorPrefix } from './sensor-message.js';
+import { ingestSensor } from './sensor-ingest.js';
 
 requireDevelopment();
 const pool = createPool();
-const client = createMqtt(`a05-backend-${randomUUID()}`);
+const client = createMqtt('smartbilling-simulation-backend-v1', { clean: false });
 let subscribed = false;
 let stopping = false;
+let ingestHealthy = true;
 client.on('connect', () => {
-  client.subscribe(testTopic, { qos: 1 }, (error, granted) => {
-    subscribed = !error && granted?.some((entry) => entry.topic === testTopic && entry.qos <= 1);
+  client.subscribe([testTopic, sensorTopic], { qos: 1 }, (error, granted) => {
+    subscribed = !error && [testTopic, sensorTopic].every((topic) => granted?.some((entry) => entry.topic === topic && entry.qos <= 1));
     if (subscribed) console.info('MQTT siap untuk pesan uji pengembangan.');
   });
 });
+// MQTT.js sends subscriber PUBACK only after this callback. DB failures keep the message pending.
+client.handleMessage = (packet, done) => {
+  if (!packet.topic.startsWith(sensorPrefix)) return done();
+  (async () => {
+    while (!stopping) {
+      try {
+        await ingestSensor(pool, packet.topic, packet.payload, packet);
+        ingestHealthy = true;
+        done();
+        return;
+      } catch {
+        ingestHealthy = false;
+        console.warn('Ingest menunggu database; pesan belum diakui.');
+        await delay(2000);
+      }
+    }
+    done(new Error('Backend berhenti sebelum ingest selesai'));
+  })().catch(() => { ingestHealthy = false; done(new Error('Ingest gagal')); });
+};
 for (const event of ['close', 'offline', 'error']) client.on(event, () => { subscribed = false; });
 client.on('message', (topic, bytes) => {
   if (topic !== testTopic || bytes.length > 256 || stopping) return;
@@ -35,10 +58,11 @@ app.get('/health/ready', async (_req, res) => {
   let database = false;
   try { await pool.query('SELECT 1'); database = true; } catch { /* Retry pada probe berikutnya. */ }
   const broker = client.connected && subscribed;
-  const ready = database && broker && !stopping;
-  res.status(ready ? 200 : 503).json({ status: ready ? 'ready' : 'not-ready', database, mqtt: broker });
+  const ready = database && broker && ingestHealthy && !stopping;
+  res.status(ready ? 200 : 503).json({ status: ready ? 'ready' : 'not-ready', database, mqtt: broker, ingest: ingestHealthy });
 });
 app.use(apiError);
+app.use(express.static(fileURLToPath(new URL('../dist/', import.meta.url)), { index: 'index.html' }));
 const server = app.listen(Number(process.env.PORT || 3000), process.env.BIND_HOST || '127.0.0.1', () => {
   console.info('Backend minimum berjalan; endpoint /health/live dan /health/ready tersedia.');
 });
