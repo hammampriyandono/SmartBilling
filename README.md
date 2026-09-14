@@ -1,22 +1,142 @@
 # SmartBilling — Capstone A05
 
-Persiapan pengembangan web app monitoring dan billing listrik kost. Pengguna menangani fullstack; fairness, kalibrasi sensor, dan hardware dikoordinasikan anggota lain.
+SmartBilling adalah aplikasi web untuk memantau penggunaan listrik kamar kost dan fasilitas bersama, sekaligus menjadi dasar sistem pembagian biaya listrik berbasis pemakaian. Aplikasi dirancang untuk membantu pemilik dan penghuni memahami konsumsi melalui pembacaan meter, grafik historis, dan ringkasan energi harian.
 
-Repository: `C:\Users\Admin\source\repos\SmartBilling`.
+Proyek ini dikembangkan sebagai Capstone A05. Tahap yang sudah tersedia adalah **monitoring lokal dengan data simulasi**, mulai dari pengiriman MQTT, penyimpanan PostgreSQL, hingga dashboard web. Integrasi ESP32, sesi RFID, dan perhitungan tagihan merupakan pengembangan berikutnya.
 
-## Mulai
+## Fitur yang tersedia
 
-1. Baca [AGENTS.md](AGENTS.md), [handoff](docs/HANDOFF.md), [PRD](docs/PRD.md), [arsitektur](docs/ARCHITECTURE.md), dan [ERD](docs/database/cpstn-erd-final.md).
-2. Ikuti [petunjuk lingkungan lokal](docs/LOCAL-DEVELOPMENT.md) untuk inisialisasi, build, startup, dan smoke test.
+- **Dashboard monitoring:** pilihan kamar dan meter, tegangan, arus, daya, counter energi kumulatif, serta waktu pembacaan terakhir.
+- **Histori penggunaan:** grafik daya dengan filter tanggal dan pilihan tujuh hari, serta tabel konsumsi energi harian.
+- **Informasi kualitas data:** penanda pembacaan lama, data lengkap atau parsial, kondisi tanpa data, dan gangguan koneksi.
+- **Pembaruan otomatis:** polling status backend dan pembacaan terbaru setiap lima detik ketika tab aktif.
+- **Penerimaan MQTT:** validasi pesan, pemetaan perangkat ke meter, deduplikasi, serta pencatatan pesan invalid atau konflik.
+- **Penyimpanan persisten:** pembacaan tersimpan di PostgreSQL dan dapat diakses kembali setelah layanan dimulai ulang.
+- **Simulator pengembangan:** dataset deterministik untuk menguji alur data tanpa perangkat fisik. Pengiriman ulang tanggal yang sama tidak menambah pembacaan ganda.
 
-Lingkup saat ini adalah Node.js/Express, PostgreSQL, dan Mosquitto dalam Docker Compose, dengan dashboard React + Vite (JavaScript), Recharts dan CSS biasa. Buka **http://127.0.0.1:3000** setelah startup; klik **Dataset 12 Sep** untuk melihat data simulasi existing. Dashboard memakai API nyata, memuat seluruh pagination histori, dan polling health/latest lima detik.
+Dashboard memuat data dari API backend. Data simulasi diberi label; keberhasilan refresh browser tidak berarti sensor mengirim pembacaan baru.
 
-Ingest memakai [kontrak simulasi v1](docs/MQTT-CONTRACT.md). Alur MQTT → DB → [API latest/histori/harian](docs/API-MONITORING.md) dan persistensi 1441 sampel telah teruji. Dashboard lokal diverifikasi di browser pada 14 September 2026. Belum ada integrasi hardware, autentikasi aplikasi, sesi RFID, atau billing. Stack backend tetap JavaScript, Express, `pg` tanpa ORM, MQTT.js dan Eclipse Mosquitto.
+## Alur aplikasi
 
-## Keputusan produk
+```mermaid
+flowchart LR
+    SIM[Simulator lokal] -->|MQTT| MQTT[Eclipse Mosquitto]
+    MQTT --> INGEST[Backend: validasi dan deduplikasi]
+    INGEST --> DB[(PostgreSQL)]
+    DB --> API[API monitoring dan konsumsi harian]
+    API --> WEB[Dashboard React]
+```
 
-- ESP32 mengirim pembacaan sensor dan event RFID melalui MQTT; perhitungan berada di backend.
-- Tap awal memulai sesi, tap berikutnya mengakhirinya.
-- PostgreSQL menyimpan histori untuk pengamatan tujuh hari dan perbandingan; tidak ada penghapusan otomatis pada hari ketujuh.
-- Docker untuk pengembangan lokal, Railway sebagai target deployment berikutnya.
-- Asumsi fairness tambahan dalam ERD belum seluruhnya disetujui.
+Alur di atas sudah tersedia untuk simulasi lokal. ESP32 nantinya menjadi sumber pembacaan setelah kontrak firmware dan koneksi broker diselaraskan. Browser mengambil data melalui API; perhitungan konsumsi dilakukan di backend.
+
+## Prinsip pengolahan data
+
+- Nilai kWh dari meter adalah **counter kumulatif**. Konsumsi dihitung dari selisih counter yang valid, bukan penjumlahan seluruh pembacaan.
+- Data yang hilang tidak dianggap sebagai konsumsi nol. Hari dengan batas pembacaan tidak lengkap, gap, atau reset dapat menghasilkan total tidak tersedia dan subtotal interval valid.
+- Batas hari mengikuti zona waktu bangunan; konfigurasi demo menggunakan Asia/Jakarta.
+- Tujuh hari adalah target pengamatan dan pilihan rentang histori, **bukan batas penyimpanan atau jadwal penghapusan otomatis**.
+
+## Teknologi
+
+| Bagian | Teknologi |
+| --- | --- |
+| Frontend | React, Vite, Recharts, CSS |
+| Backend | Node.js, Express, JavaScript |
+| Database | PostgreSQL dengan driver `pg`, tanpa ORM |
+| Komunikasi | MQTT.js dan Eclipse Mosquitto |
+| Lingkungan lokal | Docker Compose |
+| Target deployment | Railway — belum diterapkan |
+
+Hasil build frontend disajikan oleh Express bersama API pada satu alamat lokal.
+
+## Menjalankan secara lokal
+
+Siapkan Node.js 22.20 atau lebih baru dalam seri 22, npm, dan Docker Desktop dengan Linux Engine aktif. Jalankan perintah PowerShell berikut dari root repository.
+
+### Instalasi pertama
+
+```powershell
+npm run init:local
+.\scripts\docker.ps1 compose config --quiet
+.\scripts\docker.ps1 compose build
+.\scripts\docker.ps1 compose up -d --wait postgres mqtt
+.\scripts\docker.ps1 compose run --rm --no-deps backend npm run migrate
+.\scripts\docker.ps1 compose up -d --wait --wait-timeout 120
+.\scripts\docker.ps1 compose exec -T backend npm run seed:demo
+```
+
+Inisialisasi membuat konfigurasi lokal dan secret jika belum tersedia. Jangan masukkan `.env` atau `.local/` ke Git. Seed menyediakan mapping demo satu kamar dan tiga meter, tanpa pembacaan sensor atau akun login yang bisa digunakan.
+
+### Menambahkan dataset simulasi
+
+```powershell
+.\scripts\docker.ps1 compose exec -T backend node scripts/simulate.js 2026-09-12
+```
+
+Buka **[dashboard SmartBilling](http://127.0.0.1:3000)**, pilih meter kamar, lalu klik **Dataset 12 Sep**. Dataset ini menghasilkan 1.441 pembacaan termasuk batas akhir hari, dengan konsumsi harian 1,44 kWh. Meter utama dan komunal belum diberi pembacaan oleh simulator ini.
+
+Dataset historis dikirim sebagai batch; ini belum merupakan simulator yang terus mengirim pengukuran baru. Status **Pembacaan lama** tetap benar meskipun backend terhubung.
+
+### Menjalankan kembali dan menghentikan
+
+```powershell
+# Jalankan layanan yang sudah disiapkan
+.\scripts\docker.ps1 compose up -d --wait
+
+# Build ulang setelah perubahan kode
+.\scripts\docker.ps1 compose up -d --build --wait --wait-timeout 120
+
+# Hentikan layanan tanpa menghapus data
+.\scripts\docker.ps1 compose stop
+```
+
+Konfigurasi saat ini hanya memublikasikan aplikasi pada localhost. PostgreSQL dan MQTT berada di jaringan internal Docker. Petunjuk konfigurasi, migrasi, dan pemecahan masalah tersedia di [panduan pengembangan lokal](docs/LOCAL-DEVELOPMENT.md).
+
+## Pengujian
+
+```powershell
+# Koneksi backend, MQTT, dan PostgreSQL
+.\scripts\docker.ps1 compose exec -T backend npm run smoke
+
+# Suite pengujian termasuk PostgreSQL nyata
+.\scripts\docker.ps1 compose exec -T -e INTEGRATION_DB=1 backend npm test
+
+# Verifikasi dataset existing tanpa mengirim pesan baru
+.\scripts\docker.ps1 compose exec -T backend node scripts/simulate.js 2026-09-12 --verify-only
+```
+
+Catatan verifikasi 14 September 2026 mencakup 13 test lulus tanpa skip, pemeriksaan dashboard desktop/ponsel, dan persistensi dataset simulasi setelah restart. Rincian bukti serta keterbatasan pengujian ada di [HANDOFF](docs/HANDOFF.md).
+
+## Arah pengembangan
+
+- Integrasi sensor ESP32 dengan kontrak MQTT firmware yang disepakati.
+- Login dan pembatasan akses pemilik/penghuni pada API.
+- Pencatatan penggunaan fasilitas bersama melalui RFID: tap awal memulai sesi, tap berikutnya mengakhirinya.
+- Perhitungan dan pembagian biaya di backend sesuai kebijakan yang disepakati tim.
+- Perbandingan konsumsi antarkamar dan antarperiode.
+- Deployment Railway serta pengamatan perangkat nyata selama tujuh hari.
+
+Fitur tersebut belum seluruhnya diimplementasikan. Versi saat ini ditujukan untuk pengembangan lokal dan belum memiliki autentikasi aplikasi.
+
+## Struktur repository
+
+```text
+web/                 Dashboard React dan helper tampilan
+src/                 Backend, API, validasi, dan ingest MQTT
+migrations/          Migrasi skema PostgreSQL
+scripts/             Inisialisasi, seed, simulator, dan verifikasi
+test/                Pengujian backend dan helper dashboard
+docker/              Konfigurasi broker MQTT
+docs/                Spesifikasi, arsitektur, ERD, dan panduan
+```
+
+## Dokumentasi
+
+- [Kebutuhan produk](docs/PRD.md)
+- [Arsitektur sistem](docs/ARCHITECTURE.md)
+- [ERD dan rancangan database](docs/database/cpstn-erd-final.md)
+- [API monitoring](docs/API-MONITORING.md)
+- [Kontrak MQTT simulasi](docs/MQTT-CONTRACT.md)
+- [Rancangan dashboard](docs/DASHBOARD-PLAN.md)
+- [Panduan pengembangan lokal](docs/LOCAL-DEVELOPMENT.md)
+- [Status implementasi dan hasil pengujian](docs/HANDOFF.md)
