@@ -15,11 +15,21 @@
     "verify:persistence": "node scripts/smoke.js --verify-persistence",
     "migrate": "node scripts/migrate.js",
     "seed:demo": "node scripts/seed-demo.js",
-    "test": "node --test"
+    "test": "node --test",
+    "simulate": "node scripts/simulate.js",
+    "test:mqtt": "node scripts/verify-mqtt.js",
+    "build": "vite build"
   },
   "dependencies": {
     "express": "5.2.1",
     "mqtt": "5.15.2",
-    "pg": "8.23.0"
+    "pg": "8.23.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "recharts": "3.10.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "6.1.1",
+    "vite": "8.3.0"
   }
 }
