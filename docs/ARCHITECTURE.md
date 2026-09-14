@@ -24,7 +24,7 @@ Railway adalah tempat menjalankan layanan. ESP32 menghubungi hostname/port publi
 |---|---|
 | Backend | Persiapan minimum disetujui: Node.js/Express, JavaScript, driver `pg` tanpa ORM, MQTT.js. |
 | Database | PostgreSQL, mengacu ERD v1 dengan migration yang diperiksa. |
-| Frontend | Belum dipilih; periksa repository dan pertahankan pilihan yang layak. |
+| Frontend | React + Vite (JavaScript), Recharts, CSS biasa; disetujui 14 September 2026. Build statis disajikan Express pada localhost:3000 bersama API. |
 | Broker MQTT | Eclipse Mosquitto disetujui untuk pengujian lokal. |
 | Lokal | Docker Compose dapat menjalankan broker, backend/web dan database. |
 | Online | Setiap komponen Compose dipetakan ke service Railway; bukan menjalankan Compose langsung di platform. |
@@ -42,6 +42,8 @@ Untuk prototipe, API dan subscriber boleh satu proses backend dengan lifecycle/r
 Handler MQTT tidak menjalankan seluruh logika billing secara ad hoc. Grafik konsumsi tidak menghitung tagihan sendiri di browser.
 
 ## Kontrak perangkat
+
+Kontrak **simulasi v1 disetujui 13 September 2026**, implementasi dan perbedaan prototipe ada di `MQTT-CONTRACT.md`. Alur lokal aktif: simulator → Mosquitto → subscriber Express → PostgreSQL → API. Subscriber satu replica memakai sesi MQTT persisten dan acknowledgement setelah transaksi; error DB dicoba ulang, antrean broker tetap terbatas. Simulator memakai batch dan pembacaan DB hanya sebagai verifikasi development. Belum ada adapter untuk payload hardware pengguna atau bukti integrasi ESP32.
 
 Kontrak final belum diberikan. Periksa firmware/payload existing sebelum membuat kontrak baru. Topik contoh proposal seperti `kost/room/i/monitoring`, `kost/main/monitoring` dan `kost/communal/monitoring` adalah model konseptual, bukan jaminan format firmware sekarang.
 

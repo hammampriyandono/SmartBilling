@@ -25,7 +25,7 @@ Instruksi pengguna terbaru mendahului rancangan/asumsi dalam paket ini. PRD dan 
 ## Cara bekerja di repository
 
 - Periksa isi repository, status Git, instruksi lokal, README, dependency dan Docker yang sudah ada sebelum membuat scaffold. Jangan menganggap proyek kosong atau menimpa implementasi lama.
-- Pertahankan stack dan pola yang layak bila sudah tersedia. Node.js/Express berasal dari proposal; frontend, ORM, broker dan detail kontrak MQTT belum dipastikan dalam percakapan.
+- Pertahankan stack yang disetujui: JavaScript, Node.js/Express, pg tanpa ORM, MQTT.js dan Mosquitto lokal. Kontrak MQTT simulasi v1 disetujui 13 September 2026; lihat docs/MQTT-CONTRACT.md. Frontend React + Vite (JavaScript), Recharts dan CSS biasa disetujui 14 September 2026, build disajikan Express localhost:3000; polling health/latest lima detik. Kontrak final firmware belum dipilih.
 - Gunakan bahasa Indonesia untuk komunikasi dan label UI awal. Bedakan fakta terverifikasi, keputusan pengguna, dan default implementasi.
 - Jika firmware/payload belum tersedia, lanjutkan dengan adapter dan simulator yang jelas diberi label; simpan kontrak sementara dalam dokumentasi. Jangan mengaku sudah kompatibel dengan ESP32 nyata.
 - Jangan tampilkan mock data sebagai pengukuran sebenarnya. Jangan mencampur seed/demo dengan data pengamatan.

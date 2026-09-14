@@ -34,7 +34,7 @@ Prototipe proposal maksimal tiga kamar. Jenis titik ukur: utama, kamar, komunal.
 - Tenant hanya mendapat akses data yang sesuai haknya.
 - Tampilkan satuan V, A, W dan kWh dengan konsisten; nilai terakhir yang sudah lama diberi penanda data belum diperbarui.
 - Bedakan loading, belum ada data, koneksi gagal, data terputus dan data valid.
-- Tampilan dapat digunakan pada desktop dan ponsel. Tidak ada desain visual atau framework frontend yang telah dipilih pengguna.
+- Tampilan dapat digunakan pada desktop dan ponsel. Stack React + Vite (JavaScript), Recharts dan CSS biasa disetujui 14 September 2026 untuk dashboard lokal; polling health/latest lima detik. Desain visual awal merupakan pilihan implementasi.
 
 ### F03 — Histori dan perbandingan
 

@@ -158,3 +158,73 @@ Pada pekerjaan berikutnya, tambahkan tanggal dan bagian: perubahan yang benar-be
 - Layanan dibiarkan berjalan. Backend hanya dipublikasikan di 127.0.0.1:3000; PostgreSQL/MQTT tidak dipublikasikan ke host/LAN. API belum memiliki autentikasi.
 - Usulan `MQTT-CONTRACT.md` masih menunggu persetujuan. Rekomendasi: setujui kontrak simulasi v1 untuk melanjutkan validasi/pemetaan/deduplikasi/invalid logging dan simulator tanpa hardware; penyelarasan firmware nyata tetap diperlukan. Alternatif: pengguna menyediakan kontrak firmware lebih dulu, sehingga ingest menunggu kontrak tersebut.
 - Aturan konsumsi harian yang telah disetujui tidak ditanyakan ulang. Tidak mengimplementasikan bagian yang bergantung pada kontrak sebelum ada keputusan pengguna.
+
+## Ingest MQTT simulasi v1 — 13 September 2026
+
+Status terbaru ini menggantikan status kontrak tertunda/histori kosong di atas. Pengguna menyetujui kontrak simulasi lokal v1, bukan kontrak final ESP32. Working tree bersih saat pemeriksaan awal; implementasi existing dipertahankan.
+
+### Implementasi
+
+- Validasi sensor, pemetaan device/channel berdasarkan waktu pemasangan, deduplikasi semantik dan konflik identitas dalam transaksi; perangkat asing tidak didaftarkan otomatis. Counter kumulatif tetap desimal presisi. Pesan invalid tidak menimpa data.
+- Migration baru 002_mqtt_rejections menyimpan alasan/hash/ukuran/waktu penolakan tanpa payload mentah. Migration 001 tidak diubah.
+- Subscriber tunggal sesi persisten dan callback acknowledgement setelah penyimpanan; retry DB dua detik dan readiness ingest. Simulator deterministik berlabel simulasi memakai mapping demo kamar channel 1, boot virtual tetap, 1441 sampel per hari termasuk kedua batas tengah malam Jakarta. Replay tanggal sama idempoten.
+- API/daily konservatif existing dipertahankan. Dokumentasi kontrak mencatat perbedaan Arduino PubSubClient, topik rumah/kamar/kamar2/telemetry, roomId/current/voltage/power/energyWh/status; tidak membuat adapter hardware secara diam-diam.
+
+### Pemeriksaan, masalah dan perbaikan nyata
+
+- Engine sempat berhenti dan startup mengulangi masalah socket Windows. Pemulihan yang sebelumnya diizinkan diulang dengan pencadangan kedua direktori runtime bersamaan: %LOCALAPPDATA%\Docker\run.backup-20260913-115207 dan %LOCALAPPDATA%\docker-secrets-engine.backup-20260913-115207. Tidak menghapus volume/data. Bug startup Desktop belum terbukti pulih permanen.
+- Percobaan migration pertama gagal karena dependency PostgreSQL belum berjalan; setelah compose up postgres mqtt, migration 002 dan seed demo idempoten berhasil. Build dan ketiga layanan healthy.
+- Simulator pertama mengirim terlalu cepat: hanya 1113 dari 1441 sampel tersimpan sebelum timeout, konsisten dengan antrean broker terbatas. Diperbaiki menjadi batch 25 dengan barrier balasan backend serta pemeriksaan DB. Replay melengkapi sampel tanpa penghapusan; replay penuh setelah perbaikan juga lulus. Broker PUBACK bukan bukti transaksi DB selesai.
+- npm run check lulus. Suite Docker dengan INTEGRATION_DB=1: **10 lulus, 0 gagal, 0 skipped**, termasuk constraint/API PostgreSQL nyata, kualitas harian, dan validasi kontrak. Test PostgreSQL tidak dilewati. Host test sebelumnya 9 lulus/1 DB skip bukan bukti utama.
+- End-to-end Docker MQTT → PostgreSQL → API lulus: 1441 sampel tanggal 2026-09-12; replay/duplikat tidak menambah baris; konflik energi, JSON rusak, energi invalid, QoS 0, device asing dan channel tak terpetakan tercatat ditolak. Jumlah perangkat serta fingerprint seluruh pembacaan meter tidak berubah setelah pesan ditolak. Latest, histori pagination 1000+441, dan harian complete 1.440000000 kWh/86400 detik lulus. Smoke test probe lama juga lulus.
+- Restart postgres, mqtt dan backend berhasil. **Sebelum publish ulang apa pun setelah restart**, query seluruh meter_readings menghasilkan jumlah/fingerprint row lengkap yang sama: `1441 | dbe3d06dbadc3c96ba7462148da9b74a`, baik sebelum maupun sesudah restart. Fingerprint mencakup ID dan waktu terima, bukan hanya nilai sensor. Ini bukti histori sensor permanen, bukan probe.
+- Percobaan npm meneruskan --verify-only dari PowerShell tidak meneruskan flag tersebut, sehingga melakukan replay idempoten setelah perbandingan fingerprint. Verifikasi baca saja kemudian dijalankan dengan `node scripts/simulate.js 2026-09-12 --verify-only` dan lulus untuk seluruh 1441 isi sampel. Petunjuk PowerShell memakai node langsung untuk menghindari masalah penerusan opsi npm.
+- Health host setelah restart: ready, database/mqtt/ingest true. API harian host: 12 September complete 1.440000000 kWh; 11 September partial (hanya satu sampel batas akhir), total dan subtotal null, coverage 0. Data tak lengkap tidak menjadi nol.
+
+### Penggunaan dan batas berikutnya
+
+Lihat LOCAL-DEVELOPMENT untuk perintah PowerShell; API-MONITORING memuat URL meter nyata `00000000-0000-4000-8000-000000000005`. Tanggal dataset teruji 2026-09-12. Mapping utama/komunal belum diberi pembacaan simulator.
+
+Layanan dibiarkan berjalan pada localhost:3000; DB/broker tetap internal. Tidak ada tindakan manual wajib saat Engine aktif. Belum ada autentikasi, dashboard, RFID, billing, deployment Railway, pengamatan tujuh hari atau pengujian perangkat. Tidak melakukan commit/push/reset database/penghapusan volume.
+
+Belum diuji: fault injection saat transaksi berjalan, gangguan panjang/antrean penuh, seluruh kemungkinan retained publish dan kompatibilitas ESP32. Sesi persisten/retry tidak menjamin tanpa kehilangan pada semua kondisi; simulator sengaja membatasi batch. Kontrak final hardware masih perlu penyelarasan identitas boot/sequence, timestamp, satuan/counter reset dan QoS bersama anggota hardware. Persetujuan simulasi tidak menetapkan keputusan firmware tersebut.
+
+Saran pembagian commit (belum dilakukan): (1) migration penolakan + validator/ingest + lifecycle koneksi; (2) simulator + pengujian + npm scripts; (3) dokumentasi persetujuan, penggunaan, perbedaan hardware dan hasil verifikasi.
+
+## Audit awal dashboard — 14 September 2026
+
+- Perubahan ingest sebelumnya masih modified/untracked dan dipertahankan. AGENTS, HANDOFF, PRD, ARCHITECTURE, API dan dependency telah diperiksa; stack frontend belum ditetapkan.
+- Usulan React + Vite (JavaScript), Recharts, CSS biasa, hasil build disajikan Express localhost:3000, serta polling health/latest lima detik telah diajukan. **Menunggu persetujuan pengguna**; belum memasang dependency, membuat frontend atau mengubah arsitektur.
+- Audit API dan kebutuhan halaman dicatat di DASHBOARD-PLAN.md: daftar dan pilihan meter, latest, grafik dengan seluruh pagination, rentang tujuh hari, daily konservatif, label simulasi, status kosong/error/loading, serta pemisahan status backend dari usia sensor.
+- API host localhost:3000 menolak koneksi. Docker CLI tersedia tetapi Engine desktop-linux tidak tersedia (pipe dockerDesktopLinuxEngine tidak ditemukan); compose ps juga gagal terhubung. Ini bukan bukti data hilang. Belum menjalankan startup/pemulihan pada tahap audit ini; ketika implementasi dilanjutkan, nyalakan/periksa Desktop sebelum build. Tidak ada reset/penghapusan data.
+- Berikutnya setelah persetujuan stack: implementasikan halaman, build Docker, uji API dan browser nyata, perbarui petunjuk menjalankan. Belum ada verifikasi tampilan atau klaim sensor live. Tidak commit/push/deploy.
+
+## Dashboard monitoring lokal — 14 September 2026
+
+### Keputusan dan implementasi
+
+- Pengguna menyetujui React + Vite (JavaScript), Recharts, CSS biasa, build statis melalui Express localhost:3000, serta polling health/latest lima detik. Ini menggantikan status menunggu persetujuan pada audit sebelumnya.
+- web/ berisi dashboard responsif: daftar kamar/meter dan pemilihan meter, kartu V/A/W/counter kWh, waktu ukur/terima, grafik daya dengan filter tanggal dan preset tujuh hari/Dataset 12 Sep, serta tabel daily dengan total, subtotal valid, cakupan dan alasan kualitas. Seluruh data berasal dari API existing, bukan fixture di UI.
+- Semua pagination daftar (next_after) dan histori (next_cursor) dituntaskan. Jumlah sampel/halaman ditampilkan; kegagalan halaman lanjutan tidak dinyatakan sukses. Grafik memakai batas waktu API daily dan memutus garis pada gap/null/kualitas invalid/timestamp ambigu. Angka koordinat grafik dikonversi hanya untuk tampilan; counter dan konsumsi tidak dihitung di frontend.
+- Health backend, keberhasilan refresh browser dan usia measured_at ditampilkan terpisah. Sampel historis tetap berlabel Pembacaan lama. Polling tidak tumpang tindih, berhenti saat tab tersembunyi, dan membatalkan request lama saat meter/rentang berubah. Perubahan latest memicu refresh histori; refresh manual juga memuat data terlambat yang tidak mengubah latest. Error mempertahankan data terakhir dengan peringatan.
+- Dockerfile memiliki tahap build frontend, kemudian dist disajikan Express. React 19.3.0, Recharts 3.10.1, Vite 8.3.0 dan plugin React 6.1.1 dikunci di lockfile. Tidak mengganti stack backend, kontrak MQTT, aturan daily, migration atau port jaringan. .gitignore existing sudah mengabaikan dist; .dockerignore dilengkapi untuk source web.
+
+### Hasil nyata
+
+- Engine awalnya tidak aktif. Startup mereproduksi error sailor-ingest.sock. Pemulihan runtime yang sebelumnya diizinkan diulang tanpa perubahan volume: %LOCALAPPDATA%\Docker\run.backup-20260914-101011 dan %LOCALAPPDATA%\docker-secrets-engine.backup-20260914-101011. Kedua folder dicadangkan bersamaan lalu dibuat kosong. Engine kembali aktif; ini bukan jaminan bug startup Desktop hilang permanen.
+- Build pertama terkena TLS handshake timeout Docker Hub; retry berhasil tanpa mematikan verifikasi TLS. npm ci pada host dan build container berhasil. Build Vite lulus dengan peringatan ukuran bundle sekitar 588 kB minified / 176 kB gzip; optimasi pemisahan bundle belum dikerjakan.
+- Build Compose akhir berhasil, postgres/mqtt/backend healthy. npm run check dan git diff --check lulus. Suite Docker dengan INTEGRATION_DB=1: **13 lulus, 0 gagal, 0 skipped**, termasuk PostgreSQL nyata dan tiga test helper frontend (pagination lengkap/kegagalan halaman, null/gap/timestamp ambigu, rentang tanggal). Test helper menggunakan fixture terkontrol; bukti browser di bawah memakai API nyata.
+- Smoke test koneksi MQTT/DB lulus. Verifikasi baca saja 1441 sampel simulator existing lulus. Setelah build/restart backend, seluruh meter_readings tetap `1441 | dbe3d06dbadc3c96ba7462148da9b74a`, sama dengan fingerprint 13 September; histori sensor tidak diubah. Smoke hanya menambah probe pengembangan.
+- Browser localhost:3000 benar-benar diverifikasi pada desktop dan viewport 390x844: daftar 1 kamar/3 meter, pemilihan meter, pergantian cepat kamar→komunal→kamar, pemilihan ulang meter aktif, dan daftar kamar yang dapat dibuka. Tidak ada luapan horizontal halaman ponsel; tabel daily dapat digeser horizontal di dalam panel.
+- Kartu kamar: 220 V, 0,3 A, 60 W, counter 466,78 kWh; diukur 13 September 00:00 Jakarta, ditandai Pembacaan lama meskipun backend terhubung. Waktu refresh API terlihat berubah mengikuti polling lima detik tanpa mengubah waktu sensor.
+- Dataset 12 Sep di browser: **1440 sampel histori mentah / 2 halaman**, daily **1.44 kWh, lengkap, 100%, 1441 sampel**. Perbedaan jumlah benar: histori akhir eksklusif; daily mencakup sampel batas akhir. Preset tujuh hari 8–14 September memuat 1441 sampel/2 halaman, hari kosong Tanpa data, tanggal 11 dan 13 Parsial dengan total/subtotal Tidak tersedia.
+- Meter utama tanpa sampel: latest Tidak tersedia, grafik kosong, daily Tanpa data; null tidak menjadi nol. Rentang mulai setelah akhir ditolak UI dengan pesan maksimal 31 hari dan hasil aktif tidak diganti.
+- Backend dihentikan sementara untuk uji error. Browser menampilkan backend tidak terjangkau dan pembaruan gagal, dengan kartu/histori terakhir tetap tersedia. Backend dinyalakan kembali; polling health/latest pulih dan refresh manual memuat seluruh histori lagi. Pesan jaringan kemudian dilokalkan ke bahasa Indonesia. Build akhir dimuat ulang; pemeriksaan log browser akhir tidak menemukan error/warning aplikasi.
+
+### Cara mencoba dan batas bukti
+
+Buka http://127.0.0.1:3000 dan pilih Dataset 12 Sep. Layanan dibiarkan berjalan; tab dashboard tersedia untuk pengguna. Perintah startup/build dan penggunaan ada di LOCAL-DEVELOPMENT.md; keputusan desain/alur di DASHBOARD-PLAN.md. Tidak ada tindakan manual wajib selain membuka halaman saat Engine aktif.
+
+Belum ada simulator berkala atau pengukuran baru; pembaruan timestamp polling diuji dengan dataset existing. Pemicu refresh histori oleh ID sensor baru ditinjau pada kode, belum didemonstrasikan dengan stream sensor baru pada tahap dashboard ini. Tidak mengklaim pengamatan tujuh hari, integrasi ESP32, autentikasi produksi, uji semua browser, atau ketahanan gangguan panjang. API/broker tetap lokal/internal. Tidak commit, push, deploy, reset database atau menghapus volume/data.
+
+Langkah berikutnya sesuai prioritas pengguna: simulator berkala dengan mapping/identitas terpisah jika diperlukan untuk demo; autentikasi dan hak akses sebelum akses di luar development; penyelarasan kontrak firmware bersama tim hardware. Hal ini belum dieksekusi.
