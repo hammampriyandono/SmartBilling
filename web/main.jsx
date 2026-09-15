@@ -89,7 +89,7 @@ function App() {
   const currentKey = `${meterId}:${range.from}:${range.to}`;
   const result = history.key === currentKey ? history.data : null;
   const threshold = result?.daily.meta.max_gap_seconds || 120;
-  const stale = age !== null && age * 60 > threshold;
+  const stale = reading !== null && reading !== undefined && now - Date.parse(reading.measured_at) > threshold * 1000;
   const graph = result ? chartRows(result.rows, threshold) : [];
   const refreshAll = () => { setRefresh(v => v + 1); setCatalogVersion(v => v + 1); };
 
