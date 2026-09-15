@@ -167,4 +167,54 @@ npm run build
 .\scripts\docker.ps1 compose exec -T backend node scripts/simulate.js 2026-09-12 --verify-only
 ```
 
-Simulator berkala belum ditambahkan: dashboard dapat menunjukkan histori dan usia sensor secara jujur tanpa mengubah dataset deterministik. Jika dibutuhkan berikutnya, gunakan mapping dan identitas simulasi terpisah. API masih tanpa autentikasi dan hanya localhost; belum siap dipublikasikan.
+Simulator berkala tersedia dengan mapping dan identitas terpisah; lihat petunjuk berikut. API masih tanpa autentikasi dan hanya localhost; belum siap dipublikasikan.
+
+## Simulator berkala (Simulasi berjalan)
+
+Simulator ini berjalan hanya jika dipanggil eksplisit, melalui profil Compose `simulation`. Default: lima sampel, interval 60 detik (sampel pertama langsung, total sekitar empat menit), paling lama satu jam termasuk gangguan. Argumen opsional jumlah 1–60 dan interval 1–3600 detik, dengan rentang pengiriman maksimal satu jam. Polling dashboard tetap lima detik.
+
+Jika layanan existing sehat dan migration 003 sudah terpasang, langsung jalankan simulator; tidak perlu build, seed atau pemulihan Docker ulang. Periksa dengan `.\scripts\docker.ps1 compose ps`. Siapkan image dan migration baru hanya sebelum penggunaan pertama atau ketika perubahan kode memerlukan build:
+
+```powershell
+Set-Location C:\Users\Admin\source\repos\SmartBilling
+.\scripts\docker.ps1 compose build backend
+.\scripts\docker.ps1 compose up -d --wait postgres mqtt
+.\scripts\docker.ps1 compose run --rm --no-deps backend npm run migrate
+.\scripts\docker.ps1 compose up -d --wait backend
+# Untuk instalasi baru saja: pastikan seed:demo telah dijalankan.
+```
+
+Jalankan dengan nama container yang dapat dihentikan dari terminal lain:
+
+```powershell
+.\scripts\docker.ps1 compose --profile simulation run --rm -d --no-deps --name smartbilling-simulator simulator
+.\scripts\docker.ps1 logs -f smartbilling-simulator
+```
+
+Buka http://127.0.0.1:3000, klik Perbarui data sekali jika mapping baru belum ada pada daftar, pilih **Simulasi berjalan**, lalu pilih **7 hari terakhir**. Setelah meter terpilih, nilai dan histori berikutnya diperbarui otomatis tanpa klik refresh. Daftar meter sendiri tidak dipolling; langkah awal tersebut hanya untuk menemukan mapping baru. Terminal log dapat ditutup dengan Ctrl+C tanpa menghentikan container detached.
+
+Menghentikan simulator sebelum jumlah sampel habis:
+
+```powershell
+.\scripts\docker.ps1 stop --timeout 15 smartbilling-simulator
+```
+
+Setelah berhenti, container `--rm` terhapus otomatis; checkpoint dan semua pembacaan tetap berada di PostgreSQL. Jalankan perintah run yang sama untuk mulai kembali dengan counter berlanjut. Jangan memakai volume prune atau reset. Untuk contoh tiga sampel:
+
+```powershell
+.\scripts\docker.ps1 compose --profile simulation run --rm -d --no-deps --name smartbilling-simulator simulator 3 60
+```
+
+Mapping idempoten: kamar SIM-RUN / **Simulasi berjalan**, device `sim-running-01`, channel 1, meter `00000000-0000-4000-8000-000000000105`. Mapping konflik ditolak tanpa ditimpa. Dataset deterministik memakai perangkat/meter lain dan tidak diubah. Prasyarat bangunan demo tersedia dari seed:demo; ingest tidak mendaftarkan device otomatis.
+
+Counter dimulai nol hanya saat belum ada histori/checkpoint meter baru. Setiap proses memakai UUID boot baru; sequence naik per proses. Counter epoch tetap 0 karena restart bukan reset energi. Checkpoint `dev_checks.running_simulator` (migration 003) menyimpan payload dan sisa presisi sebelum publish; pending direplay dengan identitas dan payload sama sampai isi DB terkonfirmasi. Jika checkpoint hilang sementara histori ada, simulator berhenti, bukan diam-diam reset. Session advisory lock mencegah dua simulator menulis sumber yang sama bersamaan.
+
+Model beban virtual: daya 60, 120, 90, 180, 75, 150 W berulang, tegangan 220 V, faktor daya 0,95; arus disesuaikan. Daya tiap sampel berlaku sampai sampel selanjutnya, termasuk ketika proses berhenti. Integrasi W × waktu aktual memakai integer nano-kWh dan sisa pembagian persisten; tidak mengasumsikan interval selalu tepat 60 detik. Jeda offline tetap menjadi gap pada kualitas daily backend; subtotal parsial bukan estimasi total. Ini hanya model simulasi, bukan pengukuran atau kalibrasi hardware.
+
+Pengiriman memiliki maksimum tiga percobaan konfirmasi, memakai byte/identitas sama. Gagal/stop meninggalkan pending untuk run berikutnya. SIGINT/SIGTERM ditangani; batas shutdown delapan detik mempertahankan checkpoint walaupun koneksi terputus. Konfirmasi memeriksa row DB, bukan hanya PUBACK broker. Perintah baca saja untuk memeriksa konsistensi counter dan dataset lama:
+
+```powershell
+.\scripts\docker.ps1 compose exec -T backend node scripts/verify-running.js
+```
+
+Penanda pembacaan lama menggunakan usia aktual >120 detik (atau konfigurasi toleransi API), diperiksa pada polling lima detik berikutnya. Tidak adanya pesan baru tidak mengubah status koneksi backend menjadi gagal. Tidak ada stream ESP32, RFID, billing, akses LAN atau deployment pada utilitas ini.

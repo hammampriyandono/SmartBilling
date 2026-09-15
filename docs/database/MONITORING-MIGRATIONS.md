@@ -1,5 +1,7 @@
 # Implementasi schema monitoring
 
+Tambahan 15 September 2026: `003_running_simulator.sql` membuat `dev_checks.running_simulator`, checkpoint JSONB dengan FK meter dan waktu pembaruan, khusus utilitas simulasi berjalan. Tidak menambah field kontrak MQTT atau mengubah tabel histori. Payload pending disimpan sebelum publish agar restart bisa replay, sementara meter_readings tetap ditulis hanya oleh ingest backend.
+
 `migrations/001_monitoring.sql` menerjemahkan subset ERD v1: users, properties, rooms, devices, communal_loads, meters, meter_readings. Belum mencakup occupancy, RFID, sesi, billing atau audit billing. ERD sumber tetap dipertahankan; dokumen ini mencatat penyesuaian implementasi, bukan persetujuan kebijakan fairness.
 
 - Foreign key memakai RESTRICT. Role/status/jenis meter, target meter eksklusif, rentang pemasangan, nilai pengukuran nonnegatif, dan faktor daya 0–1 dibatasi.

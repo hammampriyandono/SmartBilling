@@ -12,11 +12,21 @@ Proyek ini dikembangkan sebagai Capstone A05. Tahap yang sudah tersedia adalah *
 - **Pembaruan otomatis:** polling status backend dan pembacaan terbaru setiap lima detik ketika tab aktif.
 - **Penerimaan MQTT:** validasi pesan, pemetaan perangkat ke meter, deduplikasi, serta pencatatan pesan invalid atau konflik.
 - **Penyimpanan persisten:** pembacaan tersimpan di PostgreSQL dan dapat diakses kembali setelah layanan dimulai ulang.
-- **Simulator pengembangan:** dataset deterministik untuk menguji alur data tanpa perangkat fisik. Pengiriman ulang tanggal yang sama tidak menambah pembacaan ganda.
+- **Simulator pengembangan:** dataset deterministik serta simulator berkala **Simulasi berjalan** pada meter terpisah. Pengiriman ulang tidak menambah pembacaan ganda; counter berkala bertahan setelah restart.
 
 Dashboard memuat data dari API backend. Data simulasi diberi label; keberhasilan refresh browser tidak berarti sensor mengirim pembacaan baru.
 
 ## Alur aplikasi
+
+Simulator berkala dapat dijalankan secara eksplisit setelah migration untuk memeriksa pembaruan dashboard dari data baru:
+
+```powershell
+.\scripts\docker.ps1 compose --profile simulation run --rm -d --no-deps --name smartbilling-simulator simulator
+# Menghentikan sebelum selesai:
+.\scripts\docker.ps1 stop --timeout 15 smartbilling-simulator
+```
+
+Pilih **Simulasi berjalan** di http://127.0.0.1:3000. Default lima sampel, interval 60 detik, polling dashboard lima detik. Counter/checkpoint bertahan setelah restart; dataset deterministik tidak diubah. Simulator tidak dijalankan saat startup aplikasi. Detail migration, model beban virtual, restart dan verifikasi ada di [pengembangan lokal](docs/LOCAL-DEVELOPMENT.md#simulator-berkala-simulasi-berjalan).
 
 ```mermaid
 flowchart LR
@@ -105,7 +115,7 @@ Konfigurasi saat ini hanya memublikasikan aplikasi pada localhost. PostgreSQL da
 .\scripts\docker.ps1 compose exec -T backend node scripts/simulate.js 2026-09-12 --verify-only
 ```
 
-Catatan verifikasi 14 September 2026 mencakup 13 test lulus tanpa skip, pemeriksaan dashboard desktop/ponsel, dan persistensi dataset simulasi setelah restart. Rincian bukti serta keterbatasan pengujian ada di [HANDOFF](docs/HANDOFF.md).
+Verifikasi 15 September 2026 mencakup 16 test lulus tanpa skip dengan PostgreSQL nyata serta pembaruan nilai dan histori dashboard otomatis dari simulator berkala. Layanan existing yang sehat dapat langsung dipakai tanpa mengulang build atau seed. Rincian bukti, pemeriksaan persistensi sebelumnya, serta keterbatasan pengujian ada di [HANDOFF](docs/HANDOFF.md).
 
 ## Arah pengembangan
 

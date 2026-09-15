@@ -44,6 +44,8 @@ Simulator menggunakan boot virtual tetap `a0500000-0000-4000-8000-000000000001`,
 
 ## Perbedaan prototipe Arduino/ESP32
 
+Tambahan lokal 15 September 2026: simulator berkala memakai topik `smartbilling/sim/v1/devices/sim-running-01/readings`, channel 1, dengan schema v1 yang sama. Mapping eksplisit meter `00000000-0000-4000-8000-000000000105` terpisah dari dataset deterministik. Boot UUID baru per proses, counter epoch tetap 0, dan pesan pending direplay tanpa perubahan identitas/payload. Checkpoint development bukan field MQTT baru. Model counter/daya, batas durasi, serta perintah ada di LOCAL-DEVELOPMENT.md.
+
 Informasi berikut berasal dari pengguna; perangkat belum diuji dengan backend ini.
 
 | Prototipe saat ini | Simulasi v1 / penyelarasan berikutnya |
