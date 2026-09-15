@@ -42,7 +42,7 @@ services:
   backend:
     build: .
     init: true
-    environment:
+    environment: &backend_environment
       APP_ENV: development
       PORT: 3000
       BIND_HOST: 0.0.0.0
@@ -73,6 +73,20 @@ services:
       start_period: 10s
     restart: unless-stopped
     networks: [development]
+
+  simulator:
+    profiles: [simulation]
+    image: smartbilling-a05-dev-backend
+    init: true
+    entrypoint: ["node", "scripts/simulate-running.js"]
+    command: ["5", "60"]
+    environment: *backend_environment
+    secrets:
+      - postgres_password
+      - mqtt_password
+    networks: [development]
+    restart: "no"
+    stop_grace_period: 15s
 
 networks:
   development:

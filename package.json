@@ -18,7 +18,8 @@
     "test": "node --test",
     "simulate": "node scripts/simulate.js",
     "test:mqtt": "node scripts/verify-mqtt.js",
-    "build": "vite build"
+    "build": "vite build",
+    "simulate:running": "node scripts/simulate-running.js"
   },
   "dependencies": {
     "express": "5.2.1",
