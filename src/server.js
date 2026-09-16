@@ -1,5 +1,7 @@
 import express from 'express';
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { authentication } from './auth.js';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createPool, createMqtt, requireDevelopment, testTopic, replyPrefix } from './connections.js';
 import { monitoringApi, apiError } from './monitoring-api.js';
@@ -52,7 +54,10 @@ client.on('message', (topic, bytes) => {
 
 const app = express();
 app.disable('x-powered-by');
-app.use('/api', monitoringApi(pool, { maxGapSeconds: Number(process.env.MONITORING_MAX_GAP_SECONDS || 120) }));
+const auth=authentication(pool,{secret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim(),origin:process.env.AUTH_ORIGIN||'http://127.0.0.1:3000'});
+app.use('/api',(_req,res,next)=>{res.set('Cache-Control','no-store');next();},auth.middleware);
+app.use('/api/auth',auth.router);
+app.use('/api',auth.requireUser,monitoringApi(pool, { maxGapSeconds: Number(process.env.MONITORING_MAX_GAP_SECONDS || 120) }));
 app.get('/health/live', (_req, res) => res.json({ status: 'ok', environment: 'development' }));
 app.get('/health/ready', async (_req, res) => {
   let database = false;
@@ -73,6 +78,7 @@ async function shutdown() {
   const timeout = setTimeout(() => process.exit(1), 8000);
   server.close();
   await client.endAsync();
+  await auth.store.close();
   await pool.end();
   clearTimeout(timeout);
 }

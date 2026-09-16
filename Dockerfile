@@ -9,7 +9,8 @@ RUN npm run build
 FROM node:22-alpine
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+COPY --from=dashboard-build /app/node_modules ./node_modules
+RUN npm prune --omit=dev --ignore-scripts --offline && npm cache clean --force
 COPY --chown=node:node src ./src
 COPY --chown=node:node scripts ./scripts
 COPY --chown=node:node migrations ./migrations

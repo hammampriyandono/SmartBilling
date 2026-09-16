@@ -55,9 +55,12 @@ services:
       MQTT_URL: mqtt://mqtt:1883
       MQTT_USERNAME: smartbilling_dev
       MQTT_PASSWORD_FILE: /run/secrets/mqtt_password
+      SESSION_SECRET_FILE: /run/secrets/session_secret
+      AUTH_ORIGIN: http://127.0.0.1:${BACKEND_PORT:-3000}
     secrets:
       - postgres_password
       - mqtt_password
+      - session_secret
     ports:
       - "127.0.0.1:${BACKEND_PORT:-3000}:3000"
     depends_on:
@@ -100,3 +103,5 @@ secrets:
     file: ./.local/secrets/postgres_password
   mqtt_password:
     file: ./.local/secrets/mqtt_password
+  session_secret:
+    file: ./.local/secrets/session_secret
