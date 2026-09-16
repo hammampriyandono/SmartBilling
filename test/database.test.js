@@ -15,7 +15,7 @@ test('PostgreSQL: FK, overlap pemasangan, deduplikasi, dan pembacaan immutable',
   try {
     await db.query('BEGIN');
     const owner = randomUUID(), property = randomUUID(), room = randomUUID(), device = randomUUID(), meter = randomUUID();
-    await db.query(`INSERT INTO users(id,name,email,password_hash,role,is_active) VALUES ($1,'Uji',$2,'disabled-test-account','owner',false)`, [owner, `${owner}@test.invalid`]);
+    await db.query(`INSERT INTO users(id,name,email,password_hash,role,is_active) VALUES ($1,'Uji',$2,'disabled-test-account','owner',true)`, [owner, `${owner}@test.invalid`]);
     await db.query(`INSERT INTO properties(id,owner_id,name,timezone) VALUES ($1,$2,'UJI','Asia/Jakarta')`, [property, owner]);
     await db.query(`INSERT INTO rooms(id,property_id,code,name,active_from) VALUES ($1,$2,'TEST','UJI','2026-01-01T00:00:00Z')`, [room, property]);
     await db.query(`INSERT INTO devices(id,property_id,device_uid,status) VALUES ($1,$2,$3,'active')`, [device, property, device]);
@@ -44,6 +44,7 @@ test('PostgreSQL: FK, overlap pemasangan, deduplikasi, dan pembacaan immutable',
       VALUES ($1,$2,2,0,'2026-09-11T00:01:00Z','0.000000002','valid')`, [meter, boot]);
     // API memakai koneksi transaksi PostgreSQL sungguhan. Fixture di-rollback setelah pengujian.
     const app = express();
+    app.use((req,_res,next)=>{req.user={id:owner,role:'owner'};next();});
     app.use('/api', monitoringApi(db));
     app.use(apiError);
     server = app.listen(0, '127.0.0.1');

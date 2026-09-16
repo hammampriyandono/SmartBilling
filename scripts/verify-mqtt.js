@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {authenticatedFetch} from './auth-client.js';
 import { randomUUID } from 'node:crypto';
 import { createPool, createMqtt, requireDevelopment } from '../src/connections.js';
 import { sha256 } from '../src/sensor-message.js';
@@ -9,6 +10,7 @@ const date = process.argv[2] || defaultDate();
 const pool = createPool();
 const client = createMqtt(`mqtt-integration-${randomUUID()}`);
 try {
+  const authenticated=await authenticatedFetch();
   await connect(client);
   await simulate(pool, client, date);
   const first = dataset(date)[0];
@@ -35,7 +37,7 @@ try {
   assert.deepEqual(await snapshot(), before, 'Duplikat/penolakan mengubah pembacaan existing');
   await verifyDataset(pool, date);
   async function get(route) {
-    const response = await fetch(`http://127.0.0.1:3000${route}`, { signal: AbortSignal.timeout(5000) });
+    const response = await authenticated(route);
     assert.equal(response.status, 200, route);
     return response.json();
   }

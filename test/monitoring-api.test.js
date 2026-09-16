@@ -16,7 +16,7 @@ test('API membatasi input, membedakan meter tidak ada, dan memaginasi histori', 
   const queries = [];
   const pool = { query: async (sql, parameters) => {
     queries.push({ sql, parameters });
-    if (sql.includes('JOIN properties')) return { rowCount: parameters[0] === id ? 1 : 0, rows: [{ id, timezone: 'Asia/Jakarta' }] };
+    if (sql.startsWith('SELECT meters.*')) return { rowCount: parameters[0] === id ? 1 : 0, rows: [{ id, timezone: 'Asia/Jakarta' }] };
     if (sql.includes('meter_readings')) return { rows: [
       { id: '1', measured_at: new Date('2026-09-11T00:00:00Z'), energy_kwh: '1.000000001' },
       { id: '2', measured_at: new Date('2026-09-11T00:01:00Z'), energy_kwh: '1.000000002' },
@@ -24,6 +24,7 @@ test('API membatasi input, membedakan meter tidak ada, dan memaginasi histori', 
     return { rows: [] };
   } };
   const app = express();
+  app.use((req,_res,next)=>{req.user={id,role:'owner'};next();});
   app.use('/api', monitoringApi(pool)); app.use(apiError);
   const server = app.listen(0, '127.0.0.1');
   await new Promise((resolve) => server.once('listening', resolve));
@@ -41,6 +42,6 @@ test('API membatasi input, membedakan meter tidak ada, dan memaginasi histori', 
   assert.equal(body.data[0].energy_kwh, '1.000000001');
   assert.equal(body.meta.source, 'simulation');
   assert.ok(body.next_cursor);
-  assert.equal(queries.at(-1).parameters.at(-1), 2);
+  assert.equal(queries.at(-1).parameters[5], 2);
   assert.match(queries.at(-1).sql, /measured_at < \$3/);
 });
