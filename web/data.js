@@ -1,10 +1,14 @@
+let accountId=null;
+export function setAccountId(value) { accountId=value; }
 export async function getJson(path, signal) {
   let response;
-  try { response = await fetch(path, { signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]), cache: 'no-store' }); }
+  try { response = await fetch(path, { signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]), cache: 'no-store',
+    headers:accountId && /^\/api\/(meters|rooms)/.test(path) ? {'X-Account-ID':accountId}:{} }); }
   catch (error) {
     if (signal.aborted) throw error;
     throw new Error(error.name === 'TimeoutError' ? 'Waktu tunggu habis. Coba lagi.' : 'Tidak dapat menghubungi backend. Periksa layanan lokal.');
   }
+  if (response.status===401 && !signal.aborted && typeof window!=='undefined') window.dispatchEvent(new Event('session-expired'));
   if (!response.ok) throw new Error(response.status === 422 ? 'Data terlalu banyak. Perpendek rentang tanggal.' : `Permintaan gagal (HTTP ${response.status}). Coba lagi.`);
   return response.json();
 }
@@ -40,7 +44,7 @@ export function chartRows(rows, maxGap) {
   const result = [];
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i], time = Date.parse(row.measured_at), previous = rows[i - 1];
-    if (previous && time - Date.parse(previous.measured_at) > maxGap * 1000) {
+    if (previous && (time - Date.parse(previous.measured_at) > maxGap * 1000 || row.access_segment!==previous.access_segment)) {
       result.push({ time: Date.parse(previous.measured_at) + 1, power: null });
     }
     const ambiguous = previous?.measured_at === row.measured_at || rows[i + 1]?.measured_at === row.measured_at;

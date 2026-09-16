@@ -3,10 +3,12 @@ import { createRoot } from 'react-dom/client';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { allPages, getJson, shiftDate, todayIn, validRange, chartRows, decimal } from './data.js';
 import './style.css';
+import {AuthGate} from './auth.jsx';
 
 const statuses = { complete: 'Lengkap', partial: 'Parsial', no_data: 'Tanpa data' };
 const reasons = { missing_start_boundary: 'Batas awal tidak tersedia', missing_end_boundary: 'Batas akhir tidak tersedia', gap: 'Jeda pembacaan', counter_reset: 'Counter direset', no_data: 'Belum ada sampel', invalid_quality: 'Kualitas tidak valid', counter_decreased: 'Counter menurun', ambiguous_timestamp: 'Waktu pengukuran ambigu' };
 const formatTime = (value, zone) => value ? new Intl.DateTimeFormat('id-ID', { timeZone: zone, dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(value)) : 'Belum tersedia';
+reasons.access_limited='Dibatasi masa tinggal';
 function ErrorNotice({ text, retry }) { return text && <div className="error" role="alert">{text} {retry && <button onClick={retry}>Coba lagi</button>}</div>; }
 
 function App() {
@@ -73,7 +75,7 @@ function App() {
       const daily = await getJson(`/api/meters/${meterId}/daily?from=${range.from}&to=${shiftDate(range.to, 1)}`, controller.signal);
       if (controller.signal.aborted) return;
       setZone(daily.meta.timezone);
-      const start = daily.data[0].starts_at, end = daily.data.at(-1).ends_at;
+      const start = daily.range.from, end = daily.range.to;
       const result = await allPages(`/api/meters/${meterId}/readings?from=${encodeURIComponent(start)}&to=${encodeURIComponent(end)}`, 'next_cursor', controller.signal,
         (count, pages) => { if (!controller.signal.aborted) setHistory(old => ({ ...old, progress: `${count.toLocaleString('id-ID')} sampel · ${pages} halaman` })); });
       if (!controller.signal.aborted) setHistory({ loading: false, key, updated: Date.now(), data: { daily, rows: result.rows, pages: result.pages, start, end } });
@@ -129,6 +131,7 @@ function App() {
           <div className="panel-foot">Garis terputus menandakan data tidak tersedia atau jeda pembacaan. Tidak ada interpolasi.<span>{history.updated ? `Dimuat ${formatTime(history.updated,zone)}` : ''}</span></div>
         </section>
         <section className="panel daily-panel"><div className="panel-heading"><div><p className="eyebrow">KONSUMSI HARIAN</p><h2>Energi dengan konteks.</h2></div><span className="subtle">Dihitung backend dari selisih counter</span></div>
+          {result?.daily.meta.access_limited && <p className="received">Data hanya mencakup masa tinggal Anda. {result.daily.data.length===0?'Tidak ada masa tinggal yang dapat diakses pada rentang ini.':''}</p>}
           {result ? <div className="table-scroll"><table><thead><tr><th>Tanggal</th><th>Total (kWh)</th><th>Subtotal valid (kWh)</th><th>Cakupan</th><th>Status</th></tr></thead><tbody>{result.daily.data.map(day => <tr key={day.date}><td>{new Intl.DateTimeFormat('id-ID',{dateStyle:'medium',timeZone:'UTC'}).format(new Date(day.date))}</td><td title={day.consumption_kwh ?? ''}>{decimal(day.consumption_kwh,9)}</td><td title={day.observed_consumption_kwh ?? ''}>{decimal(day.observed_consumption_kwh,9)}</td><td><div className="coverage"><span style={{ width: `${100 * day.coverage_seconds / day.expected_seconds}%` }}/></div><small>{decimal(100 * day.coverage_seconds / day.expected_seconds,1)}% · {day.sample_count} sampel</small></td><td><span className={`pill ${day.status === 'complete' ? 'green' : day.status === 'partial' ? 'amber' : ''}`}>{statuses[day.status] || day.status}</span>{day.reasons.length > 0 && <small className="reason">{day.reasons.map(r => reasons[r] || r.replaceAll('_',' ')).join(' · ')}</small>}</td></tr>)}</tbody></table></div> : <div className="empty">{history.loading ? 'Memuat konsumsi harian…' : 'Konsumsi harian belum tersedia.'}</div>}
           <div className="panel-foot">Total hanya tersedia untuk hari lengkap. Subtotal valid bukan estimasi total harian; tidak tersedia bukan nol.</div>
         </section>
@@ -137,4 +140,4 @@ function App() {
     </main>
   </div>;
 }
-createRoot(document.getElementById('root')).render(<App/>);
+createRoot(document.getElementById('root')).render(<AuthGate Dashboard={App}/>);
