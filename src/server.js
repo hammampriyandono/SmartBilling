@@ -7,6 +7,9 @@ import { createPool, createMqtt, requireDevelopment, testTopic, replyPrefix } fr
 import { monitoringApi, apiError } from './monitoring-api.js';
 import { sensorTopic, sensorPrefix } from './sensor-message.js';
 import { ingestSensor } from './sensor-ingest.js';
+import {rfidTopic} from './rfid-message.js';
+import {receiveTap,createRfidWorker} from './rfid-ingest.js';
+import {rfidApi} from './rfid-api.js';
 
 requireDevelopment();
 const pool = createPool();
@@ -15,8 +18,8 @@ let subscribed = false;
 let stopping = false;
 let ingestHealthy = true;
 client.on('connect', () => {
-  client.subscribe([testTopic, sensorTopic], { qos: 1 }, (error, granted) => {
-    subscribed = !error && [testTopic, sensorTopic].every((topic) => granted?.some((entry) => entry.topic === topic && entry.qos <= 1));
+  client.subscribe([testTopic, sensorTopic,rfidTopic], { qos: 1 }, (error, granted) => {
+    subscribed = !error && [testTopic, sensorTopic,rfidTopic].every((topic) => granted?.some((entry) => entry.topic === topic && entry.qos <= 1));
     if (subscribed) console.info('MQTT siap untuk pesan uji pengembangan.');
   });
 });
@@ -26,7 +29,8 @@ client.handleMessage = (packet, done) => {
   (async () => {
     while (!stopping) {
       try {
-        await ingestSensor(pool, packet.topic, packet.payload, packet);
+        if(packet.topic.endsWith('/rfid/taps'))await receiveTap(pool,packet.topic,packet.payload,packet);
+        else await ingestSensor(pool, packet.topic, packet.payload, packet);
         ingestHealthy = true;
         done();
         return;
@@ -53,17 +57,22 @@ client.on('message', (topic, bytes) => {
 });
 
 const app = express();
+const workRfid=createRfidWorker(pool,{gap:Number(process.env.MONITORING_MAX_GAP_SECONDS||120)});
+let rfidBusy=false,rfidHealthy=true;
+async function tickRfid(){if(stopping||rfidBusy)return;rfidBusy=true;try{await workRfid();rfidHealthy=true;}catch{rfidHealthy=false;console.warn('Pemrosesan RFID menunggu database; data inbox dipertahankan.');}finally{rfidBusy=false;}}
+const rfidTimer=setInterval(tickRfid,2000);tickRfid();
 app.disable('x-powered-by');
 const auth=authentication(pool,{secret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim(),origin:process.env.AUTH_ORIGIN||'http://127.0.0.1:3000'});
 app.use('/api',(_req,res,next)=>{res.set('Cache-Control','no-store');next();},auth.middleware);
 app.use('/api/auth',auth.router);
+app.use('/api',auth.requireUser,rfidApi(pool));
 app.use('/api',auth.requireUser,monitoringApi(pool, { maxGapSeconds: Number(process.env.MONITORING_MAX_GAP_SECONDS || 120) }));
 app.get('/health/live', (_req, res) => res.json({ status: 'ok', environment: 'development' }));
 app.get('/health/ready', async (_req, res) => {
   let database = false;
   try { await pool.query('SELECT 1'); database = true; } catch { /* Retry pada probe berikutnya. */ }
   const broker = client.connected && subscribed;
-  const ready = database && broker && ingestHealthy && !stopping;
+  const ready = database && broker && ingestHealthy && rfidHealthy && !stopping;
   res.status(ready ? 200 : 503).json({ status: ready ? 'ready' : 'not-ready', database, mqtt: broker, ingest: ingestHealthy });
 });
 app.use(apiError);
@@ -75,6 +84,7 @@ const server = app.listen(Number(process.env.PORT || 3000), process.env.BIND_HOS
 async function shutdown() {
   if (stopping) return;
   stopping = true;
+  clearInterval(rfidTimer);
   const timeout = setTimeout(() => process.exit(1), 8000);
   server.close();
   await client.endAsync();
