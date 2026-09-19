@@ -218,3 +218,69 @@ Pengiriman memiliki maksimum tiga percobaan konfirmasi, memakai byte/identitas s
 ```
 
 Penanda pembacaan lama menggunakan usia aktual >120 detik (atau konfigurasi toleransi API), diperiksa pada polling lima detik berikutnya. Tidak adanya pesan baru tidak mengubah status koneksi backend menjadi gagal. Tidak ada stream ESP32, RFID, billing, akses LAN atau deployment pada utilitas ini.
+
+## Simulasi sesi RFID
+
+Frontend terkini tersedia untuk owner dan tenant melalui navigasi **Riwayat fasilitas RFID**, memakai tanggal WIB dan pagination. Lihat [FRONTEND-RFID.md](FRONTEND-RFID.md) untuk cara memakai data existing tanpa simulator, build aset saja, akun uji dan batas verifikasi. Keterangan UI owner saja/UTC pada catatan awal di bawah telah digantikan modul frontend 19 September 2026.
+
+Kontrak simulasi v1 disetujui 17 September 2026: [RFID-SIMULATION-PLAN](RFID-SIMULATION-PLAN.md). Ini sumber tap sintetis, bukan firmware ESP32. Login owner/tenant existing tetap digunakan. Jangan menjalankan seed awal atau mereset database untuk mencoba RFID.
+
+Untuk mengambil perubahan kode ini pada lingkungan existing, build sekali dan terapkan migration tambahan sebelum backend baru:
+
+```powershell
+.\scripts\docker.ps1 compose build backend
+.\scripts\docker.ps1 compose run --rm --no-deps backend npm run migrate
+.\scripts\docker.ps1 compose up -d --no-deps --wait backend
+.\scripts\docker.ps1 compose exec -T backend node scripts/provision-rfid.js
+```
+
+Jika layanan sudah memakai versi ini, langsung provisioning idempoten/run; tidak perlu build/migrate berulang. Provisioning hanya menambah mapping RFID terpisah, tidak mengaktifkan akun atau mengubah occupancy. Prasyarat tenant demo aktif dan occupancy di bangunan demo berlaku sekarang; bila belum siap, gunakan alur provisioning autentikasi existing secara eksplisit (`scripts/provision-local.ps1`), bukan mengubah data secara manual.
+
+Mapping baru: device `sim-rfid-01`, reader channel 0, fasilitas `00000000-0000-4000-8000-000000000303`, meter `00000000-0000-4000-8000-000000000304`, label **Fasilitas RFID — Simulasi**. Kartu sintetis diikat ke tenant demo; UID tidak dicetak pada log/API.
+
+```powershell
+# Demo default: dua tap, tiga pembacaan, interval 60 detik; selesai sekitar 120 detik.
+.\scripts\docker.ps1 compose run --rm -d --no-deps --name smartbilling-rfid-simulator backend node scripts/simulate-rfid.js demo
+.\scripts\docker.ps1 logs -f smartbilling-rfid-simulator
+# Opsional: stop sebelum demo selesai. Sesi yang terbuka tetap terbuka.
+.\scripts\docker.ps1 stop --timeout 15 smartbilling-rfid-simulator
+# Satu tap eksplisit: buka jika kosong, tutup jika kartu sama masih memiliki sesi sah.
+.\scripts\docker.ps1 compose run --rm --no-deps backend node scripts/simulate-rfid.js tap
+# Replay tap terakhir, tidak membuat tap baru atau toggle.
+.\scripts\docker.ps1 compose run --rm --no-deps backend node scripts/simulate-rfid.js replay
+```
+
+Container `--rm` hilang setelah selesai; `logs`/`stop` pada container yang sudah selesai dapat melaporkan tidak ditemukan. Checkpoint tetap di PostgreSQL. Ctrl+C pada `logs -f` hanya keluar dari penampil log. SIGTERM runner tidak membuat event penutup. Demo menolak mulai bila sesi masih terbuka; gunakan tap eksplisit. Tidak ada auto-start. Batas keseluruhan proses empat menit, retry maksimal tiga dengan identitas/isi sama. Bila pending ada, run berikutnya **hanya** memulihkan pending kemudian selesai; perhatikan output sebelum meminta tap baru. Checkpoint hilang sementara histori ada menyebabkan gagal aman, bukan reset stream/counter.
+
+Counter meter baru mengintegrasikan daya virtual sebelumnya × waktu aktual dalam nano-kWh, mempertahankan sisa pecahan lintas restart. Daya demo 600→900→300 W, tegangan 220 V; model beban tetap berlaku selama jeda offline, yang tetap dianggap gap oleh perhitungan kualitas backend. Tap tidak membawa angka energi. Sesi dengan batas/rangkaian sensor kurang tetap berakhir oleh tap, tetapi energi `null`; tidak ada tagihan. Sesi review tidak ditutup otomatis dan belum memiliki alur koreksi administratif.
+
+Dashboard: http://127.0.0.1:3000 → login **owner@simulation.invalid** dengan password lokal existing → **Riwayat fasilitas RFID**. Pilih fasilitas di atas. Status, waktu akhir dan energi berubah melalui polling lima detik tanpa refresh manual. Filter rentang pada halaman ini berlabel UTC; waktu tabel ditampilkan WIB. Tenant memakai dashboard monitoring existing; UI histori tenant belum disediakan, tetapi API sesi dibatasi peserta sendiri.
+
+API terautentikasi (cookie sesi existing, `Cache-Control: no-store`):
+
+- `GET /api/facilities?limit=50&after=<UUID>` — fasilitas owner atau bangunan occupancy tenant saat ini, ketersediaan tanpa identitas penghuni.
+- `GET /api/usage-sessions?from=2026-09-17T00:00:00Z&to=2026-09-18T00:00:00Z&facility_id=00000000-0000-4000-8000-000000000303&limit=50` — sesi overlap `[from,to)`, maksimum 31 hari; filter `status=active|completed|review`, lanjutkan `next_cursor`. Limit maksimum 100.
+- `GET /api/usage-sessions/87908952-f4ec-402f-9cd2-fc1060fbfaea` — ID sesi demo yang benar-benar tersimpan pada verifikasi 17 September. Owner properti dan tenant peserta dapat membaca, pihak lain 404. ID contoh berlaku pada database lokal ini.
+
+Contoh field respons sesi terverifikasi: `status: "completed"`, `duration_seconds: "120.025000"`, `energy_status: "valid"`, `energy_kwh: "0.025004000"`. Angka desimal dikirim string untuk mempertahankan presisi. Sesi tanpa bukti batas memiliki `energy_status: "unavailable"`, `energy_kwh: null`, dan `energy_reason`. UI tidak mengganti null menjadi nol. Field `meta.source` menandai simulasi; UID/payload tidak dikembalikan.
+
+Pengujian:
+
+```powershell
+.\scripts\docker.ps1 compose exec -T -e INTEGRATION_DB=1 backend npm test
+.\scripts\docker.ps1 compose exec -T backend npm run smoke
+# Snapshot read-only untuk membandingkan sebelum/sesudah restart:
+.\scripts\docker.ps1 compose exec -T backend node scripts/verify-rfid.js snapshot
+# Uji MQTT/API setelah ada sedikitnya satu demo lengkap berenergi valid:
+.\scripts\docker.ps1 compose run --rm --no-deps `
+  -v "${PWD}/.local/secrets/owner_login_password:/run/test/owner_password:ro" `
+  -e AUTH_TEST_PASSWORD_FILE=/run/test/owner_password `
+  -e AUTH_TEST_BASE_URL=http://backend:3000 `
+  backend node scripts/verify-rfid.js
+```
+
+Verifier MQTT menambah catatan penolakan untuk pesan uji, tetapi tidak menambah sesi/pembacaan. Fixture suite PostgreSQL memakai transaksi rollback; bukan reset database. Counter identity sequence PostgreSQL dapat bertambah walaupun fixture di-rollback. Pengujian crash hardware, banyak reader bersamaan dan gangguan panjang belum tercakup; lihat HANDOFF.
+
+Verifikasi ulang 19 September 2026 memakai PostgreSQL/MQTT Docker nyata menghasilkan 21 test lulus tanpa skip. Demo MQTT terbaru tersimpan sebagai sesi `e462e6a9-e2c6-42b4-b14f-e20675dc71bb` dengan status selesai dan energi simulasi valid `0.025004416` kWh. Setelah restart PostgreSQL, MQTT, dan backend, snapshot sesi/event/reading tetap identik; replay, konflik, dan pesan invalid tidak mengubah data canonical. ID tersebut hanya berlaku pada database lokal yang sama.
+
+Akun uji existing adalah `owner@simulation.invalid` dan `tenant@simulation.invalid`. Gunakan password hasil provisioning autentikasi lokal pada `.local/secrets/owner_login_password` dan `.local/secrets/tenant_login_password`; keduanya diabaikan Git dan tidak boleh disalin ke dokumentasi. Bila akun belum tersedia, jalankan `scripts/provision-local.ps1` sesuai bagian autentikasi terlebih dahulu. Provisioning RFID tidak mengaktifkan akun atau occupancy secara diam-diam.

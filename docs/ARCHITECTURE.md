@@ -33,6 +33,8 @@ Untuk prototipe, API dan subscriber boleh satu proses backend dengan lifecycle/r
 
 ## Batas modul backend
 
+Implementasi lokal RFID (17 September 2026): topik tap simulasi terpisah dirutekan ke inbox `device_events`; transaksi mengunci stream perangkat dan fasilitas sebelum membuka/menutup `usage_sessions`. `session_participants` mengikat kartu/occupancy yang sah pada waktu tap. Worker melanjutkan inbox pending dan merekonsiliasi energi dari `meter_readings`, bukan dari frontend/payload tap. Owner melihat riwayat properti; tenant API hanya sesi sendiri tanpa membuka telemetry komunal. Kontrak dan deviasi ERD tahap satu peserta ada di `RFID-SIMULATION-PLAN.md`; firmware, billing dan deployment belum diterapkan.
+
 - **MQTT adapter/inbox:** decode dan validasi pesan, mapping perangkat, deduplikasi, status pemrosesan.
 - **Monitoring service:** persist sampel, last seen, query histori dan agregasi rentang.
 - **Session service:** tap-to-tap, mapping kartu/penghuni/fasilitas, pembacaan batas sesi, histori.
