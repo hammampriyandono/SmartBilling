@@ -2,7 +2,7 @@
 
 SmartBilling adalah aplikasi web untuk memantau penggunaan listrik kamar kost dan fasilitas bersama, sekaligus menjadi dasar sistem pembagian biaya listrik berbasis pemakaian. Aplikasi dirancang untuk membantu pemilik dan penghuni memahami konsumsi melalui pembacaan meter, grafik historis, dan ringkasan energi harian.
 
-Proyek ini dikembangkan sebagai Capstone A05. Tahap yang sudah tersedia adalah **monitoring lokal dengan data simulasi**, mulai dari pengiriman MQTT, penyimpanan PostgreSQL, hingga dashboard web. Integrasi ESP32, sesi RFID, dan perhitungan tagihan merupakan pengembangan berikutnya.
+Proyek ini dikembangkan sebagai Capstone A05. Sudah tersedia **monitoring lokal, autentikasi owner/tenant dan sesi RFID simulasi**, dari MQTT ke PostgreSQL hingga dashboard web. Integrasi ESP32 dan perhitungan tagihan belum diimplementasikan.
 
 ## Fitur yang tersedia
 
@@ -13,6 +13,7 @@ Proyek ini dikembangkan sebagai Capstone A05. Tahap yang sudah tersedia adalah *
 - **Penerimaan MQTT:** validasi pesan, pemetaan perangkat ke meter, deduplikasi, serta pencatatan pesan invalid atau konflik.
 - **Penyimpanan persisten:** pembacaan tersimpan di PostgreSQL dan dapat diakses kembali setelah layanan dimulai ulang.
 - **Simulator pengembangan:** dataset deterministik serta simulator berkala **Simulasi berjalan** pada meter terpisah. Pengiriman ulang tidak menambah pembacaan ganda; counter berkala bertahan setelah restart.
+- **Sesi fasilitas RFID:** tap pertama membuka dan tap berikutnya kartu sama menutup sesi; riwayat owner, scope peserta untuk API tenant, replay aman, energi nullable dihitung backend. Fasilitas/meter simulator terpisah dari dataset monitoring.
 
 Dashboard memuat data dari API backend. Data simulasi diberi label; keberhasilan refresh browser tidak berarti sensor mengirim pembacaan baru.
 
@@ -126,7 +127,28 @@ Verifikasi 15 September 2026 mencakup 16 test lulus tanpa skip dengan PostgreSQL
 - Perbandingan konsumsi antarkamar dan antarperiode.
 - Deployment Railway serta pengamatan perangkat nyata selama tujuh hari.
 
-Fitur tersebut belum seluruhnya diimplementasikan. Versi saat ini ditujukan untuk pengembangan lokal dan belum memiliki autentikasi aplikasi.
+Login owner/tenant dan sesi RFID simulasi sudah tersedia. Versi saat ini tetap untuk pengembangan lokal; autentikasi ini bukan kesiapan deployment publik.
+
+## Mencoba sesi RFID
+
+Frontend owner dan tenant tersedia di [dashboard lokal](http://127.0.0.1:3000) melalui **Riwayat fasilitas RFID**. Daftar fasilitas mengikuti hak akses API; histori tenant hanya sesi sendiri. Filter tanggal WIB, status, pagination dan alasan energi tersedia dengan layout desktop/ponsel. Untuk melihat data existing tidak perlu menjalankan simulator. [Petunjuk frontend dan hasil uji](docs/FRONTEND-RFID.md).
+
+Dengan layanan existing sehat dan akun tenant demo aktif:
+
+```powershell
+.\scripts\docker.ps1 compose exec -T backend node scripts/provision-rfid.js
+.\scripts\docker.ps1 compose run --rm -d --no-deps --name smartbilling-rfid-simulator backend node scripts/simulate-rfid.js demo
+# Opsional: hentikan sebelum selesai; sesi tidak ditutup otomatis.
+.\scripts\docker.ps1 stop --timeout 15 smartbilling-rfid-simulator
+```
+
+Login owner di [dashboard lokal](http://127.0.0.1:3000), pilih **Riwayat fasilitas RFID** → **Fasilitas RFID — Simulasi**. Demo selesai sendiri setelah dua tap dan tiga pembacaan berjarak 60 detik. Jika berhenti saat sesi aktif, kirim satu tap eksplisit untuk menutup:
+
+```powershell
+.\scripts\docker.ps1 compose run --rm --no-deps backend node scripts/simulate-rfid.js tap
+```
+
+Jika ada pending, run pertama hanya memulihkan pending; baca output sebelum mengirim aksi baru. [Panduan lengkap, migration, API dan pengujian](docs/LOCAL-DEVELOPMENT.md#simulasi-sesi-rfid). Tidak mengklaim kompatibilitas hardware RFID/ESP32.
 
 ## Struktur repository
 
@@ -147,6 +169,7 @@ docs/                Spesifikasi, arsitektur, ERD, dan panduan
 - [ERD dan rancangan database](docs/database/cpstn-erd-final.md)
 - [API monitoring](docs/API-MONITORING.md)
 - [Kontrak MQTT simulasi](docs/MQTT-CONTRACT.md)
+- [Kontrak dan rancangan RFID simulasi v1](docs/RFID-SIMULATION-PLAN.md)
 - [Rancangan dashboard](docs/DASHBOARD-PLAN.md)
 - [Panduan pengembangan lokal](docs/LOCAL-DEVELOPMENT.md)
 - [Status implementasi dan hasil pengujian](docs/HANDOFF.md)
