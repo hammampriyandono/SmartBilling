@@ -4,6 +4,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { allPages, getJson, shiftDate, todayIn, validRange, chartRows, decimal } from './data.js';
 import './style.css';
 import {AuthGate} from './auth.jsx';
+import {Sessions} from './sessions.jsx';
 
 const statuses = { complete: 'Lengkap', partial: 'Parsial', no_data: 'Tanpa data' };
 const reasons = { missing_start_boundary: 'Batas awal tidak tersedia', missing_end_boundary: 'Batas akhir tidak tersedia', gap: 'Jeda pembacaan', counter_reset: 'Counter direset', no_data: 'Belum ada sampel', invalid_quality: 'Kualitas tidak valid', counter_decreased: 'Counter menurun', ambiguous_timestamp: 'Waktu pengukuran ambigu' };
@@ -140,4 +141,8 @@ function App() {
     </main>
   </div>;
 }
-createRoot(document.getElementById('root')).render(<AuthGate Dashboard={App}/>);
+function Workspace({user}) {
+ const [page,setPage]=useState('monitoring');
+ return <><nav className="workspace-nav" aria-label="Halaman aplikasi"><button onClick={()=>setPage('monitoring')} aria-pressed={page==='monitoring'}>Monitoring listrik</button><button onClick={()=>setPage('sessions')} aria-pressed={page==='sessions'}>Riwayat fasilitas RFID</button></nav>{page==='sessions'?<Sessions user={user}/>:<App/>}</>;
+}
+createRoot(document.getElementById('root')).render(<AuthGate Dashboard={Workspace}/>);

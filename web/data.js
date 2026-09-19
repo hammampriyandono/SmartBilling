@@ -3,7 +3,7 @@ export function setAccountId(value) { accountId=value; }
 export async function getJson(path, signal) {
   let response;
   try { response = await fetch(path, { signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]), cache: 'no-store',
-    headers:accountId && /^\/api\/(meters|rooms)/.test(path) ? {'X-Account-ID':accountId}:{} }); }
+    headers:accountId && /^\/api\/(meters|rooms|facilities|usage-sessions)/.test(path) ? {'X-Account-ID':accountId}:{} }); }
   catch (error) {
     if (signal.aborted) throw error;
     throw new Error(error.name === 'TimeoutError' ? 'Waktu tunggu habis. Coba lagi.' : 'Tidak dapat menghubungi backend. Periksa layanan lokal.');

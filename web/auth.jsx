@@ -37,6 +37,6 @@ export function AuthGate({Dashboard}) {
     catch(e){setError(e.message);} finally {generation.current++;setBusy(false);}
   }
   if(loading) return <main className="login-page"><p>Memeriksa sesi…</p></main>;
-  if(user) return <><div className="account-bar"><span>{user.name} · {user.role==='owner'?'Owner':'Tenant'}</span><button onClick={logout} disabled={busy}>Keluar</button>{error&&<span role="alert">{error}</span>}</div><Dashboard key={user.id}/></>;
+  if(user) return <><div className="account-bar"><span>{user.name} · {user.role==='owner'?'Owner':'Tenant'}</span><button onClick={logout} disabled={busy}>Keluar</button>{error&&<span role="alert">{error}</span>}</div><Dashboard key={user.id} user={user}/></>;
   return <main className="login-page"><form className="login-card" onSubmit={submit}><p className="eyebrow">SMARTBILLING · LOKAL</p><h1>Masuk ke monitoring</h1><p>Akun owner atau tenant yang sudah diprovisioning.</p><label>Email<input type="email" name="email" autoComplete="username" required maxLength={254}/></label><label>Password<input type="password" name="password" autoComplete="current-password" required maxLength={1024}/></label>{error&&<p role="alert" className="error">{error}</p>}<button className="apply" disabled={busy}>{busy?'Memeriksa…':'Masuk'}</button><small>Data simulasi. Akses tenant dibatasi masa tinggal.</small></form></main>;
 }
