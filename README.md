@@ -6,6 +6,8 @@ Proyek ini dikembangkan sebagai Capstone A05. Sudah tersedia **monitoring lokal,
 
 ## Fitur yang tersedia
 
+- **Administrasi owner (baca-saja):** ringkasan sembilan kategori master, daftar/detail, status, filter dan pagination. Mutasi/invitation ditunda atas keputusan pengguna sampai backend mendukung idempotensi. [Panduan Administrasi](docs/FRONTEND-ADMIN.md).
+
 - **Dashboard monitoring:** pilihan kamar dan meter, tegangan, arus, daya, counter energi kumulatif, serta waktu pembacaan terakhir.
 - **Histori penggunaan:** grafik daya dengan filter tanggal dan pilihan tujuh hari, serta tabel konsumsi energi harian.
 - **Informasi kualitas data:** penanda pembacaan lama, data lengkap atau parsial, kondisi tanpa data, dan gangguan koneksi.

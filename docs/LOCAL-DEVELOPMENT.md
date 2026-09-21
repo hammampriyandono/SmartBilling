@@ -1,5 +1,7 @@
 # Lingkungan pengembangan lokal
 
+Frontend Administrasi owner baca-saja tersedia sejak 21 September 2026. Mutasi ditunda sampai idempotensi backend tersedia, sesuai keputusan pengguna. Cara memakai data existing tanpa migration/seed dan memperbarui aset saja: [FRONTEND-ADMIN.md](FRONTEND-ADMIN.md).
+
 Project aktif: **SmartBilling / Capstone A05**, `C:\Users\Admin\source\repos\SmartBilling`.
 
 ## Prasyarat dan Docker Windows
@@ -280,6 +282,32 @@ Pengujian:
 ```
 
 Verifier MQTT menambah catatan penolakan untuk pesan uji, tetapi tidak menambah sesi/pembacaan. Fixture suite PostgreSQL memakai transaksi rollback; bukan reset database. Counter identity sequence PostgreSQL dapat bertambah walaupun fixture di-rollback. Pengujian crash hardware, banyak reader bersamaan dan gangguan panjang belum tercakup; lihat HANDOFF.
+
+## Backend data master owner
+
+Setelah image yang memuat migration 008–011 tersedia:
+
+```powershell
+.\scripts\docker.ps1 compose run --rm --no-deps backend npm run migrate
+.\scripts\docker.ps1 compose up -d --no-deps --force-recreate --wait backend
+.\scripts\docker.ps1 compose exec -T -e INTEGRATION_DB=1 backend npm test
+```
+
+Migration bersifat non-destruktif dan tidak menjalankan seed. Endpoint, lifecycle, invitation dan batas implementasi dijelaskan di `MASTER-DATA-BACKEND.md`. Belum ada UI admin; gunakan API hanya dengan login owner, CSRF, dan data manual. Record `source=simulation` sengaja read-only.
+
+Sejak migration 012, setiap mutasi `/api/owner` juga wajib menyertakan header `Idempotency-Key` UUID baru untuk setiap aksi. Pertahankan key saat retry setelah timeout; jangan buat key baru untuk retry aksi yang sama. `409 idempotency_in_progress` berarti tunggu lalu coba kembali dengan key sama, sedangkan `409 idempotency_key_conflict` berarti key sudah dipakai untuk endpoint/payload berbeda. Frontend Administrasi existing tetap baca-saja sampai tahap UI terpisah.
+
+Untuk membuktikan retry HTTP lintas restart secara nyata, verifier `scripts/verify-owner-idempotency-restart.js` menjalankan fase `before`, lalu backend direstart, lalu fase `after`. Fase `before` membuat satu properti dan kamar uji **permanen** yang terpisah dari dataset pengamatan; jangan jalankan ulang `before` setelah berhasil. Gunakan password owner lokal sebagai mount read-only, tanpa mencetaknya:
+
+```powershell
+$verifyArgs = @('--rm','--no-deps','-v',"${PWD}/.local/secrets/owner_login_password:/run/test/owner_password:ro",'-v',"${PWD}/scripts/verify-owner-idempotency-restart.js:/app/scripts/verify-owner-idempotency-restart.js:ro",'-e','AUTH_TEST_PASSWORD_FILE=/run/test/owner_password','-e','AUTH_TEST_BASE_URL=http://backend:3000','backend','node','scripts/verify-owner-idempotency-restart.js')
+.\scripts\docker.ps1 compose run @verifyArgs before
+.\scripts\docker.ps1 compose restart backend
+.\scripts\docker.ps1 compose up -d --no-deps --wait backend
+.\scripts\docker.ps1 compose run @verifyArgs after
+```
+
+Pada database lokal saat ini fase `before` sudah selesai; untuk mengulang verifikasi baca-saja gunakan `after` saja. Hasil 21 September: status awal dan retry 201, satu kamar dan satu audit, respons identik. Suite PostgreSQL nyata 23/23 lulus; fingerprint sesi, event, dan seluruh pembacaan tidak berubah.
 
 Verifikasi ulang 19 September 2026 memakai PostgreSQL/MQTT Docker nyata menghasilkan 21 test lulus tanpa skip. Demo MQTT terbaru tersimpan sebagai sesi `e462e6a9-e2c6-42b4-b14f-e20675dc71bb` dengan status selesai dan energi simulasi valid `0.025004416` kWh. Setelah restart PostgreSQL, MQTT, dan backend, snapshot sesi/event/reading tetap identik; replay, konflik, dan pesan invalid tidak mengubah data canonical. ID tersebut hanya berlaku pada database lokal yang sama.
 
