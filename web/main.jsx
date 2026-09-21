@@ -5,6 +5,7 @@ import { allPages, getJson, shiftDate, todayIn, validRange, chartRows, decimal }
 import './style.css';
 import {AuthGate} from './auth.jsx';
 import {Sessions} from './sessions.jsx';
+import {Administration} from './admin.jsx';
 
 const statuses = { complete: 'Lengkap', partial: 'Parsial', no_data: 'Tanpa data' };
 const reasons = { missing_start_boundary: 'Batas awal tidak tersedia', missing_end_boundary: 'Batas akhir tidak tersedia', gap: 'Jeda pembacaan', counter_reset: 'Counter direset', no_data: 'Belum ada sampel', invalid_quality: 'Kualitas tidak valid', counter_decreased: 'Counter menurun', ambiguous_timestamp: 'Waktu pengukuran ambigu' };
@@ -126,7 +127,7 @@ function App() {
             <label>Dari<input aria-label="Tanggal mulai" type="date" value={draft.from} onChange={e => setDraft({ ...draft, from: e.target.value })} required/></label><label>Sampai<input aria-label="Tanggal akhir" type="date" value={draft.to} onChange={e => setDraft({ ...draft, to: e.target.value })} required/></label><button className="apply">Terapkan</button>
           </form>
           <ErrorNotice text={rangeError}/><ErrorNotice text={history.error} retry={refreshAll}/>
-          <div className="history-info"><span>{range.from} — {range.to} · {zone}</span><span aria-live="polite">{history.loading ? `Memuat seluruh histori… ${history.progress || ''}` : result ? `${result.rows.length.toLocaleString('id-ID')} sampel · ${result.pages} halaman selesai` : 'Belum tersedia'}</span></div>
+          <div className="history-info"><span> {range.from} — {range.to} · {zone}</span><span aria-live="polite">{history.loading ? `Memuat seluruh histori… ${history.progress || ''}` : result ? `${result.rows.length.toLocaleString('id-ID')} sampel · ${result.pages} halaman selesai` : 'Belum tersedia'}</span></div>
           {result && <div className="chart" role="img" aria-label={`Grafik daya, ${result.rows.length} sampel, rentang ${range.from} sampai ${range.to}`}><ResponsiveContainer width="100%" height="100%"><LineChart data={graph} margin={{ top: 20, right: 18, bottom: 8, left: 0 }}><CartesianGrid vertical={false} stroke="#e9eeeb"/><XAxis dataKey="time" type="number" domain={[Date.parse(result.start), Date.parse(result.end)]} scale="time" ticks={range.from === range.to ? Array.from({ length: 7 }, (_, i) => Date.parse(result.start) + i * (Date.parse(result.end) - Date.parse(result.start)) / 6) : [...result.daily.data.map(day => Date.parse(day.starts_at)), Date.parse(result.end)]} tickFormatter={v => new Intl.DateTimeFormat('id-ID',{ timeZone: zone, ...(range.from === range.to ? { hour:'2-digit', minute:'2-digit' } : { day:'2-digit', month:'short' }) }).format(v)} tick={{ fontSize: 11 }} minTickGap={45}/><YAxis tick={{ fontSize: 11 }} width={45} domain={[0,'auto']}/><Tooltip labelFormatter={v => formatTime(v,zone)} formatter={(value, name, item) => [item.payload.original ?? value, 'Daya (W)']}/><Line type="linear" dataKey="power" stroke="#20866a" strokeWidth={2} dot={false} activeDot={{ r:4 }} connectNulls={false} isAnimationActive={false}/></LineChart></ResponsiveContainer>{!result.rows.some(r => r.power_w !== null) && <div className="chart-empty">Belum ada pembacaan daya pada rentang ini.</div>}</div>}
           {!result && <div className="empty chart-placeholder">{history.loading ? 'Mengambil histori dari PostgreSQL melalui API…' : 'Histori belum tersedia.'}</div>}
           <div className="panel-foot">Garis terputus menandakan data tidak tersedia atau jeda pembacaan. Tidak ada interpolasi.<span>{history.updated ? `Dimuat ${formatTime(history.updated,zone)}` : ''}</span></div>
@@ -143,6 +144,6 @@ function App() {
 }
 function Workspace({user}) {
  const [page,setPage]=useState('monitoring');
- return <><nav className="workspace-nav" aria-label="Halaman aplikasi"><button onClick={()=>setPage('monitoring')} aria-pressed={page==='monitoring'}>Monitoring listrik</button><button onClick={()=>setPage('sessions')} aria-pressed={page==='sessions'}>Riwayat fasilitas RFID</button></nav>{page==='sessions'?<Sessions user={user}/>:<App/>}</>;
+ return <><nav className="workspace-nav" aria-label="Halaman aplikasi"><button onClick={()=>setPage('monitoring')} aria-pressed={page==='monitoring'}>Monitoring listrik</button><button onClick={()=>setPage('sessions')} aria-pressed={page==='sessions'}>Riwayat fasilitas RFID</button>{user.role==='owner'&&<button onClick={()=>setPage('admin')} aria-pressed={page==='admin'}>Administrasi</button>}</nav>{page==='admin'?<Administration user={user}/>:page==='sessions'?<Sessions user={user}/>:<App/>}</>;
 }
 createRoot(document.getElementById('root')).render(<AuthGate Dashboard={Workspace}/>);
