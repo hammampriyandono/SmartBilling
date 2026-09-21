@@ -10,6 +10,7 @@ import { ingestSensor } from './sensor-ingest.js';
 import {rfidTopic} from './rfid-message.js';
 import {receiveTap,createRfidWorker} from './rfid-ingest.js';
 import {rfidApi} from './rfid-api.js';
+import {masterApi} from './master-api.js';
 
 requireDevelopment();
 const pool = createPool();
@@ -65,6 +66,7 @@ app.disable('x-powered-by');
 const auth=authentication(pool,{secret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim(),origin:process.env.AUTH_ORIGIN||'http://127.0.0.1:3000'});
 app.use('/api',(_req,res,next)=>{res.set('Cache-Control','no-store');next();},auth.middleware);
 app.use('/api/auth',auth.router);
+app.use('/api',auth.requireUser,masterApi(pool,{csrf:auth.csrf,idempotencySecret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim()}));
 app.use('/api',auth.requireUser,rfidApi(pool));
 app.use('/api',auth.requireUser,monitoringApi(pool, { maxGapSeconds: Number(process.env.MONITORING_MAX_GAP_SECONDS || 120) }));
 app.get('/health/live', (_req, res) => res.json({ status: 'ok', environment: 'development' }));

@@ -3,7 +3,7 @@ import session from 'express-session';
 import pgSession from 'connect-pg-simple';
 import { Router, json } from 'express';
 import { HttpError } from './http-input.js';
-import { verifyPassword } from './password.js';
+import { hashPassword,verifyPassword } from './password.js';
 
 export function authentication(pool, { secret, origin='http://127.0.0.1:3000', lifetime=8*3600000,
   accountLimit=Number(process.env.AUTH_LOGIN_ACCOUNT_LIMIT||5),ipLimit=Number(process.env.AUTH_LOGIN_IP_LIMIT||30) }={}) {
@@ -57,10 +57,27 @@ export function authentication(pool, { secret, origin='http://127.0.0.1:3000', l
     req.session.csrf=token(); await save(req);
     res.json({ok:true});
   });
+  router.post('/activate',csrf,async(req,res)=>{
+    const {token:raw,password}=req.body||{};
+    if(typeof raw!=='string'||raw.length>200||typeof password!=='string'||password.length<12||Buffer.byteLength(password)>1024)
+      throw new HttpError(400,'invalid_activation_input');
+    const hash=createHash('sha256').update(raw).digest('hex'),passwordHash=await hashPassword(password),db=await pool.connect();
+    try{
+      await db.query('BEGIN');
+      const invitation=(await db.query(`SELECT i.*,pt.user_id FROM tenant_invitations i JOIN property_tenants pt ON pt.id=i.property_tenant_id
+        WHERE i.token_sha256=$1 FOR UPDATE OF i,pt`,[hash])).rows[0];
+      if(!invitation||invitation.used_at||invitation.revoked_at||+new Date(invitation.expires_at)<=Date.now())throw new HttpError(400,'invalid_or_expired_invitation');
+      const activated=await db.query("UPDATE users SET password_hash=$2,is_active=true,row_version=row_version+1,updated_at=now() WHERE id=$1 AND role='tenant' AND is_active=false",[invitation.user_id,passwordHash]);
+      if(!activated.rowCount)throw new HttpError(409,'account_already_active');
+      await db.query("UPDATE property_tenants SET status='active',row_version=row_version+1,updated_at=now() WHERE id=$1",[invitation.property_tenant_id]);
+      await db.query('UPDATE tenant_invitations SET used_at=now() WHERE id=$1',[invitation.id]);
+      await db.query('COMMIT');res.json({ok:true});
+    }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
+  });
   router.get('/me',requireUser,(req,res)=>res.json({user:req.user}));
   router.post('/logout',csrf,async(req,res)=>{
     await new Promise((resolve,reject)=>req.session.destroy(e=>e?reject(e):resolve()));
     res.clearCookie('smartbilling.sid',{httpOnly:true,sameSite:'lax',secure:false,path:'/'}).sendStatus(204);
   });
-  return {middleware,router,requireUser,store};
+  return {middleware,router,requireUser,csrf,store};
 }

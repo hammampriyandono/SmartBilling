@@ -37,7 +37,7 @@ test('PostgreSQL: FK, overlap pemasangan, deduplikasi, dan pembacaan immutable',
     await db.query(insert, [meter, boot, '2026-09-11T00:00:00Z']);
     await rejects(insert, [meter, boot, '2026-09-11T00:00:00Z'], '23505');
     await rejects('UPDATE meter_readings SET energy_kwh=0 WHERE meter_id=$1', [meter], 'P0001');
-    await rejects('DELETE FROM rooms WHERE id=$1', [room], '23503');
+    await rejects('DELETE FROM rooms WHERE id=$1', [room], 'P0001');
     const saved = await db.query('SELECT energy_kwh,power_w FROM meter_readings WHERE meter_id=$1', [meter]);
     assert.deepEqual(saved.rows, [{ energy_kwh: '0.000000001', power_w: null }]);
     await db.query(`INSERT INTO meter_readings(meter_id,boot_id,sequence_no,counter_epoch,measured_at,energy_kwh,quality)
