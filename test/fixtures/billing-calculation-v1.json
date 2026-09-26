@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "purpose": "Fixture sintetis pure calculation; bukan seed, tarif nyata, invoice, atau data pengamatan.",
+  "currency": "IDR",
+  "energy_scale": 9,
+  "period": {
+    "starts_at": "2026-10-01T00:00:00+07:00",
+    "ends_at": "2026-11-01T00:00:00+07:00",
+    "timezone": "Asia/Jakarta"
+  },
+  "temporary_policy": {
+    "energy_rate_rp_kwh": "1500.000000000000",
+    "external_invoice_reconciliation": false,
+    "property_residual_payable": false,
+    "empty_room_allocation": "owner_unassigned",
+    "facility_multi_participant": "review",
+    "facility_outside_session": "review",
+    "cross_period_or_occupancy_session": "review",
+    "production_max_gap_seconds": null,
+    "rounding": "largest_remainder_then_id_ascending"
+  },
+  "cases": [
+    {
+      "id": "room-valid-main-missing",
+      "input": {
+        "main_meter": {"status": "partial", "reason": "missing_end_boundary"},
+        "room_segments": [
+          {"id": "00000000-0000-4000-8000-000000001001", "start_kwh": "100.000000000", "end_kwh": "112.345000000", "boundaries": "valid", "source": "production"}
+        ],
+        "occupancies": [{"id": "00000000-0000-4000-8000-000000002001", "covers_full_segment": true}],
+        "sessions": []
+      },
+      "expected": {
+        "property_reconciliation_status": "review",
+        "property_reconciliation_reason": "missing_end_boundary",
+        "room_bill_status": "finalized",
+        "room_energy_kwh": "12.345000000",
+        "room_cost_unrounded_rp": "18517.500000000000",
+        "room_cost_rp": "18518",
+        "attributable_energy_kwh": "0.000000000",
+        "attributable_cost_rp": "0",
+        "total_cost_rp": "18518"
+      }
+    },
+    {
+      "id": "empty-room-owner-unassigned",
+      "input": {
+        "room_segments": [{"id": "00000000-0000-4000-8000-000000001002", "start_kwh": "20.000000000", "end_kwh": "22.000000000", "boundaries": "valid", "source": "production"}],
+        "occupancies": [],
+        "sessions": []
+      },
+      "expected": {
+        "room_bill_status": "finalized",
+        "room_energy_kwh": "2.000000000",
+        "room_cost_rp": "3000",
+        "shares": [{"occupancy_id": null, "allocation": "owner_unassigned", "energy_kwh": "2.000000000", "cost_rp": "3000"}]
+      }
+    },
+    {
+      "id": "meter-replacement-complete",
+      "input": {
+        "room_segments": [
+          {"id": "00000000-0000-4000-8000-000000001003", "meter_id": "00000000-0000-4000-8000-000000003001", "start_kwh": "40.000000000", "end_kwh": "45.000000000", "boundaries": "valid", "source": "production"},
+          {"id": "00000000-0000-4000-8000-000000001004", "meter_id": "00000000-0000-4000-8000-000000003002", "start_kwh": "0.000000000", "end_kwh": "4.000000000", "boundaries": "valid", "source": "production"}
+        ],
+        "occupancies": [{"id": "00000000-0000-4000-8000-000000002002", "covers_full_segment": true}],
+        "sessions": []
+      },
+      "expected": {"room_bill_status": "finalized", "room_energy_kwh": "9.000000000", "room_cost_rp": "13500"}
+    },
+    {
+      "id": "meter-replacement-incomplete",
+      "input": {
+        "room_segments": [
+          {"id": "00000000-0000-4000-8000-000000001005", "meter_id": "00000000-0000-4000-8000-000000003003", "start_kwh": "10.000000000", "end_kwh": "15.000000000", "boundaries": "valid", "source": "production"},
+          {"id": "00000000-0000-4000-8000-000000001006", "meter_id": "00000000-0000-4000-8000-000000003004", "start_kwh": null, "end_kwh": "2.000000000", "boundaries": "missing_start", "source": "production"}
+        ]
+      },
+      "expected": {"room_bill_status": "review", "room_energy_kwh": null, "room_cost_rp": null, "reasons": ["meter_replacement_incomplete", "missing_start_boundary"]}
+    },
+    {
+      "id": "invalid-counter-and-gap-cases",
+      "variants": [
+        {"reason": "missing_end_boundary", "expected_energy_kwh": null, "expected_cost_rp": null},
+        {"reason": "gap_policy_unset", "expected_energy_kwh": null, "expected_cost_rp": null},
+        {"reason": "gap", "expected_energy_kwh": null, "expected_cost_rp": null},
+        {"reason": "counter_reset", "expected_energy_kwh": null, "expected_cost_rp": null},
+        {"reason": "counter_decreased", "expected_energy_kwh": null, "expected_cost_rp": null},
+        {"reason": "ambiguous_timestamp", "expected_energy_kwh": null, "expected_cost_rp": null},
+        {"reason": "invalid_quality", "expected_energy_kwh": null, "expected_cost_rp": null}
+      ],
+      "expected": {"room_bill_status": "review"}
+    },
+    {
+      "id": "single-participant-rfid-valid",
+      "input": {
+        "session": {"id": "00000000-0000-4000-8000-000000004001", "status": "completed", "energy_status": "valid", "energy_kwh": "1.250000000", "participant_ids": ["00000000-0000-4000-8000-000000005001"], "within_one_period": true, "within_one_occupancy": true, "source": "production"}
+      },
+      "expected": {"allocation_status": "finalized", "allocated_energy_kwh": "1.250000000", "attributable_cost_rp": "1875"}
+    },
+    {
+      "id": "unsupported-facility-cases",
+      "variants": [
+        {"input": "two_participants", "reason": "multiple_session_participants"},
+        {"input": "meter_energy_without_session", "reason": "facility_energy_outside_session"},
+        {"input": "session_crosses_occupancy", "reason": "session_crosses_occupancy"},
+        {"input": "session_crosses_period", "reason": "session_crosses_period"},
+        {"input": "session_energy_unavailable", "reason": "session_energy_unavailable"}
+      ],
+      "expected": {"allocation_status": "review", "allocated_energy_kwh": null, "attributable_cost_rp": null}
+    },
+    {
+      "id": "simulation-preview-not-final",
+      "input": {"room_energy_kwh": "10.000000000", "source": "simulation"},
+      "expected": {"room_bill_status": "review", "preview_cost_rp": "15000", "total_cost_rp": null, "reasons": ["simulation_not_finalizable"]}
+    },
+    {
+      "id": "largest-remainder-tie-break",
+      "input": {
+        "rounded_total_rp": "100",
+        "unrounded_shares": [
+          {"id": "00000000-0000-4000-8000-000000006001", "rp": "33.333333333333"},
+          {"id": "00000000-0000-4000-8000-000000006002", "rp": "33.333333333333"},
+          {"id": "00000000-0000-4000-8000-000000006003", "rp": "33.333333333333"}
+        ]
+      },
+      "expected": {
+        "shares": [
+          {"id": "00000000-0000-4000-8000-000000006001", "rp": "34"},
+          {"id": "00000000-0000-4000-8000-000000006002", "rp": "33"},
+          {"id": "00000000-0000-4000-8000-000000006003", "rp": "33"}
+        ],
+        "sum_rp": "100",
+        "tie_break": "fraction_desc_then_id_ascending"
+      }
+    }
+  ]
+}
