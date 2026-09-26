@@ -13,14 +13,14 @@ export async function receiveTap(pool,topic,bytes,packet) {
  const db=await pool.connect();let deviceId;
  try {
   await db.query('BEGIN');
-  const device=(await db.query('SELECT d.id FROM devices d JOIN rfid_stream_state s ON s.device_id=d.id WHERE d.device_uid=$1 AND d.status=$2 FOR UPDATE OF d',[device_uid,'active'])).rows[0];
+  const device=(await db.query('SELECT d.id,d.source FROM devices d JOIN rfid_stream_state s ON s.device_id=d.id WHERE d.device_uid=$1 AND d.status=$2 FOR UPDATE OF d',[device_uid,'active'])).rows[0];
   if(!device){await reject(db,topic,bytes,'unknown_or_inactive_device');await db.query('COMMIT');return {status:'rejected'};}
   deviceId=device.id;
   const existing=(await db.query('SELECT * FROM device_events WHERE device_id=$1 AND boot_id=$2 AND sequence_no=$3',[deviceId,p.boot_id,p.sequence_no])).rows[0];
   if(existing) {
    if(existing.payload_sha256!==hash)await reject(db,topic,bytes,'identity_conflict');
-  }else await db.query(`INSERT INTO device_events(device_id,boot_id,sequence_no,event_type,occurred_at,payload,payload_sha256,previous_boot_id,previous_sequence_no)
-   VALUES($1,$2,$3,'rfid_tap',$4,$5,$6,$7,$8)`,[deviceId,p.boot_id,p.sequence_no,p.occurred_at,p,hash,p.previous_event?.boot_id||null,p.previous_event?.sequence_no??null]);
+  }else await db.query(`INSERT INTO device_events(device_id,boot_id,sequence_no,event_type,occurred_at,payload,payload_sha256,previous_boot_id,previous_sequence_no,data_source)
+   VALUES($1,$2,$3,'rfid_tap',$4,$5,$6,$7,$8,$9)`,[deviceId,p.boot_id,p.sequence_no,p.occurred_at,p,hash,p.previous_event?.boot_id||null,p.previous_event?.sequence_no??null,device.source==='simulation'?'simulation':'production']);
   await db.query('COMMIT');
  }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
  await processDevice(pool,deviceId);
@@ -52,8 +52,8 @@ async function applyTap(db,event) {
   return {action:'closed'};
  }
  const id=randomUUID();
- await db.query(`INSERT INTO usage_sessions(id,communal_load_id,meter_id,device_session_key,start_event_id,started_at,status,energy_reason)
-  VALUES($1,$2,$3,$4,$5,$6,'active','session_open')`,[id,reader.communal_load_id,meter.id,`${event.device_id}:${event.boot_id}:${event.sequence_no}`,event.id,time]);
+ await db.query(`INSERT INTO usage_sessions(id,communal_load_id,meter_id,device_session_key,start_event_id,started_at,status,energy_reason,data_source)
+  VALUES($1,$2,$3,$4,$5,$6,'active','session_open',$7)`,[id,reader.communal_load_id,meter.id,`${event.device_id}:${event.boot_id}:${event.sequence_no}`,event.id,time,event.data_source==='production'&&meter.source!=='simulation'?'production':'simulation']);
  await db.query('INSERT INTO session_participants(id,usage_session_id,occupancy_id,rfid_card_id,registered_at) VALUES($1,$2,$3,$4,$5)',[randomUUID(),id,occupancy.id,card.id,time]);
  return {action:'opened'};
 }
