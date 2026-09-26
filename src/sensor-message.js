@@ -2,7 +2,10 @@ import { createHash } from 'node:crypto';
 import { timestamp, uuid } from './http-input.js';
 
 export const sensorTopic = 'smartbilling/sim/v1/devices/+/readings';
+export const productionSensorTopic = 'smartbilling/v1/devices/+/readings';
+export const sensorTopics = [sensorTopic, productionSensorTopic];
 export const sensorPrefix = 'smartbilling/sim/v1/devices/';
+export const productionSensorPrefix = 'smartbilling/v1/devices/';
 export const optionalFields = { voltage_v: [8, 4], current_a: [6, 6], power_w: [10, 6], frequency_hz: [6, 4], power_factor: [1, 6] };
 export const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 export class Rejection extends Error {}
@@ -11,7 +14,7 @@ export function parseSensor(topic, bytes, packet = {}) {
   if (bytes.length > 4096) throw new Rejection('payload_too_large');
   if (packet.retain) throw new Rejection('retained_not_allowed');
   if (packet.qos !== undefined && packet.qos !== 1) throw new Rejection('invalid_qos');
-  const match = /^smartbilling\/sim\/v1\/devices\/([A-Za-z0-9_-]{1,80})\/readings$/.exec(topic);
+  const match = /^smartbilling\/(sim\/)?v1\/devices\/([A-Za-z0-9_-]{1,80})\/readings$/.exec(topic);
   if (!match) throw new Rejection('invalid_topic');
   let value;
   try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
@@ -25,8 +28,8 @@ export function parseSensor(topic, bytes, packet = {}) {
       || (key !== 'sequence_no' && value[key] > 2147483647)) throw new Rejection(`invalid_${key}`);
   }
   let boot, measured;
-  try { boot = uuid(value.boot_id).toLowerCase(); measured = timestamp(value.measured_at); }
-  catch { throw new Rejection('invalid_identity_or_timestamp'); }
+  try { boot = uuid(value.boot_id).toLowerCase(); } catch { throw new Rejection('invalid_boot_id'); }
+  try { measured = timestamp(value.measured_at); } catch { throw new Rejection('invalid_timestamp'); }
   if (typeof value.energy_kwh !== 'string' || !/^(0|[1-9]\d{0,10})(\.\d{1,9})?$/.test(value.energy_kwh)) {
     throw new Rejection('invalid_energy_kwh');
   }
@@ -40,7 +43,7 @@ export function parseSensor(topic, bytes, packet = {}) {
       || Number(number.toFixed(scale)) !== number || (key === 'power_factor' && number > 1)) throw new Rejection(`invalid_${key}`);
     reading[key] = number.toFixed(scale);
   }
-  return { device_uid: match[1], reading };
+  return { device_uid: match[2], environment:match[1]?'simulation':'production', reading };
 }
 
 export function sameReading(row, reading) {

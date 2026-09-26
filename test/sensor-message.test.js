@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseSensor, Rejection, sameReading } from '../src/sensor-message.js';
+import { parseSensor, Rejection, sameReading,productionSensorTopic } from '../src/sensor-message.js';
 import { dataset, demoTopic } from '../src/simulation.js';
 const input = dataset('2026-09-12')[0];
 const parse = (value) => parseSensor(demoTopic, Buffer.from(JSON.stringify(value))).reading;
@@ -10,6 +10,11 @@ test('kontrak sensor: normalisasi energi, identitas, waktu dan null', () => {
   assert.equal(r.power_w, null);
   assert.ok(sameReading(r, parse({ ...input, energy_kwh: '12.300000000', power_w: undefined })));
   assert.ok(!sameReading(r, parse({ ...input, energy_kwh: '12.300000001', power_w: null })));
+});
+test('kontrak produksi memakai payload v1 yang sama dan reason identitas/waktu spesifik',()=>{
+ const topic=productionSensorTopic.replace('+','esp32-kamar-01'),parsed=parseSensor(topic,Buffer.from(JSON.stringify(input)),{qos:1,retain:false});
+ assert.equal(parsed.device_uid,'esp32-kamar-01');assert.equal(parsed.environment,'production');
+ for(const [value,reason] of [[{...input,boot_id:'bukan-uuid'},'invalid_boot_id'],[{...input,measured_at:'2026-02-30T00:00:00Z'},'invalid_timestamp']])assert.throws(()=>parseSensor(topic,Buffer.from(JSON.stringify(value)),{qos:1}),e=>e instanceof Rejection&&e.message===reason);
 });
 test('kontrak sensor: invalid ditolak sebelum database', () => {
   for (const value of [null, [], 1, { ...input, schema_version: 2 }, { ...input, sequence_no: -1 },
