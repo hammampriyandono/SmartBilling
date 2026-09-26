@@ -2,6 +2,7 @@
 const common=['id','property_id','source','row_version','updated_at'];
 const field=(key,label,type='text')=>({key,label,type});
 export const adminSections=[
+ {key:'properties',name:'Properti',note:'Nama dan zona waktu properti. Mengganti nama tidak mengubah ID maupun histori terkait.',fields:[field('name','Nama'),field('timezone','Zona waktu'),field('created_at','Dibuat','date')],actions:'Ubah nama properti'},
  {key:'rooms',name:'Kamar',note:'Identitas kamar dan masa aktifnya.',fields:[field('code','Kode'),field('name','Nama'),field('active_from','Aktif sejak','date'),field('active_until','Aktif sampai','date')],actions:'Tambah kamar, edit nama, nonaktifkan'},
  {key:'tenants',name:'Tenant',note:'Membership tenant pada properti Anda. Tidak memuat credential.',unpaged:true,fields:[field('name','Nama'),field('email','Email'),field('user_id','ID tenant'),field('status','Membership'),field('is_active','Akun aktif','boolean'),field('created_at','Dibuat','date'),field('ended_at','Berakhir','date')],actions:'Buat invitation tenant'},
  {key:'occupancies',name:'Occupancy',note:'Masa tinggal penghuni; riwayat tidak dipindahkan.',unpaged:true,fields:[field('user_id','ID tenant'),field('room_id','ID kamar'),field('starts_at','Mulai','date'),field('ends_at','Selesai','date')],actions:'Tambah, akhiri, pindah kamar'},
