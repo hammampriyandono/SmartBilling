@@ -7,7 +7,7 @@ const meter='00000000-0000-4000-8000-000000000005';
 const json=async(client,path)=>{const r=await client(path);assert.equal(r.status,200,path);return r.json();};
 assert.equal((await json(owner,'/api/auth/me')).user.role,'owner');
 assert.equal((await json(owner,`/api/meters/${meter}/daily?from=2026-09-12&to=2026-09-13`)).data[0].consumption_kwh,'1.440000000');
-process.env.AUTH_TEST_EMAIL='tenant@simulation.invalid';
+process.env.AUTH_TEST_EMAIL='tenant@simulation.local';
 process.env.AUTH_TEST_PASSWORD_FILE=process.env.AUTH_TENANT_PASSWORD_FILE;
 const tenant=await authenticatedFetch();
 const list=await json(tenant,'/api/meters');assert.equal(list.data.length,2);assert.ok(list.data.every(m=>m.kind==='room'));

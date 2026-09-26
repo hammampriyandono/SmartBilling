@@ -31,7 +31,7 @@ try {
   }
   const csrfResponse=await request('/api/auth/csrf');assert.equal(csrfResponse.status,200);
   const {csrf}=await csrfResponse.json();
-  const login=await request('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({email:'owner@simulation.invalid',password})});
+const login=await request('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({email:'owner@simulation.local',password})});
   assert.equal(login.status,200,'Login owner uji gagal');
   const activeCsrfResponse=await request('/api/auth/csrf');assert.equal(activeCsrfResponse.status,200);
   const {csrf:activeCsrf}=await activeCsrfResponse.json();

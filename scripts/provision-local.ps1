@@ -1,6 +1,7 @@
 param(
   [Parameter(Mandatory=$true)][ValidateSet('owner','tenant')][string]$Role,
-  [switch]$GeneratePassword
+  [switch]$GeneratePassword,
+  [switch]$ResetPassword
 )
 $ErrorActionPreference='Stop'
 Push-Location (Split-Path -Parent $PSScriptRoot)
@@ -8,18 +9,18 @@ try {
   $secretDir=Join-Path (Get-Location) '.local/secrets'
   New-Item -ItemType Directory -Force -Path $secretDir | Out-Null
   $passwordPath=Join-Path $secretDir ($Role+'_login_password')
-  if (-not (Test-Path -LiteralPath $passwordPath)) {
+  if (-not (Test-Path -LiteralPath $passwordPath) -or $ResetPassword) {
     if ($GeneratePassword) {
       $bytes=New-Object byte[] 32
       $rng=[System.Security.Cryptography.RandomNumberGenerator]::Create()
       try {$rng.GetBytes($bytes)} finally {$rng.Dispose()}
       $plain=[Convert]::ToBase64String($bytes)
     } else {
-      $secure=Read-Host 'Password akun demo (minimal 12 karakter; tidak ditampilkan)' -AsSecureString
+      $secure=Read-Host 'Password akun demo (minimal 8 karakter; tidak ditampilkan)' -AsSecureString
       $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
       try {$plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)} finally {[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)}
     }
-    if ($plain.Length -lt 12) {throw 'Password minimal 12 karakter'}
+    if ([string]::IsNullOrWhiteSpace($plain)) {throw 'Password akun lokal tidak boleh kosong'}
     [IO.File]::WriteAllText($passwordPath,$plain,[Text.UTF8Encoding]::new($false))
     $plain=$null
   }

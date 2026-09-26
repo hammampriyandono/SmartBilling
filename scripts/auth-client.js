@@ -10,7 +10,7 @@ export async function authenticatedFetch(base=process.env.AUTH_TEST_BASE_URL||'h
   }
   const csrfResponse=await request('/api/auth/csrf');if(!csrfResponse.ok)throw new Error('CSRF tidak tersedia');
   const {csrf}=await csrfResponse.json();
-  const login=await request('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({email:process.env.AUTH_TEST_EMAIL||'owner@simulation.invalid',password})});
+  const login=await request('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({email:process.env.AUTH_TEST_EMAIL||'owner@simulation.local',password})});
   if(!login.ok)throw new Error('Login pengujian gagal');
   return request;
 }

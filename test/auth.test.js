@@ -8,6 +8,8 @@ import {hashPassword,verifyPassword} from '../src/password.js';
 import {monitoringApi,apiError} from '../src/monitoring-api.js';
 
 test('password scrypt berversi: benar, salah, hash seed tidak dapat login',async()=>{
+  await assert.rejects(()=>hashPassword('abc1234'),/8–1024 byte/);
+  const minimumHash=await hashPassword('Abc12345');assert.equal(await verifyPassword('Abc12345',minimumHash),true);
   const password=randomBytes(24).toString('hex'), hash=await hashPassword(password);
   assert.equal(await verifyPassword(password,hash),true);
   assert.equal(await verifyPassword('incorrect',hash),false);

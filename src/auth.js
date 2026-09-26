@@ -59,7 +59,7 @@ export function authentication(pool, { secret, origin='http://127.0.0.1:3000', l
   });
   router.post('/activate',csrf,async(req,res)=>{
     const {token:raw,password}=req.body||{};
-    if(typeof raw!=='string'||raw.length>200||typeof password!=='string'||password.length<12||Buffer.byteLength(password)>1024)
+    if(typeof raw!=='string'||raw.length>200||typeof password!=='string'||password.length<8||Buffer.byteLength(password)>1024)
       throw new HttpError(400,'invalid_activation_input');
     const hash=createHash('sha256').update(raw).digest('hex'),passwordHash=await hashPassword(password),db=await pool.connect();
     try{

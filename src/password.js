@@ -10,7 +10,7 @@ async function key(password,salt) {
   finally { busy--; }
 }
 export async function hashPassword(password) {
-  if (typeof password !== 'string' || password.length < 12 || Buffer.byteLength(password)>1024) throw new Error('Password harus 12–1024 byte');
+  if (typeof password !== 'string' || password.length < 8 || Buffer.byteLength(password)>1024) throw new Error('Password harus 8–1024 byte');
   const salt=randomBytes(16).toString('hex');
   return `scrypt-v1:${N}:${r}:${p}:${salt}:${(await key(password,salt)).toString('hex')}`;
 }

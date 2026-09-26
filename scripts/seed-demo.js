@@ -11,7 +11,7 @@ try {
   const hash = `scrypt:${salt}:${scryptSync(randomBytes(32), salt, 64).toString('hex')}`;
   // Akun nonaktif dengan password acak yang tidak disimpan. Bukan akun login.
   await db.query(`INSERT INTO users(id,name,email,password_hash,role,is_active) VALUES
-    ('00000000-0000-4000-8000-000000000001','Owner simulasi','owner@simulation.invalid',$1,'owner',false)
+    ('00000000-0000-4000-8000-000000000001','Owner simulasi','owner@simulation.local',$1,'owner',false)
     ON CONFLICT (id) DO NOTHING`, [hash]);
   await db.query(`INSERT INTO properties(id,owner_id,name,timezone) VALUES
     ('00000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000001','Kost SIMULASI','Asia/Jakarta')
