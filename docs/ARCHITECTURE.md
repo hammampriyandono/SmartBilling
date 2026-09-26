@@ -6,7 +6,7 @@ Versi handoff, 9 September 2026; catatan lingkungan diperbarui 10 September 2026
 
 ```mermaid
 flowchart LR
-    ESP[ESP32: sensor dan tap RFID] -->|MQTT melalui internet| BROKER
+    ESP[ESP32: sensor dan tap RFID] -->|MQTT QoS 1 melalui TLS| BROKER
     subgraph Railway
       BROKER[MQTT broker] -->|subscribe| BACKEND[Backend: validasi, sesi, hitungan]
       BACKEND --> DB[(PostgreSQL persisten)]

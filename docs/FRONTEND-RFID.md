@@ -6,7 +6,7 @@
 
 Buka http://127.0.0.1:3000, login, lalu pilih navigasi **Riwayat fasilitas RFID**. Monitoring listrik tetap dapat dibuka melalui tombol di sebelahnya. Keduanya section pada URL root; reload kembali ke monitoring. Gunakan refresh browser sekali bila tab masih menampilkan build lama.
 
-Akun existing: `owner@simulation.invalid` dan `tenant@simulation.invalid`. Gunakan password lokal hasil provisioning sebelumnya (`.local/secrets/owner_login_password` atau `tenant_login_password`); tidak ada akun/password baru atau perubahan credential. Jangan memasukkan file secret ke Git.
+Akun lokal: `owner@simulation.local` dan `tenant@simulation.local`. Password ada pada `.local/secrets/owner_login_password` atau `.local/secrets/tenant_login_password`; jangan memasukkan file secret ke Git.
 
 - Owner: daftar fasilitas properti sendiri dan riwayat sesi yang diberikan API owner.
 - Tenant: daftar fasilitas menurut occupancy aktif dari API; **Riwayat penggunaan saya** hanya sesi peserta sendiri. Riwayat pribadi dari occupancy lama tetap dapat muncul melalui filter **Semua sesi saya**, meski fasilitas lama tidak ada pada daftar occupancy aktif. Status fasilitas sedang digunakan tidak mengidentifikasi siapa penggunanya.

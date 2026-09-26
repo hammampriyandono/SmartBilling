@@ -1,6 +1,6 @@
 # Lingkungan pengembangan lokal
 
-Frontend Administrasi owner baca-saja tersedia sejak 21 September 2026. Mutasi ditunda sampai idempotensi backend tersedia, sesuai keputusan pengguna. Cara memakai data existing tanpa migration/seed dan memperbarui aset saja: [FRONTEND-ADMIN.md](FRONTEND-ADMIN.md).
+Frontend Administrasi owner mendukung mutasi sesuai API sejak 23 September 2026: form, invitation, lifecycle, CSRF, versi dan retry idempoten. Cara memakai data existing tanpa migration/seed dan memperbarui aset saja: [FRONTEND-ADMIN.md](FRONTEND-ADMIN.md).
 
 Project aktif: **SmartBilling / Capstone A05**, `C:\Users\Admin\source\repos\SmartBilling`.
 
@@ -256,7 +256,7 @@ Container `--rm` hilang setelah selesai; `logs`/`stop` pada container yang sudah
 
 Counter meter baru mengintegrasikan daya virtual sebelumnya × waktu aktual dalam nano-kWh, mempertahankan sisa pecahan lintas restart. Daya demo 600→900→300 W, tegangan 220 V; model beban tetap berlaku selama jeda offline, yang tetap dianggap gap oleh perhitungan kualitas backend. Tap tidak membawa angka energi. Sesi dengan batas/rangkaian sensor kurang tetap berakhir oleh tap, tetapi energi `null`; tidak ada tagihan. Sesi review tidak ditutup otomatis dan belum memiliki alur koreksi administratif.
 
-Dashboard: http://127.0.0.1:3000 → login **owner@simulation.invalid** dengan password lokal existing → **Riwayat fasilitas RFID**. Pilih fasilitas di atas. Status, waktu akhir dan energi berubah melalui polling lima detik tanpa refresh manual. Filter rentang pada halaman ini berlabel UTC; waktu tabel ditampilkan WIB. Tenant memakai dashboard monitoring existing; UI histori tenant belum disediakan, tetapi API sesi dibatasi peserta sendiri.
+Dashboard: http://127.0.0.1:3000 → login **owner@simulation.local** dengan password lokal → **Riwayat fasilitas RFID**. Pilih fasilitas di atas. Status, waktu akhir dan energi berubah melalui polling lima detik tanpa refresh manual. Filter rentang pada halaman ini berlabel UTC; waktu tabel ditampilkan WIB. Tenant memakai dashboard monitoring existing; UI histori tenant belum disediakan, tetapi API sesi dibatasi peserta sendiri.
 
 API terautentikasi (cookie sesi existing, `Cache-Control: no-store`):
 
@@ -293,9 +293,9 @@ Setelah image yang memuat migration 008–011 tersedia:
 .\scripts\docker.ps1 compose exec -T -e INTEGRATION_DB=1 backend npm test
 ```
 
-Migration bersifat non-destruktif dan tidak menjalankan seed. Endpoint, lifecycle, invitation dan batas implementasi dijelaskan di `MASTER-DATA-BACKEND.md`. Belum ada UI admin; gunakan API hanya dengan login owner, CSRF, dan data manual. Record `source=simulation` sengaja read-only.
+Migration bersifat non-destruktif dan tidak menjalankan seed. Endpoint, lifecycle, invitation dan batas implementasi dijelaskan di `MASTER-DATA-BACKEND.md`. UI Administrasi tersedia untuk owner; gunakan reason, CSRF, versi dan data manual sesuai API. Record `source=simulation` sengaja read-only.
 
-Sejak migration 012, setiap mutasi `/api/owner` juga wajib menyertakan header `Idempotency-Key` UUID baru untuk setiap aksi. Pertahankan key saat retry setelah timeout; jangan buat key baru untuk retry aksi yang sama. `409 idempotency_in_progress` berarti tunggu lalu coba kembali dengan key sama, sedangkan `409 idempotency_key_conflict` berarti key sudah dipakai untuk endpoint/payload berbeda. Frontend Administrasi existing tetap baca-saja sampai tahap UI terpisah.
+Sejak migration 012, setiap mutasi `/api/owner` juga wajib menyertakan header `Idempotency-Key` UUID baru untuk setiap aksi. Pertahankan key saat retry setelah timeout; jangan buat key baru untuk retry aksi yang sama. `409 idempotency_in_progress` berarti tunggu lalu coba kembali dengan key sama, sedangkan `409 idempotency_key_conflict` berarti key sudah dipakai untuk endpoint/payload berbeda. Frontend Administrasi kini mempertahankan key dan payload di memori form saat retry. Jangan menutup/reload form ketika hasil belum pasti tanpa memeriksa daftar sebelum aksi baru.
 
 Untuk membuktikan retry HTTP lintas restart secara nyata, verifier `scripts/verify-owner-idempotency-restart.js` menjalankan fase `before`, lalu backend direstart, lalu fase `after`. Fase `before` membuat satu properti dan kamar uji **permanen** yang terpisah dari dataset pengamatan; jangan jalankan ulang `before` setelah berhasil. Gunakan password owner lokal sebagai mount read-only, tanpa mencetaknya:
 
@@ -311,4 +311,135 @@ Pada database lokal saat ini fase `before` sudah selesai; untuk mengulang verifi
 
 Verifikasi ulang 19 September 2026 memakai PostgreSQL/MQTT Docker nyata menghasilkan 21 test lulus tanpa skip. Demo MQTT terbaru tersimpan sebagai sesi `e462e6a9-e2c6-42b4-b14f-e20675dc71bb` dengan status selesai dan energi simulasi valid `0.025004416` kWh. Setelah restart PostgreSQL, MQTT, dan backend, snapshot sesi/event/reading tetap identik; replay, konflik, dan pesan invalid tidak mengubah data canonical. ID tersebut hanya berlaku pada database lokal yang sama.
 
-Akun uji existing adalah `owner@simulation.invalid` dan `tenant@simulation.invalid`. Gunakan password hasil provisioning autentikasi lokal pada `.local/secrets/owner_login_password` dan `.local/secrets/tenant_login_password`; keduanya diabaikan Git dan tidak boleh disalin ke dokumentasi. Bila akun belum tersedia, jalankan `scripts/provision-local.ps1` sesuai bagian autentikasi terlebih dahulu. Provisioning RFID tidak mengaktifkan akun atau occupancy secara diam-diam.
+Akun uji lokal adalah `owner@simulation.local` dan `tenant@simulation.local`. Gunakan password dari `.local/secrets/owner_login_password` dan `.local/secrets/tenant_login_password`; keduanya diabaikan Git dan tidak boleh disalin ke dokumentasi. Provisioning RFID tidak mengaktifkan akun atau occupancy secara diam-diam.
+
+### Kredensial akun simulasi lokal
+
+Untuk mengganti password akun existing secara eksplisit, perbarui secret dengan `scripts/provision-local.ps1 -Role owner -ResetPassword` dan `-Role tenant -ResetPassword`, lalu jalankan updater di bawah. Updater hanya menerima database development, mencari setiap user berdasarkan ID dan email lama/baru, menolak kecocokan hilang/ganda, dan memperbarui record user yang sama. Ia tidak membuat user, occupancy, audit, reading, sesi, atau tagihan.
+
+```powershell
+.\scripts\docker.ps1 compose build backend
+.\scripts\docker.ps1 compose run --rm --no-deps `
+  -v "${PWD}/scripts/update-simulation-credentials.js:/app/scripts/update-simulation-credentials.js:ro" `
+  -v "${PWD}/.local/secrets/owner_login_password:/run/local/owner:ro" `
+  -v "${PWD}/.local/secrets/tenant_login_password:/run/local/tenant:ro" `
+  backend node scripts/update-simulation-credentials.js /run/local/owner /run/local/tenant
+```
+
+Login baru dan penolakan alamat lama dapat diperiksa dengan `scripts/verify-simulation-credentials.js`; mount kedua password file lokal sebagai read-only dan set `AUTH_OWNER_PASSWORD_FILE`, `AUTH_TENANT_PASSWORD_FILE`, serta `AUTH_TEST_BASE_URL=http://backend:3000`. Script provisioning umum juga mengenali email simulasi lama dan baru sebagai identitas yang sama supaya rerun tidak menggandakan user.
+
+## Verifikasi frontend Administrasi — 23 September 2026
+
+Gunakan build/copy dan perintah test di FRONTEND-ADMIN.md; tidak perlu menjalankan seed, migrasi atau simulator. Container existing sudah diperbarui dengan aset final, image belum rebuild. Akun owner/tenant memakai secret lokal existing. Buat data master uji dengan nama/reason UJI UI, jangan memakai record source=simulation untuk mutasi.
+
+Hasil: build, 19 test frontend dan 2 test master PostgreSQL tanpa skip lulus. Browser owner memverifikasi create/edit, konflik dua tab, timeout/retry, invitation dan lifecycle; tampilan desktop/ponsel serta logout/tenant guard diperiksa. Fingerprint 1457 readings, 4 sesi dan 8 event tetap identik. Rincian fixture dan batas uji ada di FRONTEND-ADMIN.md.
+
+Routing backend diperbaiki 24 September 2026: guard owner hanya mencakup `/api/owner`; router monitoring/RFID berikutnya kembali menerima tenant dan menerapkan scope occupancy existing. Verifier HTTP nyata dapat dijalankan tanpa mutasi histori:
+
+```powershell
+.\scripts\docker.ps1 compose run --rm --no-deps `
+  -v "${PWD}/scripts/verify-routing-live.js:/app/scripts/verify-routing-live.js:ro" `
+  -v "${PWD}/.local/secrets/owner_login_password:/run/test/owner_password:ro" `
+  -v "${PWD}/.local/secrets/tenant_login_password:/run/test/tenant_password:ro" `
+  -e AUTH_OWNER_PASSWORD_FILE=/run/test/owner_password `
+  -e AUTH_TENANT_PASSWORD_FILE=/run/test/tenant_password `
+  -e AUTH_TEST_BASE_URL=http://backend:3000 `
+  backend node scripts/verify-routing-live.js
+```
+
+Verifier memeriksa login owner/tenant; tenant rooms, meters, latest, readings, daily, facilities dan usage sessions; 403 untuk root/turunan `/api/owner`; owner GET Administrasi; logout dan 401. Form move occupancy tersedia; sukses via browser belum diuji dengan fixture tenant bebas overlap. Tidak melakukan commit/push/deploy atau perubahan volume.
+
+## Backend billing v1
+
+Migration 013–019 menambah provenance, tarif temporal, periode/revisi, snapshot hasil dan guard histori. Migration tidak membuat tarif atau tagihan. Jalankan migration dan verifikasi tanpa seed/reset:
+
+```powershell
+.\scripts\docker.ps1 compose run --rm --no-deps backend npm run migrate
+.\scripts\docker.ps1 compose up -d --no-deps --force-recreate --wait backend
+.\scripts\docker.ps1 compose exec -T -e INTEGRATION_DB=1 backend npm test
+.\scripts\docker.ps1 compose exec -T backend node scripts/verify-billing-history.js
+.\scripts\docker.ps1 compose exec -T backend node scripts/simulate.js 2026-09-12 --verify-only
+```
+
+Endpoint owner: `GET|POST /api/owner/tariff-schedules`, retire tarif, `GET|POST /api/owner/billing-periods`, detail, recalculate, finalize, dan corrections. Daftar pembayaran final tersedia pada `GET /api/owner/bill-shares` dengan filter opsional `period_id`, `room_id`, `tenant_id`, dan `payment_status=unpaid|paid`. Lifecycle manual memakai `POST /api/owner/bill-shares/:id/mark-paid` (`row_version`, catatan opsional, reason) dan `/unmark-paid` (`row_version`, reason wajib). Semua POST wajib sesi owner, CSRF, UUID `Idempotency-Key`, reason, serta `row_version`. Tenant membaca tagihan final dan status pembayaran miliknya lewat `GET /api/billing-periods` dan `GET /api/billing-periods/:id`.
+
+Laporan owner tersedia pada `GET /api/owner/reports/billing`. Filter opsional: `period_id`, pasangan `from`/`to` RFC3339 dengan rentang maksimum 366 hari, `room_id`, dan `payment_status=unpaid|paid`. Respons berisi baris final, agregat total, dan grouping per kamar; maksimal 5.000 baris. Endpoint hanya membaca snapshot billing final dan state pembayaran, tidak menghitung ulang atau mengubah histori. Buka dashboard owner → **Laporan**, terapkan filter, lalu pilih **Ekspor CSV** untuk mengekspor hasil yang sedang tampil.
+
+Tidak ada tarif production bawaan dan `production_max_gap_seconds` sengaja null. Karena itu data production tidak dapat finalized sampai policy sampling hardware ditetapkan. Data simulation hanya preview dan selalu ditolak saat finalize. Test billing memakai transaksi rollback; perintah verifier fingerprint hanya membaca data. Rincian kontrak dan reason ada di `BILLING-DESIGN.md`.
+
+## Kesiapan ESP32 dan MQTT produksi
+
+Kontrak final ada di `ESP32-MQTT-CONTRACT.md`. Topic production adalah `smartbilling/v1/devices/{device_uid}/readings`; topic simulator lama tetap terpisah. Sebelum memasang ESP32, periksa mapping owner melalui API:
+
+```text
+GET /api/owner/hardware-readiness?device_uid=esp32-kamar-01&at=2026-09-24T00:00:00Z
+```
+
+Atau gunakan CLI baca-saja di container:
+
+```powershell
+.\scripts\docker.ps1 compose exec -T backend node scripts/verify-device-readiness.js <device_uid> <owner_uuid> 2026-09-24T00:00:00Z
+```
+
+`ready=true` mensyaratkan device aktif, sedikitnya satu installation aktif, channel tidak ganda, meter asset tersedia dan belum retired. Pemeriksaan ini tidak menguji Wi-Fi, TLS, broker dari lokasi perangkat, NTP, kalibrasi, atau pembacaan sensor fisik.
+
+Verifier HTTP nyata dengan akun owner lokal:
+
+```powershell
+.\scripts\docker.ps1 compose run --rm --no-deps `
+  -v "${PWD}/scripts/verify-hardware-readiness-live.js:/app/scripts/verify-hardware-readiness-live.js:ro" `
+  -v "${PWD}/.local/secrets/owner_login_password:/run/test/owner_password:ro" `
+  -e AUTH_TEST_PASSWORD_FILE=/run/test/owner_password `
+  -e AUTH_TEST_BASE_URL=http://backend:3000 `
+  backend node scripts/verify-hardware-readiness-live.js sim-running-01 2026-09-24T00:00:00Z
+```
+
+Contoh konfigurasi placeholder ada di `docs/examples/esp32-config.example.h`; jangan memasukkan credential asli ke repository.
+
+## Monitoring kesehatan perangkat
+
+Nilai development default tersedia di `.env.example` dan `compose.yaml`:
+
+```dotenv
+DEVICE_HEALTH_ONLINE_SECONDS=180
+DEVICE_HEALTH_OFFLINE_SECONDS=900
+```
+
+`MONITORING_MAX_GAP_SECONDS=120` dipakai untuk alert gap di halaman kesehatan, bukan untuk memfinalisasi billing production. Buka dashboard owner lalu pilih **Kesehatan Perangkat**. Rentang maksimum API adalah 31 hari; filter status, device, kamar, dan status alert diterapkan di backend dengan scope owner.
+
+Endpoint:
+
+- `GET /api/owner/device-health`
+- `POST /api/owner/device-health/alerts/review` (CSRF, UUID `Idempotency-Key`, `alert_key`, catatan wajib, `row_version`)
+
+Verifikasi owner read-only dan penolakan tenant:
+
+```powershell
+.\scripts\docker.ps1 compose run --rm --no-deps `
+  -v "${PWD}/scripts/verify-device-health-live.js:/app/scripts/verify-device-health-live.js:ro" `
+  -v "${PWD}/.local/secrets/owner_login_password:/run/test/owner_password:ro" `
+  -e AUTH_TEST_PASSWORD_FILE=/run/test/owner_password `
+  -e AUTH_TEST_BASE_URL=http://backend:3000 `
+  backend node scripts/verify-device-health-live.js
+
+.\scripts\docker.ps1 compose run --rm --no-deps `
+  -v "${PWD}/scripts/verify-device-health-live.js:/app/scripts/verify-device-health-live.js:ro" `
+  -v "${PWD}/.local/secrets/tenant_login_password:/run/test/tenant_password:ro" `
+  -e AUTH_TEST_PASSWORD_FILE=/run/test/tenant_password `
+-e AUTH_TEST_EMAIL=tenant@simulation.local `
+  -e EXPECT_OWNER_FORBIDDEN=1 `
+  -e AUTH_TEST_BASE_URL=http://backend:3000 `
+  backend node scripts/verify-device-health-live.js
+```
+
+Migration 021 hanya menambah tabel event/review dan guard append-only; tidak mengubah reading, sesi RFID, tagihan, atau data simulasi lama.
+
+## Aktivasi akun tenant
+
+Owner membuat tenant dari **Administrasi → Tenant**. Layar sukses menampilkan tautan satu kali berbentuk `http://127.0.0.1:3000/#/aktivasi?token=…`; bagikan tautan secara pribadi sebelum menutup layar. Belum ada pengiriman email otomatis. Tenant membuka tautan, memasukkan password minimal 8 karakter dua kali, lalu memilih **Aktifkan akun**. Password lebih panjang tetap disarankan. Setelah berhasil, tenant kembali ke login dan memakai email yang diberikan owner.
+
+Token aktivasi hanya berada di fragment URL, tidak dikirim ke server saat halaman dimuat, lalu dibuang dari address bar oleh halaman. API tetap memvalidasi token sekali pakai dan masa kedaluwarsanya. Token yang hilang/kedaluwarsa memerlukan undangan baru. Formulir meminta CSRF dan tidak menyimpan password dalam bentuk teks.
+
+## Mengganti nama properti
+
+Login sebagai owner, buka **Administrasi → Properti**, pilih properti, lalu **Lihat detail → Ubah nama properti**. Isi nama baru dan alasan perubahan. ID properti beserta relasi dan histori tetap sama. Nama baru muncul di pilihan properti pada Billing. Perubahan memakai pemeriksaan owner, CSRF, Idempotency-Key, row version, dan audit log; tenant tidak dapat membuka endpoint ini.

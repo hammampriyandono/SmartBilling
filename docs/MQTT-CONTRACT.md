@@ -1,8 +1,10 @@
 # Kontrak sensor simulasi v1
 
-Status: **disetujui pengguna untuk pengembangan lokal, 13 September 2026**, dan telah diimplementasikan. Persetujuan ini bukan kontrak final firmware ESP32. Perbedaan prototipe hardware dicatat di bawah.
+Status: **disetujui pengguna untuk pengembangan lokal, 13 September 2026**, dan tetap menjadi kontrak simulator. Kontrak ESP32 produksi final yang kompatibel dengan payload v1 ini ditetapkan 24 September 2026 di [ESP32-MQTT-CONTRACT.md](ESP32-MQTT-CONTRACT.md).
 
 Topik: `smartbilling/sim/v1/devices/{device_uid}/readings`, QoS 1, retain false. Namespace `sim` hanya untuk pengujian; broker lokal tetap tidak dibuka ke LAN. Device UID dan channel dipetakan ke pemasangan meter pada database; sumber tidak dikenal ditolak dan tidak didaftarkan otomatis.
+
+Backend juga menerima topic produksi `smartbilling/v1/devices/{device_uid}/readings`. Namespace tidak mengubah schema payload atau menentukan provenance sendirian; provenance reading mengikuti meter installation yang diprovision.
 
 ```json
 {
@@ -57,4 +59,4 @@ Informasi berikut berasal dari pengguna; perangkat belum diuji dengan backend in
 | Belum disebutkan | `schema_version`, UUID `boot_id`, `sequence_no`, `counter_epoch`, timestamp berzona perlu diselaraskan. |
 | PubSubClient | Library standar hanya mendukung publish QoS 0; simulasi mensyaratkan QoS 1. Perlu keputusan firmware/library atau kontrak hardware tersendiri. |
 
-Dukungan publish QoS 0 bersumber dari [README resmi PubSubClient](https://github.com/knolleary/pubsubclient). Tidak mengganti library hardware, mengonversi payload otomatis, membuka LAN, atau mengklaim integrasi ESP32 berhasil. Rekomendasi berikutnya: sepakati identitas pesan, clock, counter/reset dan strategi QoS bersama anggota hardware sebelum membuat adapter firmware.
+Dukungan publish QoS 0 bersumber dari [README resmi PubSubClient](https://github.com/knolleary/pubsubclient). Kontrak final mensyaratkan QoS 1; tim firmware harus memakai library/implementasi yang benar-benar mendukung publish QoS 1 atau membawa bukti dan meminta revisi kontrak. Repository ini tidak mengganti library hardware, membuka LAN, atau mengklaim ESP32 fisik sudah berhasil diuji.

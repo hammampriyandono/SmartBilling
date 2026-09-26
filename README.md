@@ -6,7 +6,8 @@ Proyek ini dikembangkan sebagai Capstone A05. Sudah tersedia **monitoring lokal,
 
 ## Fitur yang tersedia
 
-- **Administrasi owner (baca-saja):** ringkasan sembilan kategori master, daftar/detail, status, filter dan pagination. Mutasi/invitation ditunda atas keputusan pengguna sampai backend mendukung idempotensi. [Panduan Administrasi](docs/FRONTEND-ADMIN.md).
+- **Administrasi owner:** ringkasan sembilan kategori, tambah/edit sesuai API, invitation satu kali tampil, lifecycle, reason/CSRF/versi dan retry idempoten. Buka localhost:3000 → Administrasi sebagai owner. [Panduan, hasil uji dan batasan](docs/FRONTEND-ADMIN.md). Tenant tidak memiliki menu admin; guard backend dibatasi pada namespace `/api/owner`, sehingga monitoring dan riwayat tenant tetap mengikuti scope occupancy.
+- **Billing:** backend dan UI owner/tenant tersedia, termasuk tarif temporal, finalisasi immutable, koreksi, serta status pembayaran manual. [Kontrak dan hasil verifikasi](docs/BILLING-DESIGN.md).
 
 - **Dashboard monitoring:** pilihan kamar dan meter, tegangan, arus, daya, counter energi kumulatif, serta waktu pembacaan terakhir.
 - **Histori penggunaan:** grafik daya dengan filter tanggal dan pilihan tujuh hari, serta tabel konsumsi energi harian.
@@ -125,11 +126,23 @@ Verifikasi 15 September 2026 mencakup 16 test lulus tanpa skip dengan PostgreSQL
 - Integrasi sensor ESP32 dengan kontrak MQTT firmware yang disepakati.
 - Login dan pembatasan akses pemilik/penghuni pada API.
 - Pencatatan penggunaan fasilitas bersama melalui RFID: tap awal memulai sesi, tap berikutnya mengakhirinya.
-- Perhitungan dan pembagian biaya di backend sesuai kebijakan yang disepakati tim.
+- UI billing owner/tenant di atas backend billing v1 yang sudah terverifikasi.
 - Perbandingan konsumsi antarkamar dan antarperiode.
 - Deployment Railway serta pengamatan perangkat nyata selama tujuh hari.
 
 Login owner/tenant dan sesi RFID simulasi sudah tersedia. Versi saat ini tetap untuk pengembangan lokal; autentikasi ini bukan kesiapan deployment publik.
+
+Backend billing v1 sudah tersedia: tarif temporal, draft/review, finalisasi immutable, koreksi revisi, room bill, alokasi sesi RFID, provenance simulation/production, audit dan API berscope. Data simulasi tidak dapat difinalisasi menjadi tagihan nyata; ambang gap production masih menunggu interval firmware. Lihat [rancangan dan hasil verifikasi billing](docs/BILLING-DESIGN.md).
+
+Frontend billing kini tersedia melalui navigasi **Billing / Tagihan Saya**. Owner dapat mengelola tarif, lifecycle periode, dan status pembayaran manual `unpaid/paid`; tenant hanya melihat share final miliknya beserta status pembayaran. Menandai lunas tidak mengubah nominal final, memakai CSRF, idempotency, row version dan audit; pembatalan lunas mewajibkan alasan. Belum ada payment gateway, pembayaran otomatis, atau upload bukti transfer. Nilai null tetap ditampilkan sebagai perlu ditinjau dan preview simulasi tidak menyerupai tagihan final. Lihat [panduan frontend billing](docs/FRONTEND-BILLING.md).
+
+Owner juga memiliki menu **Laporan**. Halaman ini membaca endpoint agregasi final secara read-only, menyediakan filter periode/rentang tanggal/kamar/status pembayaran, ringkasan energi dan nominal, grafik per kamar, tabel tenant, serta ekspor CSV berformat Excel. Tenant tidak dapat membuka halaman atau endpoint laporan owner. Jika database belum memiliki tagihan final, halaman menampilkan empty state dan tidak membuat data contoh.
+
+Menu owner **Kesehatan Perangkat** merangkum status online/terlambat/offline/belum pernah/perlu ditinjau, mapping device–meter–kamar/fasilitas, kualitas reading, dan peringatan berbasis data nyata. Owner dapat memberi catatan review tanpa menghapus masalah asli; tenant tidak memiliki akses. Ambang development dan endpoint dijelaskan di [panduan kesehatan perangkat](docs/DEVICE-HEALTH.md).
+
+Akun demo Docker lokal memakai email `owner@simulation.local` dan `tenant@simulation.local`. Cara memperbarui kredensial existing dijelaskan pada panduan [pengembangan lokal](docs/LOCAL-DEVELOPMENT.md#kredensial-akun-simulasi-lokal); password hanya disimpan sebagai hash PostgreSQL dan di secret lokal yang diabaikan Git.
+
+Undangan tenant kini menampilkan tautan aktivasi sekali pakai. Owner membagikannya secara manual; tenant membuka tautan tersebut, membuat password minimal 8 karakter, lalu masuk memakai email yang didaftarkan owner. Password lebih panjang tetap disarankan. Pengiriman email otomatis belum tersedia.
 
 ## Mencoba sesi RFID
 
@@ -171,6 +184,8 @@ docs/                Spesifikasi, arsitektur, ERD, dan panduan
 - [ERD dan rancangan database](docs/database/cpstn-erd-final.md)
 - [API monitoring](docs/API-MONITORING.md)
 - [Kontrak MQTT simulasi](docs/MQTT-CONTRACT.md)
+- [Kontrak ESP32 dan MQTT produksi](docs/ESP32-MQTT-CONTRACT.md)
+- [Kesehatan perangkat dan kualitas data](docs/DEVICE-HEALTH.md)
 - [Kontrak dan rancangan RFID simulasi v1](docs/RFID-SIMULATION-PLAN.md)
 - [Rancangan dashboard](docs/DASHBOARD-PLAN.md)
 - [Panduan pengembangan lokal](docs/LOCAL-DEVELOPMENT.md)
