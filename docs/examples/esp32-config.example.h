@@ -1,0 +1,19 @@
+#pragma once
+
+// Contoh saja. Salin ke secrets.h yang diabaikan Git; jangan isi secret di file ini.
+#define WIFI_SSID "<WIFI_SSID>"
+#define WIFI_PASSWORD "<WIFI_PASSWORD>"
+
+#define MQTT_BROKER_HOST "<MQTT_BROKER_HOST>"
+#define MQTT_BROKER_PORT 8883
+#define MQTT_USERNAME "<MQTT_DEVICE_USERNAME>"
+#define MQTT_PASSWORD "<MQTT_DEVICE_PASSWORD>"
+#define MQTT_CA_CERT_PEM "<MQTT_CA_CERT_PEM>"
+
+#define SMARTBILLING_DEVICE_UID "<PROVISIONED_DEVICE_UID>"
+#define SMARTBILLING_CHANNEL_NO 0
+#define SMARTBILLING_TOPIC "smartbilling/v1/devices/" SMARTBILLING_DEVICE_UID "/readings"
+
+#define SMARTBILLING_SAMPLE_INTERVAL_SECONDS 60
+#define SMARTBILLING_NTP_SERVER "pool.ntp.org"
+#define SMARTBILLING_SCHEMA_VERSION 1
