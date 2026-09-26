@@ -6,6 +6,9 @@ import './style.css';
 import {AuthGate} from './auth.jsx';
 import {Sessions} from './sessions.jsx';
 import {Administration} from './admin.jsx';
+import {Billing,TenantLatestCard} from './billing.jsx';
+import {Reports} from './reports.jsx';
+import {DeviceHealth} from './device-health.jsx';
 
 const statuses = { complete: 'Lengkap', partial: 'Parsial', no_data: 'Tanpa data' };
 const reasons = { missing_start_boundary: 'Batas awal tidak tersedia', missing_end_boundary: 'Batas akhir tidak tersedia', gap: 'Jeda pembacaan', counter_reset: 'Counter direset', no_data: 'Belum ada sampel', invalid_quality: 'Kualitas tidak valid', counter_decreased: 'Counter menurun', ambiguous_timestamp: 'Waktu pengukuran ambigu' };
@@ -13,10 +16,7 @@ const formatTime = (value, zone) => value ? new Intl.DateTimeFormat('id-ID', { t
 reasons.access_limited='Dibatasi masa tinggal';
 function ErrorNotice({ text, retry }) { return text && <div className="error" role="alert">{text} {retry && <button onClick={retry}>Coba lagi</button>}</div>; }
 
-function App() {
-  const [catalog, setCatalog] = useState({ rooms: [], meters: [] });
-  const [catalogError, setCatalogError] = useState(''), [catalogLoading, setCatalogLoading] = useState(true);
-  const [catalogVersion, setCatalogVersion] = useState(0), [meterId, setMeterId] = useState('');
+function App({tenantBillingCard=null,catalog,catalogError,catalogLoading,meterId,setMeterId,onRefreshCatalog}) {
   const [refresh, setRefresh] = useState(0), [zone, setZone] = useState('Asia/Jakarta');
   const [range, setRange] = useState(() => ({ from: shiftDate(todayIn('Asia/Jakarta'), -6), to: todayIn('Asia/Jakarta') }));
   const [draft, setDraft] = useState(range), [rangeError, setRangeError] = useState('');
@@ -27,19 +27,6 @@ function App() {
   const selected = catalog.meters.find(m => m.id === meterId);
   const roomFor = (meter) => catalog.rooms.find(r => r.id === meter?.room_id);
   const labelFor = (meter) => meter.kind === 'room' ? (roomFor(meter)?.name || roomFor(meter)?.code || 'Meter kamar') : meter.kind === 'main' ? 'Meter utama' : 'Meter komunal';
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setCatalogLoading(true); setCatalogError('');
-    Promise.all([allPages('/api/rooms', 'next_after', controller.signal), allPages('/api/meters', 'next_after', controller.signal)])
-      .then(([rooms, meters]) => {
-        if (controller.signal.aborted) return;
-        setCatalog({ rooms: rooms.rows, meters: meters.rows });
-        setMeterId(current => meters.rows.some(m => m.id === current) ? current : (meters.rows.find(m => m.kind === 'room') || meters.rows[0])?.id || '');
-      }).catch(error => { if (!controller.signal.aborted) setCatalogError(error.message); })
-      .finally(() => { if (!controller.signal.aborted) setCatalogLoading(false); });
-    return () => controller.abort();
-  }, [catalogVersion]);
 
   useEffect(() => {
     const controller = new AbortController(); let running = false;
@@ -95,23 +82,13 @@ function App() {
   const threshold = result?.daily.meta.max_gap_seconds || 120;
   const stale = reading !== null && reading !== undefined && now - Date.parse(reading.measured_at) > threshold * 1000;
   const graph = result ? chartRows(result.rows, threshold) : [];
-  const refreshAll = () => { setRefresh(v => v + 1); setCatalogVersion(v => v + 1); };
+  const refreshAll = () => { setRefresh(v => v + 1); onRefreshCatalog(); };
 
   return <div className="shell">
-    <aside className="sidebar">
-      <a className="brand" href="/"><span className="brand-icon">ϟ</span>SmartBilling<span className="brand-dot">.</span></a>
-      <p className="side-caption">CAPSTONE A05</p>
-      <div className="nav-active"><span>▦</span> Monitoring listrik</div>
-      <div className="side-heading">TITIK PENGUKURAN <span>{catalog.meters.length}</span></div>
-      {catalogLoading && !catalog.meters.length && <p className="side-note">Memuat meter…</p>}
-      {catalog.meters.map(m => <button className={`meter-button ${meterId === m.id ? 'selected' : ''}`} key={m.id} onClick={() => chooseMeter(m.id)} aria-pressed={meterId === m.id}>
-        <span className="meter-mark">{m.kind === 'room' ? '▤' : '◈'}</span><span><strong>{labelFor(m)}</strong><small>Channel {m.channel_no} · …{m.id.slice(-4)}</small></span><span className="meter-arrow">›</span>
-      </button>)}
-      <div className="side-footer"><span className="mini-dot"/> LINGKUNGAN LOKAL<p>Monitoring pengembangan.<br/>Belum terhubung ke perangkat nyata.</p></div>
-    </aside>
     <main>
       <header className="topbar"><span>Workspace <span className="slash">/</span> Monitoring</span><span className="simulation-badge">◉ Data simulasi</span></header>
       <section className="page-heading"><div><p className="eyebrow">MONITORING ENERGI</p><h1>Listrik, dalam pengamatan.</h1><p>Pantau pembacaan dan pahami kelengkapan histori setiap meter.</p></div><button className="refresh-button" onClick={refreshAll}>↻ Perbarui data</button></section>
+      {tenantBillingCard}
       <ErrorNotice text={catalogError} retry={refreshAll}/>
       {catalog.rooms.length > 0 && <details className="room-directory"><summary>Daftar kamar · {catalog.rooms.length} kamar / {catalog.meters.length} meter</summary><ul>{catalog.rooms.map(room => <li key={room.id}><strong>{room.name || room.code}</strong> · {room.code}<span>{catalog.meters.filter(m => m.room_id === room.id).length ? catalog.meters.filter(m => m.room_id === room.id).map(m => <button key={m.id} onClick={() => chooseMeter(m.id)}>Pilih channel {m.channel_no} · …{m.id.slice(-4)}</button>) : 'Belum ada meter terpetakan'}</span></li>)}</ul></details>}
       <div className="connection-strip"><span><i className={health?.status === 'ready' ? 'dot good' : 'dot'}/>{!health ? 'Memeriksa backend…' : health.status === 'ready' ? 'Backend terhubung' : 'Backend tidak siap / tidak terjangkau'}</span><span>Polling 5 detik</span><span>Refresh API terakhir: {currentLatest.updated ? formatTime(currentLatest.updated, zone) : 'Belum berhasil'}</span></div>
@@ -144,6 +121,38 @@ function App() {
 }
 function Workspace({user}) {
  const [page,setPage]=useState('monitoring');
- return <><nav className="workspace-nav" aria-label="Halaman aplikasi"><button onClick={()=>setPage('monitoring')} aria-pressed={page==='monitoring'}>Monitoring listrik</button><button onClick={()=>setPage('sessions')} aria-pressed={page==='sessions'}>Riwayat fasilitas RFID</button>{user.role==='owner'&&<button onClick={()=>setPage('admin')} aria-pressed={page==='admin'}>Administrasi</button>}</nav>{page==='admin'?<Administration user={user}/>:page==='sessions'?<Sessions user={user}/>:<App/>}</>;
+ const [catalog,setCatalog]=useState({rooms:[],meters:[]}),[catalogLoading,setCatalogLoading]=useState(false),[catalogError,setCatalogError]=useState('');
+ const [catalogVersion,setCatalogVersion]=useState(0),[meterId,setMeterId]=useState('');
+ useEffect(()=>{
+  if(page!=='monitoring')return;
+  const controller=new AbortController();setCatalogLoading(true);setCatalogError('');
+  Promise.all([allPages('/api/rooms','next_after',controller.signal),allPages('/api/meters','next_after',controller.signal)])
+   .then(([rooms,meters])=>{if(controller.signal.aborted)return;setCatalog({rooms:rooms.rows,meters:meters.rows});setMeterId(current=>meters.rows.some(m=>m.id===current)?current:(meters.rows.find(m=>m.kind==='room')||meters.rows[0])?.id||'');})
+   .catch(error=>{if(!controller.signal.aborted)setCatalogError(error.message);})
+   .finally(()=>{if(!controller.signal.aborted)setCatalogLoading(false);});
+  return()=>controller.abort();
+ },[page,catalogVersion]);
+ const navItem=(key,label)=><button key={key} type="button" onClick={()=>setPage(key)} aria-current={page===key?'page':undefined} aria-pressed={page===key}>{label}</button>;
+ return <div className="workspace-layout">
+  <aside className="sidebar">
+   <a className="brand" href="/"><span className="brand-icon">ϟ</span>SmartBilling<span className="brand-dot">.</span></a>
+   <p className="side-caption">CAPSTONE A05</p>
+   <button className={`nav-active ${page==='monitoring'?'current':''}`} onClick={()=>setPage('monitoring')} aria-current={page==='monitoring'?'page':undefined}><span>▦</span> Monitoring listrik</button>
+   <div className="side-heading">TITIK PENGUKURAN {page==='monitoring'&&<span>{catalog.meters.length}</span>}</div>
+   <div className={`sidebar-measurements ${page==='monitoring'?'visible':''}`} aria-label="Titik pengukuran">
+   {page==='monitoring'&&catalogLoading&&!catalog.meters.length&&<p className="side-note">Memuat meter…</p>}
+   {page==='monitoring'&&catalogError&&<p className="side-note" role="alert">Meter belum dapat dimuat.</p>}
+   {page==='monitoring'&&catalog.meters.map(m=>{
+    const room=catalog.rooms.find(r=>r.id===m.room_id),label=m.kind==='room'?(room?.name||room?.code||'Meter kamar'):m.kind==='main'?'Meter utama':'Meter komunal';
+    return <button className={`meter-button ${meterId===m.id?'selected':''}`} key={m.id} onClick={()=>setMeterId(m.id)} aria-pressed={meterId===m.id}><span className="meter-mark">{m.kind==='room'?'▤':'◈'}</span><span><strong>{label}</strong><small>Channel {m.channel_no} · …{m.id.slice(-4)}</small></span><span className="meter-arrow">›</span></button>;
+   })}
+   </div>
+   <div className="side-footer"><span className="mini-dot"/> LINGKUNGAN LOKAL<p>Monitoring pengembangan.<br/>Belum terhubung ke perangkat nyata.</p></div>
+  </aside>
+  <div className="workspace-content">
+   <nav className="workspace-nav" aria-label={`Halaman ${user.role==='owner'?'owner':'tenant'}`}><div className="workspace-nav-inner">{navItem('monitoring','Monitoring listrik')}{navItem('sessions',user.role==='owner'?'Riwayat fasilitas RFID':'Sesi fasilitas RFID')}{navItem('billing',user.role==='owner'?'Billing':'Tagihan Saya')}{user.role==='owner'&&navItem('reports','Laporan')}{user.role==='owner'&&navItem('health','Kesehatan Perangkat')}{user.role==='owner'&&navItem('admin','Administrasi')}</div></nav>
+   {page==='admin'?<Administration user={user}/>:page==='health'?<DeviceHealth user={user}/>:page==='reports'?<Reports user={user}/>:page==='billing'?<Billing user={user}/>:page==='sessions'?<Sessions user={user}/>:<App catalog={catalog} catalogError={catalogError} catalogLoading={catalogLoading} meterId={meterId} setMeterId={setMeterId} onRefreshCatalog={()=>setCatalogVersion(v=>v+1)} tenantBillingCard={user.role==='tenant'?<TenantLatestCard user={user} onOpen={()=>setPage('billing')}/>:null}/>}
+  </div>
+ </div>;
 }
 createRoot(document.getElementById('root')).render(<AuthGate Dashboard={Workspace}/>);
