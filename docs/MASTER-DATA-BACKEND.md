@@ -15,6 +15,10 @@ Status 21 September 2026: migration 008–012 dan API backend diterapkan untuk d
 
 Semua endpoint `/api/owner/*` memerlukan cookie login owner, `Origin` yang benar, dan `X-CSRF-Token` untuk mutasi. Daftar utama:
 
+- properti: `GET /api/owner/properties`, `PATCH /api/owner/properties/:id` (ubah nama, `row_version` dan `reason` wajib; ID tetap);
+
+Guard role owner dipasang hanya pada namespace `/owner` di dalam router ini. Karena `masterApi` dipasang pada `/api`, request tenant ke `/api/rooms`, `/api/meters`, `/api/facilities`, dan `/api/usage-sessions` harus diteruskan ke router monitoring/RFID berikutnya; scope datanya tetap ditentukan occupancy. Request tenant ke root maupun turunan `/api/owner` ditolak `403 owner_required`.
+
 - kamar: `GET/POST /api/owner/rooms`, `PATCH /api/owner/rooms/:id`, `POST .../:id/deactivate`;
 - fasilitas: `GET/POST /api/owner/facilities`, `POST .../:id/deactivate`;
 - device: `GET/POST /api/owner/devices`, `POST .../:id/deactivate`;
@@ -38,6 +42,7 @@ Catatan keamanan: idempotency disimpan per owner di PostgreSQL sebagai HMAC requ
 - `010_meter_installation_compatibility.sql`: memastikan jalur provisioning terpercaya lama tetap membuat aset fisik untuk setiap pemasangan baru.
 - `011_master_guard_fix.sql`: guard identity spesifik tabel agar update lifecycle kamar tidak membaca field device.
 - `012_owner_idempotency.sql`: hasil mutasi owner append-only, unik per owner dan key, aman setelah restart.
+- `022_property_rename_concurrency.sql`: versi optimistic concurrency dan waktu pembaruan untuk metadata properti.
 
 Verifikasi nyata di PostgreSQL mencakup retry, dua request paralel dengan key sama, konflik endpoint/payload, invitation, move occupancy, replace kartu, dan move pemasangan meter. Selain suite transaksi 23/23, retry HTTP setelah restart fisik backend dibuktikan dengan satu fixture master terpisah: hasil 201 sama, satu kamar, satu audit. Fixture berlabel `UJI IDEMPOTENSI — bukan data pengamatan` pada properti `da7a96ec-b738-435e-a617-3a20855edda1`; tidak memiliki meter/pembacaan/sesi dan tidak mengubah dataset simulasi lama.
 
@@ -45,7 +50,7 @@ Migration 001–007 tidak diubah. Backfill tidak membuat akun, occupancy, readin
 
 ## Batas
 
-- Belum ada UI admin, email service, registrasi publik, billing, atau deploy Railway.
+- UI administrasi owner tersedia; email service dan registrasi publik belum tersedia. Billing/backend berjalan terpisah sesuai dokumentasi billing; status deploy Railway perlu diverifikasi saat ada permintaan deploy.
 - Pergantian device dilakukan dengan create device baru, retire/move mapping, kemudian deactivate device lama; identitas device lama tidak diedit.
 - Reader pengganti dibuat setelah record reader lama di-retire.
 - API belum menyediakan tenant aktif menerima undangan properti tambahan; invitation owner saat ini hanya untuk email baru.
