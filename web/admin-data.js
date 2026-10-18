@@ -55,3 +55,9 @@ export function recordStatus(section,row,now=Date.now()){
  return {label:end?'Aktif · akhir terjadwal':'Aktif',group:'active'};
 }
 export function recordTitle(section,row){return row.name||row.label||row.display_name||row.code||`${section.name} · ${row.id.slice(-8)}`;}
+
+export function sectionSummary(section,rows,now=Date.now()){
+ if(section.key!=='occupancies')return {title:section.name,count:rows?.length,note:section.note,status:''};
+ return {title:'Occupancy aktif',count:rows?.filter(row=>recordStatus(section,row,now).group==='active').length,
+  note:rows?`Dari ${rows.length} catatan masa tinggal, termasuk histori dan jadwal.`:section.note,status:'active'};
+}

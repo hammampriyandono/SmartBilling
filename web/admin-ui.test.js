@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {adminSections,projectRecord,loadAdminSection,adminRequest,recordStatus,displayValue} from './admin-data.js';
+import {adminSections,projectRecord,loadAdminSection,adminRequest,recordStatus,displayValue,sectionSummary} from './admin-data.js';
 test('Administrasi: proyeksi field membuang secret, UID kartu, token dan payload',()=>{
  for(const section of adminSections){const row=projectRecord(section,{id:'safe',name:'nama',uid:'SECRET',password:'SECRET',password_hash:'SECRET',token:'SECRET',token_sha256:'SECRET',payload:'SECRET'});assert.equal(JSON.stringify(row).includes('SECRET'),false);}
 });
@@ -27,4 +27,16 @@ test('Administrasi: status temporal memakai batas [awal,akhir) dan nilai kosong 
  assert.equal(recordStatus(s,{starts_at:'2026-09-20T00:00:00Z',ends_at:'2026-09-21T00:00:00Z'},now).group,'inactive');
  assert.equal(recordStatus(s,{starts_at:'2026-09-21T00:00:00Z'},now).group,'active');
  assert.equal(displayValue(null),'Tidak tersedia');assert.equal(displayValue(0),'0');
+});
+
+test('Administrasi: kartu occupancy hanya menghitung yang aktif, histori/jadwal tetap tersimpan',()=>{
+ const section=adminSections.find(s=>s.key==='occupancies'),now=Date.parse('2026-10-18T00:00:00Z');
+ const rows=[{starts_at:'2026-09-03T00:00:00Z',ends_at:'2026-12-20T00:00:00Z'},
+  {starts_at:'2026-09-26T00:00:00Z',ends_at:'2026-09-27T00:00:00Z'},
+  {starts_at:'2026-11-01T00:00:00Z'}];
+ const summary=sectionSummary(section,rows,now);
+ assert.equal(summary.count,1);assert.equal(summary.title,'Occupancy aktif');assert.equal(summary.status,'active');
+ assert.match(summary.note,/3 catatan/);assert.equal(rows.length,3);
+ assert.equal(sectionSummary(section,undefined,now).count,undefined);
+ assert.equal(sectionSummary(adminSections[0],rows,now).count,3);
 });

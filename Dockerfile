@@ -3,7 +3,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY web ./web
+COPY src/display-policy.js ./src/display-policy.js
 COPY vite.config.js ./
+ARG VITE_DATA_MODE=archive
+ENV VITE_DATA_MODE=$VITE_DATA_MODE
 RUN npm run build
 
 FROM node:22-alpine
