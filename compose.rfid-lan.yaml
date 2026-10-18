@@ -1,0 +1,16 @@
+# Explicit opt-in only. No effect on normal compose.yaml, no firewall changes.
+# Bind to the Windows LAN IPv4 address, never 0.0.0.0 or an Internet interface.
+services:
+  mqtt:
+    ports:
+      - "${RFID_LAN_BIND_IP:?Set RFID_LAN_BIND_IP explicitly}:${RFID_LAN_PORT:-1883}:1883"
+    entrypoint: ["/bin/sh", "/opt/a05/start-rfid-lan.sh"]
+    volumes:
+      - ./docker/mosquitto/start-rfid-lan.sh:/opt/a05/start-rfid-lan.sh:ro
+      - ./docker/mosquitto/rfid-lan.conf:/mosquitto/config/rfid-lan.conf:ro
+    secrets:
+      - rfid_device_passwords
+secrets:
+  rfid_device_passwords:
+    # Pre-hashed mosquitto_passwd file, per-device usernames. Never use team secrets.h.
+    file: ./.local/secrets/rfid_device_passwords

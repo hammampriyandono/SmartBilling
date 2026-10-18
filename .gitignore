@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 
 # Local development secrets and generated files
 .local/
+
+# Firmware credentials must never be versioned.
+**/secrets.h

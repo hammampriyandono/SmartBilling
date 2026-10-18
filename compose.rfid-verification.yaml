@@ -1,0 +1,65 @@
+# Isolated software-only stack. No host ports or persistent volumes; no live history.
+name: smartbilling-rfid-verification
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: smartbilling_dev
+      POSTGRES_DB: smartbilling_dev
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes:
+      - type: tmpfs
+        target: /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartbilling_dev -d smartbilling_dev"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  mqtt:
+    image: eclipse-mosquitto:2
+    entrypoint: ["/bin/sh", "/opt/a05/start-rfid-verification.sh"]
+    secrets: [mqtt_password,rfid_test_a_password,rfid_test_b_password]
+    volumes:
+      - ./docker/mosquitto/start-rfid-verification.sh:/opt/a05/start-rfid-verification.sh:ro
+      - ./docker/mosquitto/start-rfid-lan.sh:/opt/a05/start-rfid-lan.sh:ro
+      - ./docker/mosquitto/rfid-lan.conf:/mosquitto/config/rfid-lan.conf:ro
+      - type: tmpfs
+        target: /mosquitto/data
+  backend:
+    image: smartbilling-a05-dev-backend
+    init: true
+    environment:
+      APP_ENV: development
+      RFID_ISOLATED_TEST: "1"
+      PORT: 3000
+      BIND_HOST: 0.0.0.0
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: smartbilling_dev
+      PGDATABASE: smartbilling_dev
+      PGPASSWORD_FILE: /run/secrets/postgres_password
+      MQTT_URL: mqtt://mqtt:1883
+      MQTT_USERNAME: smartbilling_dev
+      MQTT_PASSWORD_FILE: /run/secrets/mqtt_password
+      SESSION_SECRET_FILE: /run/secrets/session_secret
+      AUTH_ORIGIN: http://127.0.0.1:3000
+    secrets: [postgres_password,mqtt_password,session_secret,rfid_test_a_password,rfid_test_b_password,rfid_test_owner_password]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mqtt:
+        condition: service_started
+secrets:
+  postgres_password:
+    file: ./.local/secrets/postgres_password
+  mqtt_password:
+    file: ./.local/secrets/mqtt_password
+  session_secret:
+    file: ./.local/secrets/session_secret
+  rfid_test_a_password:
+    file: ./.local/secrets/rfid_test_a_password
+  rfid_test_b_password:
+    file: ./.local/secrets/rfid_test_b_password
+  rfid_test_owner_password:
+    file: ./.local/secrets/rfid_test_owner_password
