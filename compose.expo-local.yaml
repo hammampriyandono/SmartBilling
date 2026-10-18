@@ -1,0 +1,88 @@
+# Rehearsal only: separate network, secrets, volumes, broker and HTTP port.
+# This does not deploy to Railway or modify the development archive stack.
+name: smartbilling-expo-local
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: smartbilling_dev
+      POSTGRES_DB: smartbilling_dev
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes: [expo_postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U smartbilling_dev -d smartbilling_dev"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  mqtt:
+    image: eclipse-mosquitto:2
+    entrypoint: [/bin/sh, /opt/a05/start.sh]
+    secrets: [mqtt_password]
+    volumes:
+      - ./docker/mosquitto/start.sh:/opt/a05/start.sh:ro
+      - ./docker/mosquitto/health.sh:/opt/a05/health.sh:ro
+      - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - expo_mqtt:/mosquitto/data
+    healthcheck:
+      test: [CMD, /bin/sh, /opt/a05/health.sh]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  backend:
+    image: smartbilling-expo-local-backend
+    build:
+      context: .
+      args:
+        VITE_DATA_MODE: operational
+    init: true
+    environment:
+      APP_ENV: development
+      DATA_MODE: operational
+      PORT: 3000
+      BIND_HOST: 0.0.0.0
+      PGHOST: postgres
+      PGUSER: smartbilling_dev
+      PGDATABASE: smartbilling_dev
+      PGPASSWORD_FILE: /run/secrets/postgres_password
+      MQTT_URL: mqtt://mqtt:1883
+      MQTT_USERNAME: smartbilling_dev
+      MQTT_PASSWORD_FILE: /run/secrets/mqtt_password
+      MQTT_CLIENT_ID: smartbilling-expo-local-backend-v1
+      SESSION_SECRET_FILE: /run/secrets/session_secret
+      SESSION_COOKIE_NAME: smartbilling.expo.sid
+      AUTH_ORIGIN: http://127.0.0.1:3001
+    secrets: [postgres_password, mqtt_password, session_secret]
+    ports: ["127.0.0.1:3001:3000"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      mqtt: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+  postgres-archive-check:
+    profiles: [archive-check]
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: smartbilling_dev
+      POSTGRES_DB: smartbilling_dev
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes:
+      - type: tmpfs
+        target: /var/lib/postgresql/data
+      - ./.local/archives:/archives:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U smartbilling_dev -d smartbilling_dev"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+volumes:
+  expo_postgres:
+  expo_mqtt:
+secrets:
+  postgres_password: {file: ./.local/expo-local/secrets/postgres_password}
+  mqtt_password: {file: ./.local/expo-local/secrets/mqtt_password}
+  session_secret: {file: ./.local/expo-local/secrets/session_secret}
