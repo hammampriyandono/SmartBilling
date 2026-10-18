@@ -1,5 +1,7 @@
 # Sesi fasilitas RFID — kontrak simulasi v1
 
+Persiapan integrasi ESP32 3 Oktober 2026: lihat [panduan hardware](RFID-HARDWARE-INTEGRATION.md). Namespace produksi dan respons per device ditambahkan tanpa mengganti kontrak simulator ini. Hardware dan kompilasi sketch penuh belum teruji; relay nonaktif.
+
 17 September 2026. **Disetujui pengguna dan diimplementasikan untuk pengembangan lokal.** Migration 006–007, ingest, simulator, API dan halaman owner tersedia. Bagian audit di bawah mencatat kondisi sebelum implementasi; hasil nyata terbaru ada di HANDOFF. Kontrak ini untuk simulator lokal, bukan kontrak final ESP32 atau keputusan hardware.
 
 ## Audit kondisi terbaru

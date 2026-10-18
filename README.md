@@ -1,5 +1,9 @@
 # SmartBilling — Capstone A05
 
+Persiapan expo 18 Oktober: database pengujian lama tetap diarsipkan; dashboard rehearsal bersih tersedia di port 3001. Lihat [panduan database bersih dan langkah menuju Railway](docs/EXPO-PREPARATION.md).
+
+Tes PZEM ke dashboard Kamar 1: [firmware, mapping dan langkah uji fisik](docs/PZEM-DASHBOARD-TEST.md). Tahap ini terpisah dari broker diagnostik lama.
+
 SmartBilling adalah aplikasi web untuk memantau penggunaan listrik kamar kost dan fasilitas bersama, sekaligus menjadi dasar sistem pembagian biaya listrik berbasis pemakaian. Aplikasi dirancang untuk membantu pemilik dan penghuni memahami konsumsi melalui pembacaan meter, grafik historis, dan ringkasan energi harian.
 
 Proyek ini dikembangkan sebagai Capstone A05. Sudah tersedia **monitoring lokal, autentikasi owner/tenant dan sesi RFID simulasi**, dari MQTT ke PostgreSQL hingga dashboard web. Integrasi ESP32 dan perhitungan tagihan belum diimplementasikan.
@@ -179,6 +183,7 @@ docs/                Spesifikasi, arsitektur, ERD, dan panduan
 
 ## Dokumentasi
 
+- [Token dan Tagihan Bulanan — pencatatan, aturan bulan, API dan uji](docs/TOKEN-MONTHLY.md): tersedia pada dashboard **Monitoring listrik** owner, dengan pilihan properti/bulan, lima ringkasan, tambah/koreksi/batalkan pembelian. Belum ada final ditampilkan **Belum tersedia**, bukan tagihan nol; tenant tidak memiliki akses.
 - [Kebutuhan produk](docs/PRD.md)
 - [Arsitektur sistem](docs/ARCHITECTURE.md)
 - [ERD dan rancangan database](docs/database/cpstn-erd-final.md)
@@ -187,6 +192,8 @@ docs/                Spesifikasi, arsitektur, ERD, dan panduan
 - [Kontrak ESP32 dan MQTT produksi](docs/ESP32-MQTT-CONTRACT.md)
 - [Kesehatan perangkat dan kualitas data](docs/DEVICE-HEALTH.md)
 - [Kontrak dan rancangan RFID simulasi v1](docs/RFID-SIMULATION-PLAN.md)
+- [Persiapan firmware dan uji RFID ESP32 terisolasi](docs/RFID-HARDWARE-INTEGRATION.md)
+- [Uji koneksi PZEM dan MQTT ESP32-C3 di LAN](docs/PZEM-MQTT-TEST.md)
 - [Rancangan dashboard](docs/DASHBOARD-PLAN.md)
 - [Panduan pengembangan lokal](docs/LOCAL-DEVELOPMENT.md)
 - [Status implementasi dan hasil pengujian](docs/HANDOFF.md)

@@ -1,5 +1,7 @@
 # Lingkungan pengembangan lokal
 
+Rehearsal expo dengan database bersih dan arsip pengujian terpisah tersedia sejak 18 Oktober: [EXPO-PREPARATION.md](EXPO-PREPARATION.md). Dashboard baru port 3001; port 3000 tetap lingkungan pengujian lama. Tidak perlu seed/reset pada keduanya.
+
 Frontend Administrasi owner mendukung mutasi sesuai API sejak 23 September 2026: form, invitation, lifecycle, CSRF, versi dan retry idempoten. Cara memakai data existing tanpa migration/seed dan memperbarui aset saja: [FRONTEND-ADMIN.md](FRONTEND-ADMIN.md).
 
 Project aktif: **SmartBilling / Capstone A05**, `C:\Users\Admin\source\repos\SmartBilling`.
@@ -440,6 +442,26 @@ Owner membuat tenant dari **Administrasi → Tenant**. Layar sukses menampilkan 
 
 Token aktivasi hanya berada di fragment URL, tidak dikirim ke server saat halaman dimuat, lalu dibuang dari address bar oleh halaman. API tetap memvalidasi token sekali pakai dan masa kedaluwarsanya. Token yang hilang/kedaluwarsa memerlukan undangan baru. Formulir meminta CSRF dan tidak menyimpan password dalam bentuk teks.
 
+## Uji RFID ESP32 terisolasi
+
+Panduan lengkap ada di [RFID-HARDWARE-INTEGRATION.md](RFID-HARDWARE-INTEGRATION.md): firmware integrasi terpisah, secret placeholder, registrasi owner, respons per device dan stack test PostgreSQL/MQTT tanpa volume aplikasi. Jangan menjalankan fixture hardware pada database utama. Override LAN `compose.rfid-lan.yaml` bersifat opt-in dan tidak diaktifkan otomatis; firewall tetap keputusan operator. Relay nonaktif dan tidak ada flash. Kompilasi sketch lengkap/hardware masih belum teruji.
+
 ## Mengganti nama properti
 
 Login sebagai owner, buka **Administrasi → Properti**, pilih properti, lalu **Lihat detail → Ubah nama properti**. Isi nama baru dan alasan perubahan. ID properti beserta relasi dan histori tetap sama. Nama baru muncul di pilihan properti pada Billing. Perubahan memakai pemeriksaan owner, CSRF, Idempotency-Key, row version, dan audit log; tenant tidak dapat membuka endpoint ini.
+
+## Tampilan monitoring tanpa simulasi
+
+Sejak 18 Oktober 2026, pilihan **Tampilkan simulasi dan arsip uji** berlaku bersama untuk Monitoring, Administrasi, RFID, Billing, Laporan, dan Kesehatan Perangkat. Default tersembunyi; centang untuk mengembalikan daftar lengkap sesuai hak akses. Jumlah pada kartu, daftar, pilihan form, peringatan, dan ringkasan mengikuti mode yang sama. Pergantian mode menutup detail/form dan memuat ulang halaman agar data dari mode sebelumnya tidak tertinggal. Histori database tidak dihapus, transaksi dan hak akses tidak berubah.
+
+Filter memakai provenance simulation serta ID fixture UI/idempotensi yang telah diverifikasi, termasuk relasi turunannya; tidak menebak dari nama. KMR-01/Kamar 1, tenant Nadia dan Uwen, serta properti induknya tetap terlihat meskipun nama properti masih Kost SIMULASI. Nama tersebut dapat diganti melalui Administrasi seperti panduan di atas. Sampai hardware dipetakan, Monitoring menjelaskan **Belum ada meter untuk pengamatan**. Ringkasan token dibuka melalui **Buka ringkasan**.
+
+API RFID serta daftar periode/pembayaran/laporan menerima opsi tampilan `data_view=observation`; tanpa opsi, perilaku arsip existing tetap tersedia. Filter diterapkan sebelum pagination/rekap. Periode billing yang berisi kamar atau occupancy uji disembunyikan seluruhnya, sehingga nominal periode tidak ditampilkan sebagai total sebagian. CSV memakai hasil laporan terfilter yang sama. Filter tampilan bukan penghapusan, bukan pembatas keamanan, dan tidak menghentikan ingest atau mengubah kalkulasi billing.
+
+## Uji koneksi ESP32/PZEM di LAN
+
+Untuk diagnosis ESP32/PZEM `rc=-2`, tersedia broker tes LAN terpisah: [PZEM-MQTT-TEST.md](PZEM-MQTT-TEST.md). Konfigurasi ini opt-in, tidak membuka broker aplikasi utama atau menulis histori database. Sketch lokal memakai kredensial khusus perangkat.
+
+## Token dan Tagihan Bulanan
+
+Bagian baru ada pada halaman utama **Monitoring listrik** owner. Pilih properti dan bulan, lalu catat pembelian token yang benar-benar terjadi; tidak ada seed transaksi/tagihan. Migration 023 membuat head dan snapshot revisi pembelian append-only, tanpa menyentuh billing/sensor/RFID. Panduan form, aturan periode lokal/lintas bulan, enam endpoint dan perintah regression/smoke HTTP ada di [TOKEN-MONTHLY.md](TOKEN-MONTHLY.md). Bila belum ada periode final yang sesuai bulan, tagihan dan selisih **Belum tersedia**. Periode final lintas bulan dikecualikan dan diberi peringatan, tidak diprorata.
