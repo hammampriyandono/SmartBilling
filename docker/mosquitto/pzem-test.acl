@@ -1,0 +1,7 @@
+user pzem-kamar2
+topic write smartbilling/test/pzem/kamar2
+topic write smartbilling/test/pzem/kamar2/status
+
+user pzem-observer
+topic read smartbilling/test/pzem/kamar2
+topic read smartbilling/test/pzem/kamar2/status

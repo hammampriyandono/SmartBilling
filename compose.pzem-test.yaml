@@ -1,0 +1,26 @@
+# Broker diagnostik terpisah; tidak terhubung ke backend/database aplikasi.
+name: smartbilling-pzem-test
+services:
+  mqtt:
+    image: eclipse-mosquitto:2
+    entrypoint: ["/bin/sh", "/opt/pzem/start.sh"]
+    ports:
+      - "${PZEM_LAN_BIND_IP:?Set PZEM_LAN_BIND_IP to the Wi-Fi IPv4}:${PZEM_LAN_PORT:-1883}:1883"
+    secrets:
+      - pzem_device_password
+      - pzem_observer_password
+    volumes:
+      - ./docker/mosquitto/start-pzem-test.sh:/opt/pzem/start.sh:ro
+      - ./docker/mosquitto/pzem-test.conf:/mosquitto/config/pzem-test.conf:ro
+      - ./docker/mosquitto/pzem-test.acl:/mosquitto/config/pzem-test.acl:ro
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+    restart: unless-stopped
+secrets:
+  pzem_device_password:
+    file: ./.local/pzem-test/device_password
+  pzem_observer_password:
+    file: ./.local/pzem-test/observer_password
