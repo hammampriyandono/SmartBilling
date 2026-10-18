@@ -1,0 +1,14 @@
+# Opt-in local PZEM integration; keep diagnostic broker on port 1883 separate.
+services:
+  mqtt:
+    ports:
+      - "${PZEM_DASHBOARD_BIND_IP:?Set Wi-Fi IPv4}:${PZEM_DASHBOARD_PORT:-1884}:1883"
+    entrypoint: [/bin/sh, /opt/a05/start-pzem-dashboard.sh]
+    environment:
+      PZEM_DASHBOARD_UID: ${PZEM_DASHBOARD_UID:?Set provisioned device UID}
+    secrets: [pzem_dashboard_device_password, pzem_dashboard_observer_password]
+    volumes:
+      - ./docker/mosquitto/start-pzem-dashboard.sh:/opt/a05/start-pzem-dashboard.sh:ro
+secrets:
+  pzem_dashboard_device_password: {file: ./.local/expo-pzem/device_password}
+  pzem_dashboard_observer_password: {file: ./.local/expo-pzem/observer_password}
