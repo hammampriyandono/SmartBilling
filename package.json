@@ -15,7 +15,7 @@
     "verify:persistence": "node scripts/smoke.js --verify-persistence",
     "migrate": "node scripts/migrate.js",
     "seed:demo": "node scripts/seed-demo.js",
-    "test": "node --test",
+    "test": "node --test test/*.test.js web/*.test.js",
     "simulate": "node scripts/simulate.js",
     "test:mqtt": "node scripts/verify-mqtt.js",
     "build": "vite build",

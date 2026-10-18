@@ -1,11 +1,13 @@
 import {uuid,timestamp} from './http-input.js';
 import {Rejection} from './sensor-message.js';
 export const rfidTopic='smartbilling/sim/v1/devices/+/rfid/taps';
+export const productionRfidTopic='smartbilling/v1/devices/+/rfid/taps';
+export const rfidTopics=[rfidTopic,productionRfidTopic];
 export function parseTap(topic,bytes,packet={}) {
  if(bytes.length>4096) throw new Rejection('payload_too_large');
  if(packet.retain) throw new Rejection('retained_not_allowed');
  if(packet.qos!==1) throw new Rejection('invalid_qos');
- const match=/^smartbilling\/sim\/v1\/devices\/([A-Za-z0-9_-]{1,80})\/rfid\/taps$/.exec(topic);
+ const match=/^smartbilling\/(sim\/)?v1\/devices\/([A-Za-z0-9_-]{1,80})\/rfid\/taps$/.exec(topic);
  if(!match)throw new Rejection('invalid_topic');
  let v;
  try {v=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}catch{throw new Rejection('invalid_json');}
@@ -20,6 +22,6 @@ export function parseTap(topic,bytes,packet={}) {
    previous={boot_id:uuid(p.boot_id).toLowerCase(),sequence_no:p.sequence_no};
    if(previous.boot_id===boot ? v.sequence_no!==previous.sequence_no+1 : v.sequence_no!==0)throw new Error();
   } else if(v.sequence_no!==0)throw new Error();
-  return {device_uid:match[1],payload:{schema_version:1,boot_id:boot,sequence_no:v.sequence_no,previous_event:previous,reader_channel:v.reader_channel,card_uid:v.card_uid,occurred_at:occurred}};
+  return {device_uid:match[2],data_source:match[1]?'simulation':'production',response_topic:topic.replace(/taps$/,'responses'),payload:{schema_version:1,boot_id:boot,sequence_no:v.sequence_no,previous_event:previous,reader_channel:v.reader_channel,card_uid:v.card_uid,occurred_at:occurred}};
  }catch{throw new Rejection('invalid_identity_or_time');}
 }

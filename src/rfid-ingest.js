@@ -9,22 +9,33 @@ async function reject(db,topic,bytes,reason) {
 }
 export async function receiveTap(pool,topic,bytes,packet) {
  let parsed;try{parsed=parseTap(topic,bytes,packet);}catch(e){if(e instanceof Rejection)return reject(pool,topic,bytes,e.message);throw e;}
- const {device_uid,payload:p}=parsed,hash=sha256(JSON.stringify(p));
+ const {device_uid,payload:p,data_source,response_topic}=parsed,hash=sha256(JSON.stringify(p));
+ // Never echo the UID, payload, account name or credentials. The wire digest binds
+ // a reply to the exact pending request, including identity-conflict replies.
+ const reply=outcome=>({status:outcome.consumed||['pending','review'].includes(outcome.status)?'stored':'rejected',response_topic,response:{schema_version:1,device_uid,boot_id:p.boot_id,sequence_no:p.sequence_no,request_sha256:sha256(bytes),...outcome}});
  const db=await pool.connect();let deviceId;
  try {
   await db.query('BEGIN');
-  const device=(await db.query('SELECT d.id,d.source FROM devices d JOIN rfid_stream_state s ON s.device_id=d.id WHERE d.device_uid=$1 AND d.status=$2 FOR UPDATE OF d',[device_uid,'active'])).rows[0];
-  if(!device){await reject(db,topic,bytes,'unknown_or_inactive_device');await db.query('COMMIT');return {status:'rejected'};}
+  const device=(await db.query('SELECT d.id,d.source FROM devices d WHERE d.device_uid=$1 AND d.status=$2 FOR UPDATE OF d',[device_uid,'active'])).rows[0];
+  const refusal=!device?'unknown_or_inactive_device':data_source==='production'&&device.source==='simulation'?'source_mismatch':null;
+  if(refusal){await reject(db,topic,bytes,refusal);await db.query('COMMIT');return reply({status:'rejected',reason:refusal,action:null,consumed:false});}
   deviceId=device.id;
+  if((await db.query('SELECT 1 FROM device_events WHERE device_id=$1 AND data_source<>$2 LIMIT 1',[deviceId,data_source])).rowCount){
+   await reject(db,topic,bytes,'source_mismatch');await db.query('COMMIT');return reply({status:'rejected',reason:'source_mismatch',action:null,consumed:false});
+  }
+  // Owner CRUD already provisions devices/readers. Initialize only stream metadata,
+  // not an event/session, under the same device lock; concurrent first taps are safe.
+  await db.query('INSERT INTO rfid_stream_state(device_id) VALUES($1) ON CONFLICT DO NOTHING',[deviceId]);
   const existing=(await db.query('SELECT * FROM device_events WHERE device_id=$1 AND boot_id=$2 AND sequence_no=$3',[deviceId,p.boot_id,p.sequence_no])).rows[0];
   if(existing) {
-   if(existing.payload_sha256!==hash)await reject(db,topic,bytes,'identity_conflict');
+   if(existing.payload_sha256!==hash||existing.data_source!==data_source){await reject(db,topic,bytes,'identity_conflict');await db.query('COMMIT');return reply({status:'conflict',reason:'identity_conflict',action:null,consumed:false});}
   }else await db.query(`INSERT INTO device_events(device_id,boot_id,sequence_no,event_type,occurred_at,payload,payload_sha256,previous_boot_id,previous_sequence_no,data_source)
-   VALUES($1,$2,$3,'rfid_tap',$4,$5,$6,$7,$8,$9)`,[deviceId,p.boot_id,p.sequence_no,p.occurred_at,p,hash,p.previous_event?.boot_id||null,p.previous_event?.sequence_no??null,device.source==='simulation'?'simulation':'production']);
+   VALUES($1,$2,$3,'rfid_tap',$4,$5,$6,$7,$8,$9)`,[deviceId,p.boot_id,p.sequence_no,p.occurred_at,p,hash,p.previous_event?.boot_id||null,p.previous_event?.sequence_no??null,data_source]);
   await db.query('COMMIT');
  }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
  await processDevice(pool,deviceId);
- return {status:'stored'};
+ const event=(await pool.query('SELECT processing_status,reason,result_action FROM device_events WHERE device_id=$1 AND boot_id=$2 AND sequence_no=$3',[deviceId,p.boot_id,p.sequence_no])).rows[0];
+ return reply({status:event.processing_status==='waiting_predecessor'?'pending':event.processing_status,reason:event.reason,action:event.result_action,consumed:['processed','rejected'].includes(event.processing_status)});
 }
 async function applyTap(db,event) {
  const p=event.payload,time=event.occurred_at;
@@ -42,11 +53,16 @@ async function applyTap(db,event) {
  if(!card||!card.is_active)return invalid('invalid_card_or_account',open?.card_uid===p.card_uid);
  if(open && card.id!==open.rfid_card_id)return invalid('facility_busy');
  if(last && +new Date(time)<=+new Date(last))return invalid('non_increasing_time',true);
- const occupancy=(await db.query(`SELECT o.* FROM occupancies o JOIN rooms r ON r.id=o.room_id WHERE o.user_id=$1 AND r.property_id=$2
+ const occupancy=(await db.query(`SELECT o.*,r.source room_source FROM occupancies o JOIN rooms r ON r.id=o.room_id WHERE o.user_id=$1 AND r.property_id=$2
   AND o.starts_at<=$3 AND (o.ends_at IS NULL OR o.ends_at>$3) FOR SHARE OF o`,[card.user_id,reader.property_id,time])).rows[0];
  if(!occupancy || (open&&occupancy.id!==open.occupancy_id))return invalid('invalid_occupancy',true);
- const meter=(await db.query(`SELECT * FROM meters WHERE communal_load_id=$1 AND installed_at<=$2 AND (retired_at IS NULL OR retired_at>$2) FOR SHARE`,[reader.communal_load_id,time])).rows[0];
+ const meter=(await db.query(`SELECT m.*,d.source device_source,a.source asset_source FROM meters m JOIN devices d ON d.id=m.device_id
+  JOIN meter_assets a ON a.id=m.meter_asset_id WHERE m.communal_load_id=$1 AND m.installed_at<=$2 AND (m.retired_at IS NULL OR m.retired_at>$2) FOR SHARE OF m,d,a`,[reader.communal_load_id,time])).rows[0];
  if(!meter || (open&&meter.id!==open.meter_id))return invalid('meter_changed_or_unavailable',true);
+ // A physical event must not create a session masquerading as simulated data,
+ // nor turn simulated master relationships into a production billable session.
+ if(event.data_source==='production'&&([reader,facility,card,occupancy,meter].some(row=>row.source==='simulation')||
+  [occupancy.room_source,meter.device_source,meter.asset_source].includes('simulation')))return invalid('simulation_context');
  if(open) {
   await db.query("UPDATE usage_sessions SET end_event_id=$2,ended_at=$3,status='completed',review_reason=NULL WHERE id=$1",[open.id,event.id,time]);
   return {action:'closed'};

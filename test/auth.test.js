@@ -50,7 +50,7 @@ test('PostgreSQL auth: sesi, CSRF, isolasi owner/tenant, batas waktu, daily dan 
     for(let i=0;i<8;i++) await db.query(`INSERT INTO meter_readings(meter_id,boot_id,sequence_no,counter_epoch,measured_at,energy_kwh,power_w,quality)
       VALUES($1,$2,$3,0,$4,$5,60,'valid')`,[meter,boot,i,new Date(Date.parse('2026-09-11T17:00:00Z')+i*60000),String(i)]);
     const app=express(),origin='http://127.0.0.1:3000';
-    auth=authentication(db,{secret:randomBytes(48).toString('hex'),origin});
+    auth=authentication(db,{secret:randomBytes(48).toString('hex'),origin,cookieName:'smartbilling.expo.sid'});
     app.use(auth.middleware);app.use('/api/auth',auth.router);app.use('/api',auth.requireUser,monitoringApi(db));app.use(apiError);
     server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
     const url=`http://127.0.0.1:${server.address().port}`;
@@ -66,6 +66,7 @@ test('PostgreSQL auth: sesi, CSRF, isolasi owner/tenant, batas waktu, daily dan 
       const csrf=(await (await client.request('/api/auth/csrf')).json()).csrf,old=client.cookie;
       const res=await client.request('/api/auth/login',{method:'POST',csrf,body:{email:`${id}@test.invalid`,password}});
       assert.equal(res.status,200);assert.notEqual(client.cookie,old);
+      assert.ok(client.cookie.startsWith('smartbilling.expo.sid='));
       assert.match(res.headers.get('set-cookie'),/HttpOnly/);assert.match(res.headers.get('set-cookie'),/SameSite=Lax/);
     }
     const a=browser(),b=browser();

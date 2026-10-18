@@ -5,34 +5,48 @@ import { authentication } from './auth.js';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createPool, createMqtt, requireDevelopment, testTopic, replyPrefix } from './connections.js';
 import { monitoringApi, apiError } from './monitoring-api.js';
-import { sensorTopics, sensorPrefix,productionSensorPrefix } from './sensor-message.js';
+import { sensorPrefix,productionSensorPrefix } from './sensor-message.js';
 import { ingestSensor } from './sensor-ingest.js';
-import {rfidTopic} from './rfid-message.js';
 import {receiveTap,createRfidWorker} from './rfid-ingest.js';
 import {rfidApi} from './rfid-api.js';
 import {masterApi} from './master-api.js';
 import {billingApi} from './billing-api.js';
+import {dataMode,subscribedTopics} from './runtime-mode.js';
+import {tokenApi} from './token-api.js';
 import {deviceHealthApi} from './device-health-api.js';
 
+const mode=dataMode(process.env.DATA_MODE);
 requireDevelopment();
 const pool = createPool();
-const client = createMqtt('smartbilling-simulation-backend-v1', { clean: false });
+const client = createMqtt(process.env.MQTT_CLIENT_ID||'smartbilling-simulation-backend-v1', { clean: false });
 let subscribed = false;
 let stopping = false;
 let ingestHealthy = true;
 client.on('connect', () => {
-  const topics=[testTopic,...sensorTopics,rfidTopic];client.subscribe(topics, { qos: 1 }, (error, granted) => {
+  const topics=subscribedTopics(mode,testTopic);client.subscribe(topics, { qos: 1 }, (error, granted) => {
     subscribed = !error && topics.every((topic) => granted?.some((entry) => entry.topic === topic && entry.qos <= 1));
-    if (subscribed) console.info('MQTT siap untuk pesan uji pengembangan.');
+    if (subscribed) console.info(mode==='operational'?'MQTT siap untuk perangkat operasional.':'MQTT siap untuk pesan uji pengembangan.');
   });
 });
 // MQTT.js sends subscriber PUBACK only after this callback. DB failures keep the message pending.
 client.handleMessage = (packet, done) => {
+  if (mode==='operational'&&!packet.topic.startsWith(productionSensorPrefix)) return done();
   if (!packet.topic.startsWith(sensorPrefix)&&!packet.topic.startsWith(productionSensorPrefix)) return done();
   (async () => {
     while (!stopping) {
       try {
-        if(packet.topic.endsWith('/rfid/taps'))await receiveTap(pool,packet.topic,packet.payload,packet);
+        if(packet.topic.endsWith('/rfid/taps')){
+          const result=await receiveTap(pool,packet.topic,packet.payload,packet);
+          const reason=result.response?.reason||result.reason;
+          if(reason)console.warn(`Event RFID: ${reason}.`);
+          // Result is reconstructed from the durable inbox on every retry. No
+          // retained/global response, and no mutation on a replay or conflict.
+          // Do not await the outgoing PUBACK inside handleMessage: MQTT.js must
+          // release its inbound packet queue to receive that acknowledgment.
+          if(result.response_topic)client.publish(result.response_topic,JSON.stringify(result.response),{qos:1,retain:false},error=>{
+            if(error)console.warn('Balasan RFID belum terkirim; perangkat harus replay pending event.');
+          });
+        }
         else {const result=await ingestSensor(pool, packet.topic, packet.payload, packet);if(result.status==='rejected')console.warn(`Pesan sensor ditolak: ${result.reason}.`);else if(result.status==='duplicate')console.info(`Pesan sensor duplikat diabaikan: ${result.reason}.`);}
         ingestHealthy = true;
         done();
@@ -65,10 +79,11 @@ let rfidBusy=false,rfidHealthy=true;
 async function tickRfid(){if(stopping||rfidBusy)return;rfidBusy=true;try{await workRfid();rfidHealthy=true;}catch{rfidHealthy=false;console.warn('Pemrosesan RFID menunggu database; data inbox dipertahankan.');}finally{rfidBusy=false;}}
 const rfidTimer=setInterval(tickRfid,2000);tickRfid();
 app.disable('x-powered-by');
-const auth=authentication(pool,{secret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim(),origin:process.env.AUTH_ORIGIN||'http://127.0.0.1:3000'});
+const auth=authentication(pool,{secret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim(),origin:process.env.AUTH_ORIGIN||'http://127.0.0.1:3000',cookieName:process.env.SESSION_COOKIE_NAME||'smartbilling.sid'});
 app.use('/api',(_req,res,next)=>{res.set('Cache-Control','no-store');next();},auth.middleware);
 app.use('/api/auth',auth.router);
 app.use('/api',auth.requireUser,billingApi(pool,{csrf:auth.csrf,idempotencySecret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim()}));
+app.use('/api',auth.requireUser,tokenApi(pool,{csrf:auth.csrf,idempotencySecret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim()}));
 app.use('/api',auth.requireUser,deviceHealthApi(pool,{csrf:auth.csrf,idempotencySecret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim(),onlineSeconds:Number(process.env.DEVICE_HEALTH_ONLINE_SECONDS||180),offlineSeconds:Number(process.env.DEVICE_HEALTH_OFFLINE_SECONDS||900),maxGapSeconds:Number(process.env.MONITORING_MAX_GAP_SECONDS||120)}));
 app.use('/api',auth.requireUser,masterApi(pool,{csrf:auth.csrf,idempotencySecret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim()}));
 app.use('/api',auth.requireUser,rfidApi(pool));

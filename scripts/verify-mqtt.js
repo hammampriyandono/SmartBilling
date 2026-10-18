@@ -30,9 +30,9 @@ try {
   await rejection(demoTopic, JSON.stringify({ ...first, energy_kwh: -1 }), 'invalid_energy_kwh');
   await rejection(demoTopic, '{broken-json', 'invalid_json');
   await rejection(demoTopic, JSON.stringify(first), 'invalid_qos', 0);
-  await rejection(demoTopic, JSON.stringify({ ...first, channel_no: 9999 }), 'unmapped_channel_or_time');
+  await rejection(demoTopic, JSON.stringify({ ...first, channel_no: 9999 }), 'unregistered_channel');
   const deviceCount = (await pool.query('SELECT count(*)::int AS count FROM devices')).rows[0].count;
-  await rejection('smartbilling/sim/v1/devices/not-registered/readings', JSON.stringify(first), 'unknown_or_inactive_device');
+  await rejection('smartbilling/sim/v1/devices/not-registered/readings', JSON.stringify(first), 'unregistered_device_uid');
   assert.equal((await pool.query('SELECT count(*)::int AS count FROM devices')).rows[0].count, deviceCount);
   assert.deepEqual(await snapshot(), before, 'Duplikat/penolakan mengubah pembacaan existing');
   await verifyDataset(pool, date);
