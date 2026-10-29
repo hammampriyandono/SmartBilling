@@ -3,6 +3,7 @@ import {Router,json} from 'express';import {randomUUID,createHmac} from 'node:cr
 import {HttpError,uuid,timestamp,limit} from './http-input.js';import {calculatePeriod,clearPeriodCalculation} from './billing-service.js';
 import {calculationPolicy,previewTariff} from './billing-policy.js';
 import {observedPeriodUsage} from './billing-observed.js';
+import {tenantEstimatePeriods,tenantRunningEstimate} from './tenant-billing-estimate.js';
 const keyRe=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const allowed=(b,keys)=>{if(!b||typeof b!=='object'||Array.isArray(b)||Object.keys(b).some(k=>!keys.includes(k)))throw new HttpError(400,'invalid_body');};
 const txt=(v,n=240)=>{if(typeof v!=='string'||!v.trim()||v.length>n)throw new HttpError(400,'invalid_text');return v.trim();};
@@ -15,6 +16,16 @@ export function billingApi(pool,{csrf,idempotencySecret}={}){
  async function prop(db,id,owner){const row=(await db.query('SELECT * FROM properties WHERE id=$1 AND owner_id=$2 FOR SHARE',[uuid(id),owner])).rows[0];if(!row)throw new HttpError(404,'property_not_found');return row;}
  async function period(db,id,owner,lock='FOR UPDATE'){const row=(await db.query(`SELECT bp.* FROM billing_periods bp JOIN properties p ON p.id=bp.property_id WHERE bp.id=$1 AND p.owner_id=$2 ${lock}`,[uuid(id),owner])).rows[0];if(!row)throw new HttpError(404,'billing_period_not_found');return row;}
  async function audit(db,req,pid,action,id,before,after,why){await db.query('INSERT INTO audit_logs(property_id,actor_user_id,request_id,action,entity_type,entity_id,before_data,after_data,reason) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[pid,req.user.id,randomUUID(),action,'billing',id,before,after,why]);}
+ r.get('/billing-estimates',async(req,res)=>{
+  if(req.user?.role!=='tenant')throw new HttpError(403,'tenant_required');
+  allowed(req.query,['limit','after','data_view']);
+  res.json(await tenantEstimatePeriods(pool,req.user.id,req.query,limit(req.query.limit,100),req.query.after?uuid(req.query.after):null));
+ });
+ r.get('/billing-estimates/:id',async(req,res)=>{
+  if(req.user?.role!=='tenant')throw new HttpError(403,'tenant_required');
+  allowed(req.query,['data_view']);
+  res.json({data:await tenantRunningEstimate(pool,uuid(req.params.id),req.user.id,req.query,Number(process.env.MONITORING_MAX_GAP_SECONDS||120))});
+ });
  r.get('/owner/billing-periods/:id/observed-usage',async(req,res)=>{
   if(req.user.role!=='owner')throw new HttpError(403,'owner_required');
   const bp=await period(pool,req.params.id,req.user.id,'');
