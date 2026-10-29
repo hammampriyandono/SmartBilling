@@ -7,7 +7,7 @@ function decimal(value) {
 }
 
 // Input rows sorted by measured_at, id; includes one preceding sample for reset context.
-export function dailyConsumption(days, rows, maxGapSeconds) {
+export function dailyConsumption(days, rows, maxGapSeconds, {includeIntervals=false}={}) {
   const badEpochs = new Set();
   const previousEnergy = new Map();
   const timestampCounts = new Map();
@@ -31,6 +31,7 @@ export function dailyConsumption(days, rows, maxGapSeconds) {
     if (!samples.length || new Date(samples[0].measured_at).getTime() !== start) reasons.add('missing_start_boundary');
     if (!samples.length || new Date(samples.at(-1).measured_at).getTime() !== end) reasons.add('missing_end_boundary');
     let sum = 0n, coveredSeconds = 0, validIntervals = 0;
+    const intervals=[];
     for (let i = 0; i < samples.length; i++) {
       const current = samples[i];
       if (current.quality !== 'valid') reasons.add('invalid_quality');
@@ -49,6 +50,7 @@ export function dailyConsumption(days, rows, maxGapSeconds) {
           || badEpochs.has(current.counter_epoch)
           || timestampCounts.get(currentTime) > 1 || timestampCounts.get(previousTime) > 1) continue;
       sum += units(current.energy_kwh) - units(previous.energy_kwh);
+      if(includeIntervals)intervals.push({starts_at:previous.measured_at,ends_at:current.measured_at,energy_kwh:decimal(units(current.energy_kwh)-units(previous.energy_kwh))});
       coveredSeconds += seconds;
       validIntervals++;
     }
@@ -60,6 +62,7 @@ export function dailyConsumption(days, rows, maxGapSeconds) {
       observed_consumption_kwh: validIntervals ? decimal(sum) : null,
       coverage_seconds: coveredSeconds, expected_seconds: (end - start) / 1000,
       sample_count: samples.length, reasons: [...reasons],
+      ...(includeIntervals?{valid_intervals:intervals}:{}),
     };
   });
 }

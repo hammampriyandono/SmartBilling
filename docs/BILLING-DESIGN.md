@@ -24,12 +24,14 @@ Meter utama yang tidak lengkap membuat rekonsiliasi properti `review`, tetapi **
 5. Konsumsi kamar pada interval tanpa occupancy menjadi share `owner_unassigned` (`occupancy_id=null`), bukan nol dan bukan dipindahkan ke tenant sebelum/sesudahnya.
 6. Sesi yang beririsan dengan perpindahan occupancy atau batas periode menjadi `review`; pembagian berdasarkan durasi dilarang.
 7. Pembulatan hanya pada Rupiah akhir. Gunakan largest remainder; sisa diberikan menurut pecahan terbesar, lalu ID canonical ascending sebagai tie-break deterministik.
-8. Ambang gap production belum ada. Draft produksi tidak boleh memakai 120 detik dari simulator sebagai default diam-diam. Tanpa policy gap yang disetujui berdasarkan firmware/interval sampling nyata, finalisasi data production ditahan.
+8. Periode baru menyimpan pengaturan yang terlihat di UI: jeda maksimum180detik, batas sampel di dalam periode, toleransi60detik per sisi. Nilai ini default implementasi untuk pengujian sampling sekitar60detik, dapat diubah owner; bukan kebijakan fairness final dari tim. Periode lama dengan ambang `null` tetap review sampai diatur dan dihitung ulang.
 9. Data `source=simulation` hanya boleh menghasilkan preview berlabel simulasi dan tidak boleh finalized sebagai tagihan nyata.
 
 ## Perhitungan kamar dan fasilitas
 
-Counter kWh selalu kumulatif. Pecah perhitungan menurut pemasangan meter, `counter_epoch`, perubahan tarif, serta boundary occupancy yang diperlukan. Setiap segmen memerlukan boundary awal/akhir tepat, kualitas valid, timestamp tunggal, counter tidak turun, dan gap di bawah policy snapshot. Jangan mengurangkan counter lintas meter/epoch.
+Counter kWh selalu kumulatif. Setiap segmen memerlukan minimal dua timestamp berbeda, kualitas valid, counter/epoch tidak turun/berubah dan gap di bawah policy snapshot. Metode `exact` membutuhkan timestamp tepat pada batas. Metode `inside` memilih sampel pertama dan terakhir di dalam rentang, masing-masing maksimal sejauh toleransi dari batas yang diminta. Tidak memakai sampel di luar periode/pemasangan, interpolasi atau ekstrapolasi. Jangan mengurangkan counter lintas meter/epoch. Pergantian epoch di tengah segmen tetap review; pembagian tarif/occupancy kompleks belum ditambahkan oleh perubahan ini.
+
+`billing_meter_segments.calculation_evidence` menyimpan waktu rentang yang diminta, waktu sampel aktual, offset tepi, jumlah sampel, metode dan ambang. Delta hanya mencakup sampel terpilih; detik tepi yang tidak terukur tidak diklaim sebagai konsumsi penuh. Waktu sampel tiap ESP dapat berbeda sehingga selisih meter utama–kamar harus dibaca bersama bukti waktu, bukan sebagai bukti kerugian listrik yang presisi. Bukti untuk meter utama dan fasilitas kini disimpan juga, dan tersedia melalui detail owner.
 
 Pergantian meter dijumlahkan sebagai beberapa segmen hanya bila setiap segmen lengkap. Satu segmen wajib yang tidak lengkap membuat energi dan biaya komponen tersebut `null` serta room bill `review`. Pindah kamar menghasilkan share berbeda pada occupancy lama dan baru; histori tidak dipindahkan. Bila boundary perpindahan tidak lengkap, energi kamar periode mungkin dapat dihitung untuk diagnosis, tetapi alokasi tenant dan nominal final harus `null/review`.
 
@@ -116,11 +118,17 @@ Kalkulator murni membaca fixture ini tanpa database. Skenario PostgreSQL/API mem
 
 - metode pembagian shared bila fitur itu ditambahkan;
 - metode multi-peserta fasilitas;
-- ambang gap production;
+- evaluasi ambang gap/toleransi operasional bersama tim berdasarkan karakter sampling dan kebutuhan penagihan;
 - apakah pembagian energi kamar untuk beberapa occupancy bersamaan memakai equal-present atau kebijakan lain;
 - alur administratif untuk issue/review sebelum koreksi.
 
-Schema RFID saat ini memang membatasi satu participant per sesi. Kalkulator tetap tidak memiliki kebijakan alokasi multi-peserta; bila model itu dibuka kelak, hasil harus `review/null` sampai kebijakan disetujui. Karena ambang gap production tetap `null`, periode production nyata akan review sampai policy berdasarkan firmware dan interval sampling ditetapkan. Data simulation menghasilkan preview dan guard API/database menolak finalisasi.
+Schema RFID saat ini memang membatasi satu participant per sesi. Kalkulator tetap tidak memiliki kebijakan alokasi multi-peserta; bila model itu dibuka kelak, hasil harus `review/null` sampai kebijakan disetujui. Data simulation menghasilkan preview dan guard API/database menolak finalisasi.
+
+## Pengaturan periode dan tarif khusus pratinjau
+
+POST create period menerima `calculation_policy` dengan `production_max_gap_seconds` (integer1–3600), `boundary_method` (`exact`/`inside`) dan `boundary_tolerance_seconds` (integer0–300, tidak melebihi gap; exact harus0). Jika tidak dikirim, periode baru memakai default eksplisit di atas. Pengaturan lama tidak di-backfill. POST `/api/owner/billing-periods/:id/policy` memerlukan owner, CSRF, idempotency key, versi terbaru dan alasan. Hanya draft/review dapat diubah. Penyimpanan menghapus hasil kalkulasi lama dan mengosongkan snapshot nominal sehingga owner harus menghitung ulang; audit dan transaksi memakai pola existing. Tidak mengubah skema database atau histori final.
+
+Owner dapat memilih `preview_tariff: {energy_rate_rp_kwh, source_reference}` khusus satu periode. Tarif wajib positif dengan sumber jelas; pilihan ini tidak menambah/mengubah jadwal tarif properti. Snapshot bertanda `source=preview_assumption` dan UI **Pratinjau uji · tarif asumsi**. Provenance sensor tetap production jika pembacaan sebenarnya; tarif asumsi tidak menyamarkan simulasi menjadi pengukuran nyata. API finalisasi menolak periode ini (`preview_tariff_not_finalizable`), meskipun semua room bill siap. Tenant tetap hanya melihat periode final. Untuk beralih ke tarif operasional, hapus pilihan tarif uji, sediakan satu jadwal tarif yang mencakup rentang dan hitung ulang. Tarif operasional/fairness tetap keputusan tim; nominal1444.70pada contoh lokal adalah asumsi uji, bukan tarif PLN terverifikasi.
 
 ## Bukti verifikasi 24 September 2026
 

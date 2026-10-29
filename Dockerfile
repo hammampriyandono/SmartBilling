@@ -4,6 +4,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY web ./web
 COPY src/display-policy.js ./src/display-policy.js
+COPY src/billing-policy.js ./src/billing-policy.js
 COPY vite.config.js ./
 ARG VITE_DATA_MODE=archive
 ENV VITE_DATA_MODE=$VITE_DATA_MODE

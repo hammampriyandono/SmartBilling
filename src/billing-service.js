@@ -1,38 +1,37 @@
 import {randomUUID} from 'node:crypto';
-import {segmentEnergy,energyCost,roundHalfUp,parseDecimal,formatDecimal} from './billing-calculation.js';
+import {energyCost,roundHalfUp,parseDecimal,formatDecimal} from './billing-calculation.js';
+import {evaluateReadings} from './billing-meter-evaluation.js';
 const max=(a,b)=>new Date(a)>new Date(b)?a:b,min=(a,b)=>new Date(a)<new Date(b)?a:b;
 const json=v=>JSON.stringify(v);
 async function issue(db,period,scope,code,details={},room=null,session=null){await db.query('INSERT INTO billing_issues(id,billing_period_id,room_bill_id,usage_session_id,scope,code,details) VALUES($1,$2,$3,$4,$5,$6,$7)',[randomUUID(),period,room,session,scope,code,details]);}
-async function evaluateMeter(db,meter,start,end,maxGap){
+async function evaluateMeter(db,meter,start,end,policy){
  const rows=(await db.query(`SELECT id,measured_at,energy_kwh,counter_epoch,quality,data_source FROM meter_readings WHERE meter_id=$1 AND measured_at>=$2 AND measured_at<=$3 ORDER BY measured_at,id`,[meter.id,start,end])).rows;
- const base={boundaries:rows.length&&+new Date(rows[0].measured_at)===+new Date(start)&&+new Date(rows.at(-1).measured_at)===+new Date(end)?'valid':!rows.length||+new Date(rows[0]?.measured_at)!==+new Date(start)?'missing_start':'missing_end',start_kwh:rows[0]?.energy_kwh??null,end_kwh:rows.at(-1)?.energy_kwh??null};
- let result=segmentEnergy(base),reason=result.reason;
- if(result.status==='valid'){
-  const seen=new Set();for(let i=0;i<rows.length;i++){const row=rows[i],key=+new Date(row.measured_at);if(seen.has(key)){reason='ambiguous_timestamp';break;}seen.add(key);
-   if(row.quality!=='valid'){reason='invalid_quality';break;}if(i){const prior=rows[i-1],seconds=(key-new Date(prior.measured_at))/1000;if(row.counter_epoch!==prior.counter_epoch){reason='counter_reset';break;}if(parseDecimal(row.energy_kwh,9)<parseDecimal(prior.energy_kwh,9)){reason='counter_decreased';break;}if(maxGap==null){reason='gap_policy_unset';break;}if(seconds>maxGap){reason='gap';break;}}
-  }
- }
- if(reason)result={status:'review',energy_kwh:null,reason};
- return{...result,start_reading_id:rows[0]?.id??null,end_reading_id:rows.at(-1)?.id??null,start_energy_kwh:rows[0]?.energy_kwh??null,end_energy_kwh:rows.at(-1)?.energy_kwh??null,data_source:rows.some(r=>r.data_source==='simulation')||meter.source==='simulation'?'simulation':'production',sample_count:rows.length};
+ return{...evaluateReadings(rows,start,end,policy),data_source:rows.some(r=>r.data_source==='simulation')||meter.source==='simulation'?'simulation':'production'};
+}
+export async function clearPeriodCalculation(db,id){
+ await db.query('DELETE FROM billing_issues WHERE billing_period_id=$1',[id]);
+ await db.query('DELETE FROM bill_session_allocations WHERE bill_share_id IN (SELECT bs.id FROM bill_shares bs JOIN room_bills rb ON rb.id=bs.room_bill_id WHERE rb.billing_period_id=$1)',[id]);
+ await db.query('DELETE FROM bill_shares WHERE room_bill_id IN (SELECT id FROM room_bills WHERE billing_period_id=$1)',[id]);
+ await db.query('DELETE FROM room_bills WHERE billing_period_id=$1',[id]);
+ await db.query('DELETE FROM billing_meter_segments WHERE billing_period_id=$1',[id]);
+}
+async function saveSegment(db,period,meter,start,end,e){
+ await db.query(`INSERT INTO billing_meter_segments(id,billing_period_id,meter_id,room_id,segment_starts_at,segment_ends_at,start_reading_id,end_reading_id,start_energy_kwh,end_energy_kwh,consumption_kwh,quality,reason,data_source,calculation_evidence) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,[randomUUID(),period.id,meter.id,meter.room_id,start,end,e.start_reading_id,e.end_reading_id,e.start_energy_kwh,e.end_energy_kwh,e.energy_kwh,e.status,e.reason,e.data_source,json(e.evidence)]);
 }
 export async function calculatePeriod(db,periodId){
  const period=(await db.query('SELECT * FROM billing_periods WHERE id=$1 FOR UPDATE',[periodId])).rows[0];if(!period)throw new Error('billing_period_not_found');if(!['draft','review'].includes(period.status))throw new Error('billing_period_locked');
- await db.query('DELETE FROM billing_issues WHERE billing_period_id=$1',[period.id]);
- await db.query('DELETE FROM bill_session_allocations WHERE bill_share_id IN (SELECT bs.id FROM bill_shares bs JOIN room_bills rb ON rb.id=bs.room_bill_id WHERE rb.billing_period_id=$1)',[period.id]);
- await db.query('DELETE FROM bill_shares WHERE room_bill_id IN (SELECT id FROM room_bills WHERE billing_period_id=$1)',[period.id]);
- await db.query('DELETE FROM room_bills WHERE billing_period_id=$1',[period.id]);
- await db.query('DELETE FROM billing_meter_segments WHERE billing_period_id=$1',[period.id]);
+ await clearPeriodCalculation(db,period.id);
+ const policy=period.policy_snapshot||{};
  const tariffs=(await db.query(`SELECT * FROM tariff_schedules WHERE property_id=$1 AND valid_from<=$2 AND (valid_until IS NULL OR valid_until>=$3) AND retired_at IS NULL`,[period.property_id,period.starts_at,period.ends_at])).rows;
- const tariff=tariffs.length===1?tariffs[0]:null;if(!tariff)await issue(db,period.id,'property',tariffs.length?'tariff_overlap':'tariff_missing');
- const policy=period.policy_snapshot||{},gap=policy.production_max_gap_seconds??null;
+ const tariff=policy.preview_tariff?{...policy.preview_tariff,id:null,source:'preview_assumption'}:tariffs.length===1?tariffs[0]:null;if(!tariff)await issue(db,period.id,'property',tariffs.length?'tariff_overlap':'tariff_missing');
  const rooms=(await db.query(`SELECT * FROM rooms WHERE property_id=$1 AND active_from<$3 AND (active_until IS NULL OR active_until>$2) ORDER BY id`,[period.property_id,period.starts_at,period.ends_at])).rows;
  let periodSource=tariff?.source==='simulation'?'simulation':'production',total=0n,allRooms=true;
  for(const room of rooms){
   const roomBillId=randomUUID(),reasons=[],meters=(await db.query(`SELECT * FROM meters WHERE property_id=$1 AND room_id=$2 AND kind='room' AND installed_at<$4 AND (retired_at IS NULL OR retired_at>$3) ORDER BY installed_at,id`,[period.property_id,room.id,period.starts_at,period.ends_at])).rows;
   let energy=0n,valid=Boolean(tariff)&&meters.length>0,source='production';
   if(!meters.length)reasons.push('no_data');
-  for(const meter of meters){const start=max(period.starts_at,meter.installed_at),end=min(period.ends_at,meter.retired_at||period.ends_at),e=await evaluateMeter(db,meter,start,end,gap);if(e.data_source==='simulation')source='simulation';
-   await db.query(`INSERT INTO billing_meter_segments(id,billing_period_id,meter_id,room_id,segment_starts_at,segment_ends_at,start_reading_id,end_reading_id,start_energy_kwh,end_energy_kwh,consumption_kwh,quality,reason,data_source,calculation_evidence) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,[randomUUID(),period.id,meter.id,room.id,start,end,e.start_reading_id,e.end_reading_id,e.start_energy_kwh,e.end_energy_kwh,e.energy_kwh,e.status,e.reason,e.data_source,json({sample_count:e.sample_count,max_gap_seconds:gap})]);
+  for(const meter of meters){const start=max(period.starts_at,meter.installed_at),end=min(period.ends_at,meter.retired_at||period.ends_at),e=await evaluateMeter(db,meter,start,end,policy);if(e.data_source==='simulation')source='simulation';
+   await saveSegment(db,period,meter,start,end,e);
    if(e.status==='valid')energy+=parseDecimal(e.energy_kwh,9);else{valid=false;reasons.push(e.reason);}
   }
   const occupancies=(await db.query(`SELECT * FROM occupancies WHERE room_id=$1 AND starts_at<=$2 AND (ends_at IS NULL OR ends_at>=$3) ORDER BY id`,[room.id,period.starts_at,period.ends_at])).rows;
@@ -49,7 +48,8 @@ export async function calculatePeriod(db,periodId){
  let facilityValid=true;
  const facilityMeters=(await db.query(`SELECT m.* FROM meters m JOIN communal_loads c ON c.id=m.communal_load_id WHERE m.property_id=$1 AND m.kind='communal' AND c.load_type='attributable' AND m.installed_at<$3 AND (m.retired_at IS NULL OR m.retired_at>$2) ORDER BY m.id`,[period.property_id,period.starts_at,period.ends_at])).rows;
  for(const meter of facilityMeters){
-  const start=max(period.starts_at,meter.installed_at),end=min(period.ends_at,meter.retired_at||period.ends_at),e=await evaluateMeter(db,meter,start,end,gap);
+  const start=max(period.starts_at,meter.installed_at),end=min(period.ends_at,meter.retired_at||period.ends_at),e=await evaluateMeter(db,meter,start,end,policy);
+  await saveSegment(db,period,meter,start,end,e);
   const sessions=(await db.query(`SELECT id,energy_kwh,energy_status,started_at,ended_at,data_source FROM usage_sessions WHERE meter_id=$1 AND started_at<$3 AND (ended_at IS NULL OR ended_at>$2) ORDER BY started_at,id`,[meter.id,period.starts_at,period.ends_at])).rows;
   if(e.data_source==='simulation'||sessions.some(s=>s.data_source==='simulation'))periodSource=periodSource==='production'?'mixed':periodSource;
   if(e.status!=='valid'){facilityValid=false;await issue(db,period.id,'property',e.reason,{meter_id:meter.id,facility_id:meter.communal_load_id});continue;}
@@ -59,7 +59,7 @@ export async function calculatePeriod(db,periodId){
   if(!comparable||outside!==0n){facilityValid=false;await issue(db,period.id,'property',outside<0n?'negative_property_residual':'facility_energy_outside_session',{meter_id:meter.id,facility_id:meter.communal_load_id,measured_energy_kwh:e.energy_kwh,session_energy_kwh:formatDecimal(allocated,9),outside_session_energy_kwh:formatDecimal(outside,9)});}
  }
  const mainMeters=(await db.query(`SELECT * FROM meters WHERE property_id=$1 AND kind='main' AND installed_at<$3 AND (retired_at IS NULL OR retired_at>$2)`,[period.property_id,period.starts_at,period.ends_at])).rows;let mainValid=mainMeters.length>0,main=0n;
- for(const meter of mainMeters){const e=await evaluateMeter(db,meter,max(period.starts_at,meter.installed_at),min(period.ends_at,meter.retired_at||period.ends_at),gap);if(e.status==='valid')main+=parseDecimal(e.energy_kwh,9);else{mainValid=false;await issue(db,period.id,'property',e.reason);}}
+ for(const meter of mainMeters){const start=max(period.starts_at,meter.installed_at),end=min(period.ends_at,meter.retired_at||period.ends_at),e=await evaluateMeter(db,meter,start,end,policy);await saveSegment(db,period,meter,start,end,e);if(e.data_source==='simulation')periodSource=periodSource==='production'?'mixed':periodSource;if(e.status==='valid')main+=parseDecimal(e.energy_kwh,9);else{mainValid=false;await issue(db,period.id,'property',e.reason,{meter_id:meter.id});}}
  if(!mainMeters.length){mainValid=false;await issue(db,period.id,'property','no_data');}
  const status=allRooms?'draft':'review';await db.query(`UPDATE billing_periods SET status=$2,property_reconciliation_status=$3,source=$4,tariff_snapshot=$5,main_energy_kwh=$6,preview_total_cost_rp=$7,total_cost_rp=NULL,row_version=row_version+1,updated_at=now() WHERE id=$1`,[period.id,status,mainValid&&facilityValid?'valid':'review',periodSource,tariff?json({id:tariff.id,energy_rate_rp_kwh:tariff.energy_rate_rp_kwh,currency:'IDR',source_reference:tariff.source_reference,source:tariff.source}):null,mainValid?formatDecimal(main,9):null,String(total)]);
  return(await db.query('SELECT * FROM billing_periods WHERE id=$1',[period.id])).rows[0];

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {billableEnergy,billingAction,billingGet,filterPayments,kwh,paymentLabel,periodSummary,periodTone,propertyOptions,reasonLabel,roomBillStatus,roomTotals,rupiah,sendBillingAction,tenantBillRows,tenantForRoom} from './billing-data.js';
+import {billableEnergy,billingAction,billingGet,filterPayments,estimateRupiah,estimateRate,kwh,paymentLabel,periodSummary,periodAmount,periodTone,propertyOptions,reasonLabel,roomBillStatus,roomTotals,rupiah,sendBillingAction,tenantBillRows,tenantForRoom} from './billing-data.js';
 
 test('nilai null billing selalu perlu ditinjau dan simulasi tidak tampak final',()=>{
  assert.equal(kwh(null),'Perlu ditinjau');assert.equal(rupiah(undefined),'Perlu ditinjau');
@@ -14,7 +14,7 @@ test('ringkasan kamar hanya lengkap bila seluruh energi dan nominal tersedia',()
  assert.deepEqual(propertyOptions([{property_id:'b'},{property_id:'a'},{property_id:'b'}]),['a','b']);
 });
 test('ringkasan periode membedakan preview, final, review dan tenant temporal',()=>{
- const rooms=[{status:'finalized',total_cost_rp:'1000'},{status:'review',total_cost_rp:null}];assert.deepEqual(periodSummary({status:'draft',preview_total_cost_rp:'1000',room_bills:rooms}),{rooms:2,review:1,preview:1,final:0,total:'1000'});assert.deepEqual(periodSummary({status:'finalized',total_cost_rp:'1000',room_bills:[rooms[0]]}),{rooms:1,review:0,preview:0,final:1,total:'1000'});
+ const rooms=[{status:'finalized',total_cost_rp:'1000'},{status:'review',total_cost_rp:null}];assert.deepEqual(periodSummary({status:'draft',preview_total_cost_rp:'1000',room_bills:rooms}),{rooms:2,review:1,preview:1,final:0,total:null});assert.deepEqual(periodSummary({status:'finalized',total_cost_rp:'1000',room_bills:[rooms[0]]}),{rooms:1,review:0,preview:0,final:1,total:'1000'});
  assert.deepEqual(roomBillStatus({status:'draft',source:'production'},rooms[0]),{label:'Preview',tone:''});assert.equal(roomBillStatus({status:'finalized',source:'simulation'},rooms[0]).label,'Pratinjau simulasi');
  const period={starts_at:'2026-09-01Z',ends_at:'2026-10-01Z'},occupancies=[{room_id:'r',user_id:'u',starts_at:'2026-01-01Z',ends_at:null}];assert.equal(tenantForRoom('r',period,occupancies,[{user_id:'u',name:'Tenant A'}]),'Tenant A');assert.match(tenantForRoom('x',period,occupancies,[]),/Owner/);
 });
@@ -41,4 +41,17 @@ test('mutasi billing memakai CSRF dan key idempotensi yang tetap saat retry',asy
  const request=async(path,options)=>{if(path==='/api/auth/csrf')return Response.json({csrf:'csrf-test'});calls.push(options);return Response.json({data:{id:'id'}});};
  await sendBillingAction(action,new AbortController().signal,request);await sendBillingAction(action,new AbortController().signal,request);
  assert.equal(calls.length,2);assert.equal(calls[0].headers['Idempotency-Key'],calls[1].headers['Idempotency-Key']);assert.equal(calls[0].headers['X-CSRF-Token'],'csrf-test');assert.deepEqual(JSON.parse(calls[0].body),{row_version:2,reason:'uji'});
+});
+
+test('billing review tidak mengklaim subtotal kosong sebagai tagihan nol',()=>{
+ assert.equal(periodAmount({status:'review',preview_total_cost_rp:'0'}),null);
+ assert.equal(periodAmount({status:'draft',preview_total_cost_rp:'0',room_bills:[{status:'review'}]}),null);
+ assert.equal(periodAmount({status:'finalized',total_cost_rp:'0'}),'0');
+});
+
+test('estimasi rupiah menjaga presisi besar dan null berbeda dari nol',()=>{
+ assert.equal(estimateRupiah(null),'Belum tersedia');
+ assert.match(estimateRupiah('0'),/Rp.*0/);
+ assert.match(estimateRupiah('9007199254740993'),/9\.007\.199\.254\.740\.993/);
+ assert.equal(estimateRate('1444.700000000000'),'Rp1.444,7 / kWh');
 });
