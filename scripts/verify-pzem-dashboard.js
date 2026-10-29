@@ -2,7 +2,7 @@ import {readFile} from 'node:fs/promises';
 import {authenticatedFetch} from './auth-client.js';
 const watching=process.argv.slice(2).join(' ')==='--watch';
 if(process.argv.length>2&&!watching)throw new Error('Pemakaian: node scripts/verify-pzem-dashboard.js [--watch]');
-const registration=JSON.parse(await readFile('.local/expo-pzem/registration.json','utf8'));
+const registration=JSON.parse(await readFile(process.env.PZEM_VERIFY_REGISTRATION_FILE||'.local/expo-pzem/registration.json','utf8'));
 process.env.AUTH_TEST_PASSWORD_FILE='.local/secrets/owner_login_password';process.env.AUTH_TEST_EMAIL='owner@simulation.local';process.env.AUTH_ORIGIN='http://127.0.0.1:3001';
 const request=await authenticatedFetch(process.env.AUTH_ORIGIN),until=Date.now()+(watching?60000:0);let lastId=null,received=false;
 try{

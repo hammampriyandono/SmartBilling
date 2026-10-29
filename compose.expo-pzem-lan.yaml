@@ -9,6 +9,7 @@ services:
     secrets: [pzem_dashboard_device_password, pzem_dashboard_observer_password]
     volumes:
       - ./docker/mosquitto/start-pzem-dashboard.sh:/opt/a05/start-pzem-dashboard.sh:ro
+      - ./.local/expo-pzem/extra-devices:/run/pzem-extra-devices:ro
 secrets:
   pzem_dashboard_device_password: {file: ./.local/expo-pzem/device_password}
   pzem_dashboard_observer_password: {file: ./.local/expo-pzem/observer_password}

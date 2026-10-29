@@ -1,4 +1,4 @@
-param([string]$LanAddress='192.168.1.8')
+param([string]$LanAddress='192.168.1.9')
 $ErrorActionPreference='Stop'
 $address=Get-NetIPAddress -AddressFamily IPv4 -IPAddress $LanAddress
 if ($address.InterfaceAlias -ne 'Wi-Fi' -or $address.PrefixLength -ne 24 -or $LanAddress -notmatch '^192\.168\.1\.\d+$') { throw 'Perlu alamat Wi-Fi pada subnet uji 192.168.1.0/24.' }
