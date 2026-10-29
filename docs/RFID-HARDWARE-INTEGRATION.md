@@ -16,7 +16,23 @@ Varian integrasi ada di `firmware/rfid-integration/rfid-integration.ino`. Bitmap
 
 Relay nonaktif default: tidak ada pinMode/digitalWrite GPIO3; `RFID_ENABLE_RELAY=1` sengaja compile-error. **Lepaskan relay secara fisik** saat uji awal: pin high-impedance bukan jaminan modul tetap mati. Sebelum mengimplementasikan relay, pengguna/tim harus menentukan polaritas/fail-safe, keamanan listrik, boot/power-loss, makna sesi terbuka serta perilaku offline/replay. Timer lima detik original tidak dipakai.
 
-## Topic dan payload
+## Tombol konfigurasi Wi-Fi node komunal — informasi tim 29 Oktober 2026
+
+Acuan dari informasi yang disampaikan pengguna, merujuk Dok1 bagian8.1; isi dokumen penuh dan implementasi firmware tombol belum diperiksa dalam pembaruan ini. Ini spesifikasi integrasi, bukan klaim fitur sudah dipasang atau diuji pada board.
+
+- Tombol **J7 pada GPIO9** khusus konfigurasi Wi-Fi. Identitas pengguna tetap berasal dari kartu RFID melalui topik `rfid/taps` pada namespace perangkat existing. Tombol tidak membuka/menutup sesi, tidak menjadi identitas tenant dan tidak mengirim event/backend command.
+- Aksi tombol **dalam jendela tiga detik setelah boot aplikasi** membuka AP dan captive portal dengan pola WiFiManager. Profil SSID/password baru disimpan di NVS, lalu reboot dan mencoba koneksi normal. Tidak mengubah kontrak MQTT atau menambah topik. Penggunaan library WiFiManager tertentu belum ditetapkan/dipasang lewat pembaruan ini.
+- Menurut catatan hardware tim, GPIO9 adalah strapping pin: tombol yang sudah ditahan saat daya masuk dapat membuat ESP32 berada di download mode. Bedakan hal tersebut dari penekanan setelah aplikasi mulai. Jangan memakai instruksi menahan BOOT saat menyalakan sebagai cara masuk portal.
+- Selama konfigurasi, node tidak menjalankan koneksi MQTT normal; status koneksinya offline. Reboot normal menghasilkan boot_id baru dan sequence_no mulai0 untuk **kejadian baru**. Perubahan Wi-Fi tidak membuat event tap, menutup sesi aktif atau membuat data energi pengganti.
+- Antrean lama tetap membawa **boot_id/sequence_no, waktu kejadian, isi dan identitas asli** saat dikirim ulang setelah koneksi kembali. Jangan memberi boot_id baru atau sequence0 pada pesan yang sudah pernah dibuat. Khusus RFID, `previous_event` kejadian baru pertama setelah reboot tetap mengacu head event lintas boot sesuai kontrak existing; null hanya untuk stream yang benar-benar baru. Selesaikan pending/head sesuai aturan inbox sebelum menerima event berikutnya.
+- Konfigurasi jaringan harus mempertahankan checkpoint/outbox RFID dan telemetry; jangan erase/clear NVS umum. Pisahkan penyimpanan profil Wi-Fi dari state stream. Informasi tombol ini tidak mengubah batas firmware RFID existing yang menolak tap baru saat offline/pending/NTP belum siap; antrean telemetry dan pending tap bukan janji menerima semua tap selama portal aktif.
+- Portal saat ini terbatas pada SSID/password Wi-Fi. Penambahan alamat broker/kredensial MQTT per perangkat perlu koordinasi terlebih dahulu dengan pemberi informasi tim dan **Daffa**, karena menyentuh firmware, provisioning akun dan ACL broker. Ini catatan koordinasi untuk perluasan berikutnya, bukan instruksi menghubungi anggota tim secara otomatis.
+
+**Nuansa status/LWT:** untuk MQTT3.1.1, clean DISCONNECT menghapus Will sehingga broker tidak menerbitkan LWT pada disconnect normal. Jika portal dimasuki saat node sudah online dan firmware memilih disconnect normal, publikasikan status offline yang kompatibel pada topik status existing sebelum disconnect; putus koneksi tidak normal ditangani LWT sesuai deteksi broker/keepalive. Jika portal dibuka sebelum MQTT pernah terhubung pada boot tersebut, belum ada koneksi/Will baru untuk dipicu. Jangan menyatakan LWT selalu langsung muncul ketika portal dibuka. Sumber: [MQTT3.1.1 bagian3.1.2.5 dan3.14.4](https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/mqtt-v3.1.1.html).
+
+Offline di atas merupakan semantik status koneksi firmware/MQTT; ini belum membuktikan portal GPIO9 sudah ada pada sketch integrasi RFID atau tampilan Kesehatan Perangkat sudah memproses status tersebut. Pengamatan terakhir COM6 masih menghasilkan log aplikasi RC522, sehingga **download mode akibat GPIO9 belum terbukti sebagai penyebab kegagalan UID**. Status dua kartu tetap belum terdaftar seperti pada [catatan pengujian USB](RFID-USB-CARD-REGISTRATION.md).
+
+## Topic dan payload RFID existing
 
 Publish **QoS1, retain=false** ke `smartbilling/v1/devices/<DEVICE_UID>/rfid/taps`:
 
