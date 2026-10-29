@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {isArchivedTestRecord, monitoringCatalog, activeCatalog, preferredMeter, readingSourceLabel} from './monitoring-view.js';
+import {isArchivedTestRecord, monitoringCatalog, activeCatalog, preferredMeter, readingSourceLabel, meterChoices} from './monitoring-view.js';
 
 test('monitoring: simulasi dan fixture manual disembunyikan, kamar manual pengguna dipertahankan', () => {
   const real = {id:'real-room', code:'KMR-01', name:'Kamar 1', source:'manual'};
@@ -49,4 +49,22 @@ test('operasional: lifecycle meter aktif tanpa menyembunyikan ID fixture di resp
   const active=activeCatalog(catalog,Date.parse('2026-10-18'));
   assert.equal(active.rooms.length,1);assert.deepEqual(active.meters.map(row=>row.id),['live']);
   assert.equal(catalog.meters.length,3);
+});
+
+test('pilihan monitoring mencakup meter utama tanpa kamar dan mempertahankan pilihan kamar',()=>{
+  const catalog={rooms:[{id:'r2',name:'Kamar 2',code:'KMR-02'},{id:'r1',name:'Kamar 1',code:'KMR-01'}],meters:[
+    {id:'k2',kind:'room',room_id:'r2',channel_no:1},{id:'main',kind:'main',room_id:null,communal_load_id:null,channel_no:1},{id:'k1',kind:'room',room_id:'r1',channel_no:1}
+  ]};
+  const original=structuredClone(catalog),choices=meterChoices(activeCatalog(catalog));
+  assert.deepEqual(choices.map(m=>m.id),['main','k1','k2']);
+  assert.equal(choices[0].label,'Meter utama');assert.equal(choices[0].room_id,null);
+  assert.equal(choices[1].label,'Kamar 1');assert.equal(choices[2].description,'KMR-02');
+  assert.equal(preferredMeter(choices,'main'),'main');assert.equal(preferredMeter(choices,'k2'),'k2');
+  assert.deepEqual(catalog,original);
+});
+
+test('pilihan monitoring tenant hanya berasal dari katalog yang diizinkan API',()=>{
+  const choices=meterChoices({rooms:[{id:'own',name:'Kamar 2'}],meters:[{id:'own-meter',kind:'room',room_id:'own'}]});
+  assert.equal(choices.length,1);assert.equal(choices[0].label,'Kamar 2');
+  assert.ok(choices.every(m=>m.kind==='room'));assert.deepEqual(meterChoices({rooms:[],meters:[]}),[]);
 });

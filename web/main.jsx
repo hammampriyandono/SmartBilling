@@ -10,7 +10,8 @@ import {Billing,TenantLatestCard} from './billing.jsx';
 import {Reports} from './reports.jsx';
 import {DeviceHealth} from './device-health.jsx';
 import {TokenMonthly} from './token-monthly.jsx';
-import {monitoringCatalog, activeCatalog, preferredMeter, readingSourceLabel} from './monitoring-view.js';
+import {monitoringCatalog, activeCatalog, preferredMeter, readingSourceLabel, meterChoices} from './monitoring-view.js';
+import {MeterPicker} from './meter-picker.jsx';
 import './monitoring-view.css';
 import {DataViewContext} from './data-view.jsx';
 
@@ -31,6 +32,7 @@ function App({tenantBillingCard=null,ownerTokenSummary=null,catalog,catalogError
   const [showTokenSummary, setShowTokenSummary] = useState(false);
   const lastIdentity = useRef(null);
   const selected = catalog.meters.find(m => m.id === meterId);
+  const choices = meterChoices(catalog);
   const roomFor = (meter) => catalog.rooms.find(r => r.id === meter?.room_id);
   const labelFor = (meter) => meter.kind === 'room' ? (roomFor(meter)?.name || roomFor(meter)?.code || 'Meter kamar') : meter.kind === 'main' ? 'Meter utama' : 'Meter komunal';
 
@@ -97,10 +99,12 @@ function App({tenantBillingCard=null,ownerTokenSummary=null,catalog,catalogError
       {tenantBillingCard}
       {ownerTokenSummary&&<section className="panel monitoring-token-toggle"><button type="button" aria-expanded={showTokenSummary} onClick={()=>setShowTokenSummary(v=>!v)}><span>Token dan Tagihan Bulanan</span><span>{showTokenSummary?'Tutup ringkasan':'Buka ringkasan'}</span></button>{showTokenSummary&&ownerTokenSummary}</section>}
       <ErrorNotice text={catalogError} retry={refreshAll}/>
-      {catalog.rooms.length > 0 && <details className="room-directory"><summary>Daftar kamar · {catalog.rooms.length} kamar / {catalog.meters.length} meter</summary><ul>{catalog.rooms.map(room => <li key={room.id}><strong>{room.name || room.code}</strong> · {room.code}<span>{catalog.meters.filter(m => m.room_id === room.id).length ? catalog.meters.filter(m => m.room_id === room.id).map(m => <button key={m.id} onClick={() => chooseMeter(m.id)}>Pilih channel {m.channel_no} · …{m.id.slice(-4)}</button>) : 'Belum ada meter terpetakan'}</span></li>)}</ul></details>}
+      <MeterPicker choices={choices} selectedId={meterId} onSelect={chooseMeter}/>
+      {catalog.rooms.length > 0 && <details className="room-directory"><summary>Daftar kamar · {catalog.rooms.length} kamar</summary><ul>{catalog.rooms.map(room => <li key={room.id}><strong>{room.name || room.code}</strong> · {room.code}<span>{catalog.meters.filter(m => m.room_id === room.id).length ? catalog.meters.filter(m => m.room_id === room.id).map(m => <button key={m.id} onClick={() => chooseMeter(m.id)}>Pilih channel {m.channel_no} · …{m.id.slice(-4)}</button>) : 'Belum ada meter terpetakan'}</span></li>)}</ul></details>}
       <div className="connection-strip"><span><i className={health?.status === 'ready' ? 'dot good' : 'dot'}/>{!health ? 'Memeriksa backend…' : health.status === 'ready' ? 'Backend terhubung' : 'Backend tidak siap / tidak terjangkau'}</span><span>Polling 5 detik</span><span>Refresh API terakhir: {currentLatest.updated ? formatTime(currentLatest.updated, zone) : 'Belum berhasil'}</span></div>
       {!catalogLoading && !catalogError && !catalog.meters.length ? <div className="empty panel observation-empty"><span className="observation-icon" aria-hidden="true">ϟ</span><h2>Belum ada meter untuk pengamatan</h2><p>{showTestData?'Belum ada pemasangan meter yang dapat diakses.':'Daftarkan perangkat dan pasangkan meter ke kamar untuk mulai menampilkan pembacaan.'}</p><p className="subtle">{!showTestData?'Data simulasi dan arsip uji disembunyikan dari tampilan ini. ':''}Belum ada pembacaan bukan berarti pemakaian listrik nol.</p>{onOpenAdministration&&<button type="button" className="refresh-button" onClick={onOpenAdministration}>Buka Administrasi</button>}</div> : <>
         <div className="meter-title"><div><h2>{selected ? labelFor(selected) : 'Memuat titik pengukuran…'}</h2><p>{roomFor(selected)?.code || 'Titik pengukuran'} <span>·</span> {selected?`Channel ${selected.channel_no}`:'Menunggu API'}{selected?.source==='simulation'&&<span className="simulation-badge">Simulasi</span>}</p></div><label className="meter-select">Pilih meter<select value={meterId} onChange={e => chooseMeter(e.target.value)} disabled={!catalog.meters.length}>{catalog.meters.map(m => <option key={m.id} value={m.id}>{labelFor(m)} · channel {m.channel_no}{m.source==='simulation'?' · simulasi':''}</option>)}</select></label></div>
+        {selected?.kind==='main'&&<p className="main-meter-context">Meter utama mengukur total jalur sebelum percabangan kamar. Daya dibandingkan pada waktu yang sama; konsumsi kWh dibandingkan dari selisih counter pada rentang yang sama. Waktu pembacaan, ketelitian sensor, dan rugi-rugi dapat menimbulkan selisih.</p>}
         <ErrorNotice text={currentLatest.error ? `Pembaruan gagal. Nilai sebelumnya mungkin usang. ${currentLatest.error}` : ''} retry={refreshAll}/>
         <div className="reading-note"><span className={`pill ${stale ? 'amber' : ''}`}>{currentLatest.loading ? 'Memuat pembacaan' : !reading ? 'Belum ada pembacaan' : stale ? 'Pembacaan lama' : age < 0 ? 'Waktu sensor di masa depan' : readingSourceLabel(reading)}</span><span>{reading ? `Diukur ${formatTime(reading.measured_at, zone)} · ${age < 0 ? 'periksa clock' : `${age.toLocaleString('id-ID')} menit lalu`}` : 'Koneksi backend tidak menandakan sensor sedang mengirim.'}</span></div>
         <section className="metrics" aria-label="Pembacaan terbaru">{[['Tegangan','voltage_v','V','↗'],['Arus','current_a','A','≈'],['Daya','power_w','W','ϟ'],['Energi kumulatif','energy_kwh','kWh','∑']].map(([label, field, unit, icon]) => <article className="metric" key={field}><div className="metric-label">{label}<span>{icon}</span></div><div className={`metric-value ${reading?.[field] == null ? 'unavailable' : ''}`} title={reading?.[field] ?? undefined}>{currentLatest.loading ? 'Memuat…' : decimal(reading?.[field])}{reading?.[field] != null && <small>{unit}</small>}</div><p>{field === 'energy_kwh' ? 'Counter meter · bukan konsumsi harian' : 'Nilai pada waktu pengukuran terakhir'}</p></article>)}</section>
@@ -132,6 +136,7 @@ function Workspace({user}) {
  const [catalogVersion,setCatalogVersion]=useState(0),[meterId,setMeterId]=useState('');
  const [showTestData,setShowTestData]=useState(operational);
  const visibleCatalog=operational?activeCatalog(catalog):monitoringCatalog(catalog,showTestData);
+ const choices=meterChoices(visibleCatalog);
  const visibleMeterId=preferredMeter(visibleCatalog.meters,meterId);
  useEffect(()=>{
   if(page!=='monitoring')return;
@@ -153,8 +158,8 @@ function Workspace({user}) {
    {page==='monitoring'&&catalogLoading&&!visibleCatalog.meters.length&&<p className="side-note">Memuat meter…</p>}
    {page==='monitoring'&&catalogError&&<p className="side-note" role="alert">Meter belum dapat dimuat.</p>}
    {page==='monitoring'&&!catalogLoading&&!catalogError&&!visibleCatalog.meters.length&&<p className="side-note">Meter pengamatan belum dipasang.</p>}
-   {page==='monitoring'&&visibleCatalog.meters.map(m=>{
-    const room=visibleCatalog.rooms.find(r=>r.id===m.room_id),label=m.kind==='room'?(room?.name||room?.code||'Meter kamar'):m.kind==='main'?'Meter utama':'Meter komunal';
+   {page==='monitoring'&&choices.map(m=>{
+    const label=m.label;
     return <button className={`meter-button ${visibleMeterId===m.id?'selected':''}`} key={m.id} onClick={()=>setMeterId(m.id)} aria-pressed={visibleMeterId===m.id}><span className="meter-mark">{m.kind==='room'?'▤':'◈'}</span><span><strong>{label}</strong><small>Channel {m.channel_no}{m.source==='simulation'?' · simulasi':''}</small></span><span className="meter-arrow">›</span></button>;
    })}
    </div>

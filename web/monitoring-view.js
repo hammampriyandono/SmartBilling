@@ -22,6 +22,21 @@ export function preferredMeter(meters, current) {
     : (meters.find(row => row.kind === 'room') || meters[0])?.id || '';
 }
 
+// Navigation follows the scoped API catalog; a tenant never gets a synthetic
+// main-meter choice. Main meters have no room_id and remain selectable.
+export function meterChoices(catalog) {
+  const order = {main:0, room:1, communal:2};
+  return catalog.meters.map(meter => {
+    const room = catalog.rooms.find(row => row.id === meter.room_id);
+    const label = meter.kind === 'main' ? 'Meter utama'
+      : meter.kind === 'room' ? room?.name || room?.code || 'Meter kamar' : 'Meter komunal';
+    const description = meter.kind === 'main' ? 'Total sebelum percabangan'
+      : meter.kind === 'room' ? room?.code || 'Jalur kamar' : 'Jalur fasilitas bersama';
+    return {...meter, label, description};
+  }).sort((a,b) => (order[a.kind] ?? 3) - (order[b.kind] ?? 3)
+    || a.label.localeCompare(b.label,'id',{numeric:true}) || a.id.localeCompare(b.id));
+}
+
 export function readingSourceLabel(reading) {
   return reading?.data_source === 'simulation' ? 'Pembacaan simulasi terbaru'
     : reading?.data_source === 'production' ? 'Pembacaan perangkat terbaru'
