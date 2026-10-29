@@ -15,6 +15,33 @@ export function integerRupiah(value){
  return String(amount);
 }
 
+export function tokenEnergy(value){
+ if(value===null)return null;
+ if(typeof value!=='string'||!/^\d{1,9}(\.\d{1,6})?$/.test(value)||!/[1-9]/.test(value))throw new HttpError(400,'invalid_energy_kwh');
+ const [whole,fraction='']=value.split('.'),trimmed=fraction.replace(/0+$/,'');
+ return String(BigInt(whole))+(trimmed?'.'+trimmed:'');
+}
+
+// Explicit expo assumptions, not a PLN tariff lookup. Integer arithmetic and
+// half-up rounding to 0.01 kWh give the same result in preview and persistence.
+export const defaultExpoEstimate=Object.freeze({tariff_rp_per_kwh:'1444.70',tax_percent:'3'});
+export function estimateTokenEnergy(amount,tariff=defaultExpoEstimate.tariff_rp_per_kwh,tax=defaultExpoEstimate.tax_percent){
+ const nominal=BigInt(integerRupiah(amount));
+ function scaled(value,pattern,places,code){
+  if(typeof value!=='string'||!pattern.test(value))throw new HttpError(400,code);
+  const [whole,fraction='']=value.split('.');return BigInt(whole)*10n**BigInt(places)+BigInt(fraction.padEnd(places,'0'));
+ }
+ const rate=scaled(tariff,/^\d{1,6}(\.\d{1,4})?$/,4,'invalid_token_tariff');
+ const taxBps=scaled(tax,/^\d{1,2}(\.\d{1,2})?$/,2,'invalid_token_tax');
+ if(rate===0n)throw new HttpError(400,'invalid_token_tariff');
+ const numerator=nominal*(10000n-taxBps)*100n;
+ const hundredths=(numerator+rate/2n)/rate;
+ if(hundredths===0n||hundredths>99999999999n)throw new HttpError(400,'token_estimate_out_of_range');
+ const energy=`${hundredths/100n}.${String(hundredths%100n).padStart(2,'0')}`;
+ return {energy_kwh:energy,energy_calculation:{kind:'simulation_estimate',method:'nominal_less_tax_v1',
+  tariff_rp_per_kwh:String(tariff),tax_percent:String(tax),rounding:'half_up_2_decimals'}};
+}
+
 // One statement = one PostgreSQL snapshot for purchases, revisions and payment states.
 export async function monthlyTokenSummary(db,property,month){
  const result=await db.query(`WITH bounds AS (
@@ -37,7 +64,11 @@ export async function monthlyTokenSummary(db,property,month){
  LEFT JOIN bill_payment_states ps ON ps.bill_share_id=bs.id
  WHERE bs.occupancy_id IS NOT NULL AND bs.allocation_kind='occupancy' AND rb.status='finalized'
  ), tokens AS (
- SELECT COALESCE(sum(v.amount_rp),0)::text total FROM token_purchases h
+ SELECT COALESCE(sum(v.amount_rp),0)::text total,
+ CASE WHEN count(*)>0 AND count(*) FILTER(WHERE v.energy_kwh IS NULL)=0 THEN sum(v.energy_kwh)::text END energy_total_kwh,
+ count(*) FILTER(WHERE v.energy_kwh IS NULL)::int energy_missing_count,
+ count(*) FILTER(WHERE v.energy_calculation IS NOT NULL)::int energy_estimated_count,
+ count(*)::int purchase_count FROM token_purchases h
  JOIN token_purchase_revisions v ON v.purchase_id=h.id AND v.row_version=h.row_version CROSS JOIN bounds b
  WHERE h.property_id=$1 AND h.status='active' AND v.purchase_date>=b.local_start AND v.purchase_date<b.local_end
  ), amounts AS (
@@ -45,7 +76,7 @@ export async function monthlyTokenSummary(db,property,month){
  COALESCE(sum(total_cost_rp) FILTER(WHERE payment_status='paid'),0)::text paid,
  COALESCE(sum(total_cost_rp) FILTER(WHERE payment_status='unpaid'),0)::text unpaid,
  count(*) FILTER(WHERE total_cost_rp IS NULL)::int invalid_count FROM shares
- ) SELECT b.starts_at,b.ends_at,t.total token_total_rp,
+ ) SELECT b.starts_at,b.ends_at,t.total token_total_rp,t.energy_total_kwh,t.energy_missing_count,t.purchase_count,t.energy_estimated_count,
  CASE WHEN EXISTS(SELECT 1 FROM finals) AND a.invalid_count=0 THEN a.total END tenant_total_rp,
  CASE WHEN EXISTS(SELECT 1 FROM finals) AND a.invalid_count=0 THEN a.paid END paid_total_rp,
  CASE WHEN EXISTS(SELECT 1 FROM finals) AND a.invalid_count=0 THEN a.unpaid END unpaid_total_rp,

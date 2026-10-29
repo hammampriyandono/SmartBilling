@@ -6,7 +6,7 @@ Pencatatan owner untuk membandingkan **pembelian token Rupiah** dengan **alokasi
 
 1. Masuk sebagai owner lokal dengan akun existing. Pada halaman utama **Monitoring listrik**, bagian **Token dan Tagihan Bulanan** tampil sebelum panel meter.
 2. Pilih properti (nama, bukan UUID) dan bulan. Lima kartu menampilkan pembelian token, tagihan final tenant, lunas, belum dibayar, dan **Selisih token dan tagihan**.
-3. **Tambah pembelian token**: isi tanggal pembelian lokal properti, nominal Rupiah bulat tanpa pemisah, dan catatan opsional. Beberapa pembelian pada bulan yang sama diperbolehkan. Tidak ada seed pembelian otomatis.
+3. **Tambah pembelian token**: isi tanggal pembelian lokal properti, nominal Rupiah bulat tanpa pemisah, energi yang diperoleh dalam kWh (opsional), dan catatan opsional. kWh dapat ditulis dengan koma/titik pada form. Isi dari bukti pengisian, bukan counter kumulatif PZEM; contoh expo diberi catatan Simulasi expo. Beberapa pembelian pada bulan yang sama diperbolehkan. Tidak ada seed pembelian otomatis.
 4. **Koreksi** mengubah tanggal/nominal/catatan dengan alasan wajib. Versi lama tetap tersimpan; koreksi tanggal ke bulan lain memindahkan kontribusi total token, bukan histori billing.
 5. **Batalkan** meminta alasan dan konfirmasi. Baris tetap terlihat sebagai Dibatalkan tetapi tidak dihitung. Pembatalan terminal; jika perlu mencatat pembelian sebenarnya kembali, buat catatan baru dengan penjelasan, bukan menghidupkan versi dibatalkan.
 6. Hasil request yang belum pasti mengunci isian; **Ulangi aksi yang sama** memakai key/payload/versi identik. Konflik versi meminta memuat versi terbaru; tidak menimpa diam-diam.
@@ -72,3 +72,31 @@ node scripts/verify-token-summary-live.js
 ```
 
 Hasil yang benar-benar dijalankan dan batas verifikasi visual ada di `HANDOFF.md`.
+
+## Tahap pertama energi token — 22 Oktober 2026
+
+- Migration **024_token_energy.sql** menambahkan `energy_kwh numeric(15,6)` nullable pada snapshot revisi. Tidak mengonversi Rupiah menjadi kWh dan tidak mengisi catatan lama secara otomatis. Nilai positif hingga 999999999.999999 kWh, maksimal enam desimal; batas ini batas penyimpanan prototipe, bukan ketentuan PLN.
+- POST/PATCH pembelian menerima `energy_kwh` sebagai string desimal bertitik atau `null`. Omit pada POST berarti belum diketahui; omit pada PATCH mempertahankan kWh sebelumnya untuk kompatibilitas klien lama. `null` pada PATCH mengosongkan catatan energi dengan alasan koreksi wajib. String kosong ditolak API; form mengirim `null` ketika kosong. Angka JSON, nol, negatif, eksponen dan lebih dari enam desimal ditolak.
+- Daftar dan histori revisi mengembalikan kWh sebagai string/null. Snapshot lama tetap immutable; pembatalan mempertahankan energi snapshot dan mengeluarkan pembelian dari total. Retry, versi, audit, CSRF dan owner scope mengikuti mekanisme existing.
+- Ringkasan bulanan menambah `purchase_count`, `energy_missing_count`, `energy_total_kwh`. Total hanya tersedia jika ada pembelian aktif dan semuanya memiliki kWh; jika kosong atau sebagian belum dicatat, total `null`, bukan nol atau jumlah parsial yang diklaim lengkap. Tanggal yang dikoreksi mengikuti aturan bulan properti existing. Pembelian dibatalkan dikecualikan.
+- UI menampilkan kolom Energi diperoleh serta ringkasan **Energi pembelian bulan ini**. Ini jumlah energi masuk bulan terpilih, **bukan estimasi saldo tersisa**. Pencatatan manual bukan pengukuran PLN atau sensor.
+- Tahap berikutnya: saldo awal dengan waktu/counter acuan, pilihan meter utama/cakupan konsumsi agar kamar/komunal/RFID tidak dihitung ganda, saldo lintas bulan, kualitas/reset/gap/stale data, peringatan menipis, dan pemeriksaan keseimbangan alokasi (`total konsumsi - total alokasi = 0`). Tahap pertama belum mengubah formula billing, pembagian shared, FDI atau alokasi tenant.
+
+## Estimasi otomatis dari nominal — 22 Oktober 2026
+
+**Pembaruan UI terbaru:** sesuai permintaan pengguna setelah tahap ini, form owner tidak lagi menampilkan isian tarif/pajak. Pembelian baru cukup nominal (serta tanggal dan catatan opsional); backend memakai contoh konversi expo yang sama. Opsi manual berada di bagian **Opsi pengisian energi** yang tertutup secara default. Detail teknis asumsi tetap disimpan di snapshot revisi.
+
+Form pembelian baru kini default **Hitung otomatis (simulasi expo)**. Ketik nominal untuk melihat estimasi kWh; tarif/pajak dapat diubah. Default contoh dari diskusi adalah Rp1444.70/kWh dan pajak3%, **bukan penetapan tarif operasional atau pengecekan tarif PLN terkini**. Rp50000 menghasilkan33.57kWh, Rp100000 menghasilkan67.14kWh. Rumus simulasi: `(nominal × (1 − pajak/100)) / tarif`, dibulatkan half-up ke dua desimal. Model ini belum menghitung biaya admin atau kebijakan pajak PLN daerah tertentu. Tidak membaca meter PLN atau mengisi token fisik.
+
+- Pilih **Isi kWh dari bukti pengisian** untuk input manual existing. Catatan manual lama tetap dibuka dalam mode manual; catatan estimasi dibuka dengan asumsi tersimpannya. Mengganti nilai nominal/tarif/pajak membersihkan pratinjau lama saat permintaan baru diproses; hasil gagal/koneksi putus tidak menampilkan hasil lama sebagai hasil terbaru.
+- GET owner-only `/api/owner/token-energy-estimate?amount_rp=50000&tariff_rp_per_kwh=1444.70&tax_percent=3` mengembalikan `energy_kwh` dan `energy_calculation`. Ini kalkulator stateless tanpa transaksi DB, bukan resource publik. Nilai nominal mengikuti batas existing; tarif string positif maksimal6angka bulat/4desimal; pajak string0–99.99 (dua desimal). Hasil yang dibulatkan menjadi0atau melewati batas penyimpanan ditolak.
+- POST/PATCH pembelian menerima `energy_estimate: {tariff_rp_per_kwh: '1444.70', tax_percent: '3'}` **sebagai alternatif** `energy_kwh`. Mengirim keduanya ditolak. Backend menghitung ulang dengan aritmetika integer; tidak mempercayai hasil kWh dari browser.
+- Migration **025_token_energy_estimate.sql** menambah snapshot `energy_calculation` nullable dengan kind `simulation_estimate`, method `nominal_less_tax_v1`, tarif, pajak, dan aturan pembulatan. Manual tetap null; tidak mengubah/mengisi histori lama. Shape metadata dan lifecycle pembatalan dijaga SQL. Asumsi melekat pada tiap revisi dan audit; pembatalan wajib mempertahankannya.
+- PATCH tanpa kedua field energi mempertahankan kWh manual, tetapi untuk catatan estimasi menghitung ulang nominal terbaru dengan asumsi tersimpan. Override `energy_kwh` eksplisit mengubah mode menjadi manual; `energy_estimate` eksplisit menghitung ulang dengan asumsi yang dikirim.
+- Daftar memberi label **Estimasi simulasi expo** beserta tarif/pajak. Ringkasan menambah `energy_estimated_count`; jika total mencakup estimasi, label jumlah pembelian estimasi terlihat. Total pembelian tetap berbeda dari saldo tersisa, tidak mengubah konsumsi sensor atau tagihan final.
+
+### Form nominal saja
+
+Label hasil adalah **Energi token: 33,57 kWh** dengan penanda **Estimasi expo**. Mengetik nominal hanya membuat pratinjau; menekan Simpan mencatat energi masuk. Tahap ini belum menghitung saldo tersisa. Daftar cukup menampilkan label Estimasi expo tanpa rincian tarif/pajak pada setiap baris.
+
+GET kalkulator kini cukup `?amount_rp=50000`; mutasi otomatis boleh mengirim `energy_estimate: {}`. Default tarif1444.70 dan pajak3 hanya didefinisikan di backend. Parameter API eksplisit tetap diterima untuk kompatibilitas; koreksi catatan estimasi memakai asumsi snapshot sebelumnya agar histori tidak berganti konversi diam-diam. Tidak ada perubahan schema/data lama atau migration baru untuk penyederhanaan ini.

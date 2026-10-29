@@ -5,7 +5,7 @@ test('token routing: tenant ditolak tanpa query DB; monitoring tetap dapat diaks
  const app=express(),pool={query(){throw new Error('tenant must not query tokens');}};
  app.use((req,_res,n)=>{req.user={id:randomUUID(),role:'tenant'};n();});app.use('/api',tokenApi(pool,{csrf:(_q,_s,n)=>n(),idempotencySecret:'test-only'}));app.get('/api/rooms',(_req,res)=>res.json({data:[]}));app.use(apiError);
  const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
- try{const base=`http://127.0.0.1:${server.address().port}`;for(const [path,method] of [['token-purchases','GET'],['token-purchases','POST'],['token-purchases/'+randomUUID(),'PATCH'],['token-purchases/'+randomUUID()+'/cancel','POST'],['monthly-token-summary','GET']])assert.equal((await fetch(`${base}/api/owner/${path}`,{method})).status,403);assert.equal((await fetch(base+'/api/rooms')).status,200);
+ try{const base=`http://127.0.0.1:${server.address().port}`;for(const [path,method] of [['token-purchases','GET'],['token-purchases','POST'],['token-purchases/'+randomUUID(),'PATCH'],['token-purchases/'+randomUUID()+'/cancel','POST'],['monthly-token-summary','GET'],['token-energy-estimate','GET']])assert.equal((await fetch(`${base}/api/owner/${path}`,{method})).status,403);assert.equal((await fetch(base+'/api/rooms')).status,200);
  }finally{server.closeAllConnections();await new Promise(r=>server.close(r));}
 });
 
@@ -34,26 +34,27 @@ test('PostgreSQL token: bulan/zona waktu, revisi final, pembayaran, koreksi/bata
   const call=(path,method='GET',body,key=randomUUID(),csrf='fixture')=>fetch(base+path,{method,headers:body?{'content-type':'application/json','idempotency-key':key,'x-csrf-token':csrf}:{},body:body?JSON.stringify(body):undefined});await start();
   const endpoint='/api/owner/token-purchases',summary=async(month='2026-10')=>{const res=await call(`/api/owner/monthly-token-summary?property_id=${property}&month=${month}`);assert.equal(res.status,200);return(await res.json()).data;};
   assert.equal((await summary()).tenant_total_rp,null);assert.equal((await summary()).difference_rp,null);assert.equal((await summary()).token_total_rp,'0');
-  const body={property_id:property,purchase_date:'2026-10-01',amount_rp:'100000',note:'Fixture'},key=randomUUID();
+  const body={property_id:property,purchase_date:'2026-10-01',amount_rp:'100000',energy_kwh:'33.570000',note:'Fixture'},key=randomUUID();
   assert.equal((await call(endpoint,'POST',body,'bad')).status,400);assert.equal((await call(endpoint,'POST',body,randomUUID(),'bad')).status,403);
   for(const amount_rp of ['0','1.5','1000000000001',100])assert.equal((await call(endpoint,'POST',{...body,amount_rp})).status,400);
-  let response=await call(endpoint,'POST',body,key);assert.equal(response.status,201);let purchase=(await response.json()).data;
+  for(const energy_kwh of ['0','-1','1e3','1.1234567','1000000000',33.57])assert.equal((await call(endpoint,'POST',{...body,energy_kwh})).status,400);
+  let response=await call(endpoint,'POST',body,key);assert.equal(response.status,201);let purchase=(await response.json()).data;assert.equal(purchase.energy_kwh,'33.570000');assert.equal((await summary()).energy_total_kwh,'33.570000');
   assert.deepEqual((await(await call(endpoint,'POST',body,key)).json()).data,purchase);assert.equal((await call(endpoint,'POST',{...body,amount_rp:'2'},key)).status,409);
-  response=await call(endpoint,'POST',{...body,purchase_date:'2026-10-31',amount_rp:'50000'});assert.equal(response.status,201);const second=(await response.json()).data;
+  response=await call(endpoint,'POST',{...body,purchase_date:'2026-10-31',amount_rp:'50000',energy_kwh:null});assert.equal(response.status,201);const second=(await response.json()).data;assert.equal(second.energy_kwh,null);assert.equal((await summary()).energy_total_kwh,null);assert.equal((await summary()).energy_missing_count,1);
   await call(endpoint,'POST',{...body,purchase_date:'2026-09-30',amount_rp:'1'});await call(endpoint,'POST',{...body,purchase_date:'2026-11-01',amount_rp:'2'});
   assert.equal((await summary()).token_total_rp,'150000');assert.equal((await summary('2026-09')).token_total_rp,'1');assert.equal((await summary('2026-11')).token_total_rp,'2');
   const list=`${endpoint}?property_id=${property}&month=2026-10&limit=1`,page=await(await call(list)).json();assert.equal(page.data.length,1);assert.ok(page.next_after);assert.equal((await(await call(list+'&after='+page.next_after)).json()).data.length,1);
-  const correct={purchase_date:'2026-10-02',amount_rp:'80000',note:null,row_version:1,reason:'Salah nominal'},correctKey=randomUUID();response=await call(`${endpoint}/${purchase.id}`,'PATCH',correct,correctKey);assert.equal(response.status,200);purchase=(await response.json()).data;assert.equal(purchase.row_version,2);assert.equal((await summary()).token_total_rp,'130000');assert.deepEqual((await(await call(`${endpoint}/${purchase.id}`,'PATCH',correct,correctKey)).json()).data,purchase);
+  const correct={purchase_date:'2026-10-02',amount_rp:'80000',note:null,row_version:1,reason:'Salah nominal'},correctKey=randomUUID();response=await call(`${endpoint}/${purchase.id}`,'PATCH',correct,correctKey);assert.equal(response.status,200);purchase=(await response.json()).data;assert.equal(purchase.row_version,2);assert.equal(purchase.energy_kwh,'33.570000','old API correction preserves omitted kWh');assert.equal((await summary()).token_total_rp,'130000');assert.deepEqual((await(await call(`${endpoint}/${purchase.id}`,'PATCH',correct,correctKey)).json()).data,purchase);
   assert.equal((await call(`${endpoint}/${purchase.id}`,'PATCH',correct)).status,409);assert.equal((await call(`${endpoint}/${purchase.id}/cancel`,'POST',{row_version:2,reason:''})).status,400);
-  const cancel={row_version:1,reason:'Pembelian dibatalkan'},cancelKey=randomUUID();response=await call(`${endpoint}/${second.id}/cancel`,'POST',cancel,cancelKey);assert.equal(response.status,200);assert.equal((await response.json()).data.status,'cancelled');assert.equal((await summary()).token_total_rp,'80000');assert.equal((await call(`${endpoint}/${second.id}/cancel`,'POST',{row_version:2,reason:'ulang'})).status,409);assert.equal((await call(`${endpoint}/${second.id}/cancel`,'POST',cancel,correctKey)).status,409);
+  const cancel={row_version:1,reason:'Pembelian dibatalkan'},cancelKey=randomUUID();response=await call(`${endpoint}/${second.id}/cancel`,'POST',cancel,cancelKey);assert.equal(response.status,200);assert.equal((await response.json()).data.status,'cancelled');assert.equal((await summary()).token_total_rp,'80000');assert.equal((await summary()).energy_total_kwh,'33.570000');assert.equal((await call(`${endpoint}/${second.id}/cancel`,'POST',{row_version:2,reason:'ulang'})).status,409);assert.equal((await call(`${endpoint}/${second.id}/cancel`,'POST',cancel,correctKey)).status,409);
   assert.equal((await(await call(`${endpoint}/${purchase.id}/revisions`)).json()).data.length,2);assert.equal((await db.query('SELECT count(*)::int n FROM audit_logs WHERE entity_type=$1 AND entity_id=$2',['token_purchase',purchase.id])).rows[0].n,2);
   // Moving a corrected date across month boundaries changes only token totals.
-  response=await call(`${endpoint}/${purchase.id}`,'PATCH',{...correct,purchase_date:'2026-09-30',row_version:2,reason:'Koreksi bulan'});assert.equal(response.status,200);assert.equal((await summary()).token_total_rp,'0');assert.equal((await summary('2026-09')).token_total_rp,'80001');
+  response=await call(`${endpoint}/${purchase.id}`,'PATCH',{...correct,purchase_date:'2026-09-30',row_version:2,reason:'Koreksi bulan'});assert.equal(response.status,200);assert.equal((await summary()).token_total_rp,'0');assert.equal((await summary()).energy_total_kwh,null);assert.equal((await summary('2026-09')).token_total_rp,'80001');
   response=await call(`${endpoint}/${purchase.id}`,'PATCH',{...correct,row_version:3,reason:'Kembalikan tanggal fixture'});assert.equal(response.status,200);purchase=(await response.json()).data;
   // Equivalent process/router restart with the same durable PostgreSQL records.
   server.closeAllConnections();await new Promise(r=>server.close(r));server=null;await start();assert.deepEqual((await(await call(endpoint,'POST',body,key)).json()).data.id,purchase.id);
   const ready=new Promise(r=>{entered=r;});pause=true;const parallelKey=randomUUID(),parallelBody={...body,amount_rp:'5'};const first=call(endpoint,'POST',parallelBody,parallelKey);await ready;
-  response=await call(endpoint,'POST',parallelBody,parallelKey);assert.equal(response.status,409);assert.equal((await response.json()).error,'idempotency_in_progress');releasePause();const parallel=(await(await first).json()).data;assert.equal((await(await call(endpoint,'POST',parallelBody,parallelKey)).json()).data.id,parallel.id);assert.equal((await summary()).token_total_rp,'80005');
+  response=await call(endpoint,'POST',parallelBody,parallelKey);assert.equal(response.status,409);assert.equal((await response.json()).error,'idempotency_in_progress');releasePause();const parallel=(await(await first).json()).data;assert.equal((await(await call(endpoint,'POST',parallelBody,parallelKey)).json()).data.id,parallel.id);assert.equal((await summary()).token_total_rp,'80005');assert.equal((await summary()).energy_total_kwh,'67.140000');
   await db.query('SET CONSTRAINTS ALL IMMEDIATE');await db.query('SET CONSTRAINTS ALL DEFERRED');
   async function guarded(sql,args){await db.query('SAVEPOINT guard');try{await db.query(sql,args);assert.fail('immutable');}catch(e){assert.equal(e.code,'P0001');await db.query('ROLLBACK TO SAVEPOINT guard');}await db.query('RELEASE SAVEPOINT guard');}
   await guarded('UPDATE token_purchase_revisions SET amount_rp=1 WHERE purchase_id=$1',[purchase.id]);await guarded('DELETE FROM token_purchases WHERE id=$1',[purchase.id]);
@@ -77,6 +78,36 @@ test('PostgreSQL token: bulan/zona waktu, revisi final, pembayaran, koreksi/bata
   // DST changes affect local month duration, not final amounts.
   const dst=randomUUID();await db.query("INSERT INTO properties(id,owner_id,name,timezone) VALUES($1,$2,'DST','America/New_York')",[dst,owner]);const dstData=(await(await call(`/api/owner/monthly-token-summary?property_id=${dst}&month=2026-03`)).json()).data;assert.equal(dstData.starts_at,'2026-03-01T05:00:00.000Z');assert.equal(dstData.ends_at,'2026-04-01T04:00:00.000Z');
   await guarded('UPDATE bill_shares SET total_cost_rp=1 WHERE id=$1',[correction.share]);
+  response=await call(`${endpoint}/${purchase.id}`,'PATCH',{...correct,row_version:4,energy_kwh:'20.000001',reason:'Koreksi energi'});assert.equal(response.status,200);assert.equal((await response.json()).data.energy_kwh,'20.000001');
+  response=await call(`${endpoint}/${purchase.id}`,'PATCH',{...correct,row_version:5,energy_kwh:null,reason:'Energi belum diketahui'});assert.equal(response.status,200);assert.equal((await response.json()).data.energy_kwh,null);assert.equal((await summary()).energy_total_kwh,null);
+  const history=(await(await call(`${endpoint}/${purchase.id}/revisions`)).json()).data;assert.equal(history[0].energy_kwh,'33.570000');assert.equal(history.at(-1).energy_kwh,null);
+  // Cancellation must preserve kWh even when bypassing the HTTP adapter.
+  await db.query('SAVEPOINT energy_cancel');
+  await db.query("UPDATE token_purchases SET row_version=row_version+1,status='cancelled' WHERE id=$1",[parallel.id]);
+  await assert.rejects(db.query(`INSERT INTO token_purchase_revisions(purchase_id,row_version,action,status,purchase_date,amount_rp,note,reason,actor_user_id,request_id,energy_kwh) VALUES($1,2,'cancel','cancelled',$2,5,'Fixture','Invalid fixture',$3,$4,1)`,[parallel.id,body.purchase_date,owner,randomUUID()]),e=>e.code==='P0001');
+  await db.query('ROLLBACK TO SAVEPOINT energy_cancel');await db.query('RELEASE SAVEPOINT energy_cancel');
+  response=await call(`${endpoint}/${parallel.id}/cancel`,'POST',{row_version:1,reason:'Pembatalan fixture'});assert.equal(response.status,200);assert.equal((await response.json()).data.energy_kwh,'33.570000');
+  // Stateless preview and persisted estimates use the same backend calculation.
+  const assumptions={tariff_rp_per_kwh:'1444.70',tax_percent:'3'};
+  const quotePath='/api/owner/token-energy-estimate?'+new URLSearchParams({amount_rp:'50000',...assumptions});
+  const quote=(await(await call(quotePath)).json()).data;assert.equal(quote.energy_kwh,'33.57');
+  assert.deepEqual((await(await call('/api/owner/token-energy-estimate?amount_rp=50000')).json()).data,quote);
+  const automatic={...body,purchase_date:'2029-10-22',amount_rp:'50000',energy_estimate:{}};delete automatic.energy_kwh;
+  assert.equal((await call(endpoint,'POST',{...automatic,energy_kwh:'999'})).status,400);
+  assert.equal((await call(endpoint,'POST',{...automatic,energy_estimate:{...assumptions,tariff_rp_per_kwh:'0'}})).status,400);
+  const autoKey=randomUUID();response=await call(endpoint,'POST',automatic,autoKey);assert.equal(response.status,201);const auto=(await response.json()).data;
+  assert.equal(auto.energy_kwh,'33.570000');assert.deepEqual(auto.energy_calculation,quote.energy_calculation);
+  assert.deepEqual((await(await call(endpoint,'POST',automatic,autoKey)).json()).data,auto);
+  assert.equal((await summary('2029-10')).energy_estimated_count,1);
+  const autoCorrect={...correct,purchase_date:'2029-10-22',amount_rp:'100000',row_version:1};
+  response=await call(`${endpoint}/${auto.id}`,'PATCH',autoCorrect);assert.equal(response.status,200);assert.equal((await response.json()).data.energy_kwh,'67.140000','nominal correction recalculates saved estimate assumptions');
+  response=await call(`${endpoint}/${auto.id}`,'PATCH',{...autoCorrect,row_version:2,energy_kwh:'40'});assert.equal(response.status,200);assert.equal((await response.json()).data.energy_calculation,null);assert.equal((await summary('2029-10')).energy_estimated_count,0);
+  response=await call(`${endpoint}/${auto.id}`,'PATCH',{...autoCorrect,row_version:3,energy_estimate:assumptions});assert.equal(response.status,200);
+  await db.query('SAVEPOINT estimate_cancel');await db.query("UPDATE token_purchases SET row_version=row_version+1,status='cancelled' WHERE id=$1",[auto.id]);
+  await assert.rejects(db.query(`INSERT INTO token_purchase_revisions(purchase_id,row_version,action,status,purchase_date,amount_rp,note,reason,actor_user_id,request_id,energy_kwh) SELECT purchase_id,5,'cancel','cancelled',purchase_date,amount_rp,note,'Invalid fixture',actor_user_id,$2,energy_kwh FROM token_purchase_revisions WHERE purchase_id=$1 AND row_version=4`,[auto.id,randomUUID()]),e=>e.code==='P0001');
+  await db.query('ROLLBACK TO SAVEPOINT estimate_cancel');await db.query('RELEASE SAVEPOINT estimate_cancel');
+  response=await call(`${endpoint}/${auto.id}/cancel`,'POST',{row_version:4,reason:'Cancel estimated fixture'});assert.equal(response.status,200);assert.deepEqual((await response.json()).data.energy_calculation,quote.energy_calculation);
+  assert.equal((await summary('2029-10')).energy_total_kwh,null);assert.equal((await summary('2029-10')).energy_estimated_count,0);
   acting={id:other,role:'owner'};assert.equal((await call(`${endpoint}?property_id=${property}&month=2026-10`)).status,404);assert.equal((await call(endpoint,'POST',body)).status,404);assert.equal((await call(`${endpoint}/${purchase.id}/revisions`)).status,404);assert.equal((await call(`${endpoint}/${purchase.id}`,'PATCH',{...correct,row_version:2})).status,404);assert.equal((await call(`/api/owner/monthly-token-summary?property_id=${property}&month=2026-10`)).status,404);
   acting={id:tenant,role:'tenant'};assert.equal((await call(endpoint)).status,403);assert.equal((await call(endpoint,'POST',body)).status,403);assert.equal((await call(`/api/owner/monthly-token-summary?property_id=${property}&month=2026-10`)).status,403);
  }finally{releasePause?.();if(server){server.closeAllConnections();await new Promise(r=>server.close(r));}await db.query('ROLLBACK').catch(()=>{});db.release();await real.end();}
