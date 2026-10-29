@@ -4,6 +4,8 @@ Keputusan pengguna, 18 Oktober 2026: simpan database pengujian sebagai arsip, uj
 
 ## Lingkungan yang tersedia
 
+Alamat broker dashboard sekarang **192.168.1.9:1884**, mengikuti DHCP Binding komputer pada router. Catatan `.8` di bawah berasal dari konfigurasi pengujian awal; gunakan wrapper dan verifier yang sudah diperbarui ke `.9` untuk menjalankan kembali dashboard PZEM. Broker diagnostik lama tidak dipindahkan dalam perubahan ini.
+
 | Lingkungan | Dashboard | Data |
 |---|---|---|
 | Pengujian lama / arsip | http://127.0.0.1:3000 | Semua simulasi, fixture, histori dan akun lama |

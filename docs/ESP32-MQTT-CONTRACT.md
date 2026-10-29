@@ -12,6 +12,14 @@ Status 24 September 2026: kontrak backend production-ready untuk telemetry listr
 
 Broker production harus memakai TLS dan kredensial per device/kelompok terbatas dengan ACL hanya untuk topic device tersebut. Alamat broker, user, dan password tidak ditanam di repository.
 
+### Status diagnostik firmware PZEM lokal
+
+Topic terpisah `smartbilling/v1/devices/{device_uid}/status` bukan pembacaan energi dan tidak diproses menjadi `meter_readings`. Firmware PZEM diagnostik mengirim QoS1/retain=true saat koneksi/perubahan hasil sampling dan sekitar30detik; LWT tetap `{"connected":false}`. Perangkat lama dengan status hanya connected tetap valid. Status ini belum ditambahkan ke UI Kesehatan Perangkat, yang masih mengikuti usia reading tersimpan.
+
+Field tambahan status_schema_version=1: uptime_ms, wifi_rssi_dbm, ntp_synced, pzem_state, sample_state, response_bytes, rx_pin, tx_pin, uart_baud dan pending_samples. Tidak memuat SSID/password/kredensial broker. pzem_state menggambarkan percobaan sensor terakhir: waiting_ntp/not_sampled/no_response/incomplete_frame/invalid_frame/valid. sample_state menunjukkan hasil sampling terakhir: waiting_ntp/not_sampled/sensor_invalid/invalid_clock/clock_not_advanced/queue_full/queued. Queued berarti sampel pernah dimasukkan antrean, bukan bukti sudah tersimpan database; pending_samples bisa sudah berkurang setelah PUBACK.
+
+Jika ntp_synced=false, sensor memang belum dipakai untuk membuat sampel production; response_bytes=0 pada kondisi ini tidak membuktikan UART rusak. Jika NTP sudah sinkron dan no_response/0byte, periksa catu dan jalur UART. Frame invalid tidak dikonversi menjadi angka nol. Field diagnostik tidak boleh dicampur ke payload readings yang tetap memakai allowlist di bawah.
+
 ## Payload JSON
 
 ```json
