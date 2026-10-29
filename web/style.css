@@ -120,3 +120,12 @@ input,select,textarea{accent-color:var(--sb-primary)}
 .billing-modal .billing-checkbox input{width:auto;min-width:18px}
 .billing-modal select{width:100%;min-width:0;padding:11px;border:1px solid #b9ccc0;border-radius:7px;background:white;color:#294b39;font:inherit}
 @media(max-width:600px){.billing-rules,.billing-property-evidence{padding:16px}.billing-evidence dl{grid-template-columns:1fr}.billing-evidence dt{font-weight:600}.billing-detail>.panel-heading{flex-direction:column;align-items:flex-start}}
+
+.tenant-running { margin-bottom: 22px; }
+.tenant-running .tenant-latest-body > p { line-height: 1.7; font-size: 13px; color: #5c7065; }
+.tenant-running .running-cost-highlight { background: #eaf5ee; }
+.tenant-running .running-cost-highlight dd { font-size: 1.6rem; color: #164d39; }
+.tenant-running .billing-table { min-width: 620px; }
+.tenant-running-filter { display: grid; gap: 8px; margin: 12px 0; }
+.tenant-running-filter select { max-width: 100%; padding: 10px; border: 1px solid #bfd0c4; border-radius: 8px; background: white; }
+@media(max-width:720px){.tenant-running .billing-table{min-width:0}.tenant-running .tenant-latest-body dl{grid-template-columns:1fr}}
