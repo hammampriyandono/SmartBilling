@@ -2,6 +2,8 @@
 // Compile-only placeholders. Operational secrets live under ignored .local/.
 #define WIFI_SSID "<WIFI_SSID>"
 #define WIFI_PASSWORD "<WIFI_PASSWORD>"
+#define WIFI_SETUP_SSID "<UNIQUE_DEVICE_SETUP_SSID>"
+#define WIFI_SETUP_PASSWORD "<UNIQUE_SETUP_PASSWORD_MIN_12_CHARS>"
 #define MQTT_HOST "<LAN_IPV4>"
 #define MQTT_PORT 1884
 #define DEVICE_UID "<REGISTERED_DEVICE_UID>"
