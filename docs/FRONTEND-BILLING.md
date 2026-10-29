@@ -1,6 +1,6 @@
 # Frontend billing
 
-Status 25 September 2026: UI billing owner dan tenant tersedia pada navigasi aplikasi. UI memakai API backend billing v1 secara langsung; tidak memiliki dataset mock, kalkulator nominal, atau fallback angka nol.
+Status 29 Oktober 2026: UI billing owner dan tenant tersedia pada navigasi aplikasi, termasuk estimasi biaya berjalan tenant. UI memakai API backend secara langsung; tidak memiliki dataset mock, kalkulator nominal, atau fallback angka nol.
 
 ## Owner
 
@@ -45,14 +45,18 @@ Panel periode kini menjadi **Pemakaian dan estimasi biaya berjalan**, dengan kar
 - Tarif overlap, batas tarif melintasi interval, tarif invalid/pensiun atau interval jadwal yang tidak tercakup menghasilkan biaya Belum tersedia; harga tidak diam-diam diganti default jika periode sudah memiliki jadwal. Dasar harga dan referensinya tersedia pada bagian **Dasar estimasi biaya**.
 - Alokasi sementara diberikan kepada satu occupancy sah yang mencakup seluruh interval. Tanpa penghuni masuk ke Owner/tanpa penghuni; beberapa penghuni, sumber occupancy simulasi, atau pergantian di tengah interval ditandai Belum dapat dibagi/Perlu ditinjau. Belum menetapkan kebijakan bagi rata baru untuk beberapa penghuni sekaligus.
 - Arus rupiah dihitung dengan BigInt presisi21desimal, pembulatan half-up per kamar. Bagian pembulatan dibagikan memakai sisa terbesar dan ID sebagai tie-break sehingga jumlah bagian sesuai biaya kamar. Frontend memformat string integer dengan BigInt, termasuk nominal di atas safe integer.
-- Cakupan tahap ini hanya meter kamar dan estimasi bagiannya di halaman owner. Biaya komunal/shared/RFID, saldo token, FDI, penagihan final otomatis dan estimasi tenant API belum ditambahkan. Pembayaran/tagihan final tidak diubah; API tetap owner-only dan memeriksa kepemilikan periode.
+- Cakupan tahap 24 Oktober hanya meter kamar dan estimasi bagiannya di halaman owner. Biaya komunal/shared/RFID, saldo token, FDI dan penagihan final otomatis belum ditambahkan. Pembayaran/tagihan final tidak diubah; endpoint owner tetap memeriksa kepemilikan periode. Estimasi tenant ditambahkan pada 29 Oktober melalui endpoint khusus di bawah.
 - Metadata tarif, timezone dan occupancy dimuat dari properti yang sama. Waktu ditampilkan menurut timezone properti. Histori yang parsial/stale tetap terlihat dan ditandai; tidak mengarang konsumsi pada gap.
 
 ## Tenant
 
 - Navigasi tenant memiliki menu **Tagihan Saya** yang benar-benar membuka daftar tagihan.
+- Dashboard dan **Tagihan Saya** menampilkan **Estimasi Tagihan Berjalan**, terpisah dari histori final. Panel membaca `/api/billing-estimates` dan `/api/billing-estimates/:id` setiap lima detik, memilih periode terbaru secara default dan menyediakan pilihan periode bila ada beberapa. Rentang serta pembacaan terakhir mencakup tanggal/jam/detik menurut timezone properti.
+- Estimasi memakai bagian penghuni dari kalkulasi backend yang sama dengan panel owner, termasuk pembulatan rupiah. Hanya interval kamar pada occupancy akun yang dialokasikan; komunal/shared/RFID belum termasuk. Endpoint tidak mengirim total properti, penghuni lain, raw counter, atau jumlah/waktu sampel di luar masa tinggal akun. Occupancy yang belum mulai tidak memberi akses.
+- Sensor offline mempertahankan histori dan estimasi terakhir dengan penanda pembacaan lama. Kesalahan jaringan mempertahankan hasil terakhir dengan pesan gagal memperbarui dan retry otomatis; pergantian akun/periode membatalkan request lama. Data belum cukup atau alokasi/harga belum tersedia tetap ditampilkan sebagai belum tersedia/perlu ditinjau, bukan nol. Interval valid dengan counter tetap dapat menghasilkan0.
+- Estimasi tidak membutuhkan **Hitung ulang** atau finalisasi. Polling tidak mengubah preview/final/pembayaran. Setelah periode menjadi final, periode tersebut hilang dari daftar estimasi dan UI memuat ulang tagihan final. Nilai final dapat berbeda karena aturan batas periode, tarif, atau komponen yang lebih lengkap.
 - Dashboard monitoring tenant memuat kartu **Tagihan Terbaru** dari API nyata. Jika ada tagihan final, kartu menampilkan periode, kamar, total Rupiah, status final, dan tombol **Lihat Tagihan**. Jika belum ada, kartu menjelaskan bahwa tagihan baru muncul setelah owner menghitung dan memfinalisasi periode.
-- Tombol kartu membuka halaman **Tagihan Saya**. Halaman ini hanya membaca `/api/billing-periods` dan detail final milik occupancy akun, lalu menampilkan semua share final dengan periode, kamar, konsumsi, tarif, nominal dan aksi detail.
+- Tombol kartu membuka halaman **Tagihan Saya**. Bagian histori final membaca `/api/billing-periods` dan detail final milik occupancy akun, lalu menampilkan semua share final dengan periode, kamar, konsumsi, tarif, nominal dan aksi detail.
 - Drawer detail menampilkan rumus `kWh × Rp/kWh = total`, konsumsi kamar, alokasi RFID jika tersedia, dan nominal backend. Boundary meter awal/akhir dan daftar sesi individual belum diekspos API billing v1, sehingga keduanya dinyatakan tidak tersedia dan tidak direka oleh frontend.
 - Kartu terbaru, daftar, dan drawer tenant menampilkan status **Belum dibayar** atau **Lunas** dari backend. Jika lunas, detail juga menampilkan waktu dan catatan owner bila ada.
 
@@ -62,7 +66,7 @@ Panel periode kini menjadi **Pemakaian dan estimasi biaya berjalan**, dengan kar
 - `null` energi/nominal selalu **Perlu ditinjau**, tidak pernah nol.
 - Rekonsiliasi properti review dijelaskan terpisah dari kelayakan room bill.
 - UI tidak menawarkan finalisasi simulation.
-- Database lokal saat verifikasi belum memiliki tarif, periode, atau tagihan final. UI tidak membuat data permanen hanya untuk demo.
+- Pada verifikasi awal25September database belum memiliki tarif/periode/final. Verifikasi29Oktober memakai3periode existing dan histori PZEM tersimpan, tanpa membuat periode, tarif, data sensor atau tagihan final baru.
 - Pemilih properti bergantung pada kamar owner karena API backend belum menyediakan daftar properti khusus. Properti tanpa kamar belum dapat dipilih dari UI ini; kontrak backend tidak diubah.
 
 ## Verifikasi
