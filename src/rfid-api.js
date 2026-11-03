@@ -27,8 +27,8 @@ export function rfidApi(pool) {
   if(req.query.cursor){try{if(typeof req.query.cursor!=='string'||req.query.cursor.length>256)throw new Error();const c=JSON.parse(Buffer.from(req.query.cursor,'base64url'));cursorTime=timestamp(c.started_at);cursorId=uuid(c.id);}catch{throw new HttpError(400,'invalid_cursor');}}
   const result=await pool.query(`SELECT ${fields} FROM usage_sessions s JOIN communal_loads f ON f.id=s.communal_load_id WHERE ${scope}
    AND s.started_at<$3 AND (s.ended_at IS NULL OR s.ended_at>$2) AND ($4::uuid IS NULL OR f.id=$4)
-   AND ($5::text IS NULL OR s.status=$5) AND ($6::timestamptz IS NULL OR (s.started_at,s.id)>($6::timestamptz,$7::uuid))
-   ${observationSql(req.query,['f.id','f.property_id','s.meter_id'],['f.source','s.data_source'])} ORDER BY s.started_at,s.id LIMIT $8`,[req.user.id,from,to,facility,status,cursorTime,cursorId,size+1]);
+   AND ($5::text IS NULL OR s.status=$5) AND ($6::timestamptz IS NULL OR (s.started_at,s.id)<($6::timestamptz,$7::uuid))
+   ${observationSql(req.query,['f.id','f.property_id','s.meter_id'],['f.source','s.data_source'])} ORDER BY s.started_at DESC,s.id DESC LIMIT $8`,[req.user.id,from,to,facility,status,cursorTime,cursorId,size+1]);
   const data=result.rows.slice(0,size),last=data.at(-1);
   res.json({data,next_cursor:result.rows.length>size?Buffer.from(JSON.stringify({started_at:last.started_at,id:last.id})).toString('base64url'):null,meta:metadata(data)});
  });

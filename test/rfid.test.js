@@ -126,7 +126,13 @@ test('PostgreSQL RFID: urutan, replay, konflik, review, constraint dan scope API
   server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const url=`http://127.0.0.1:${server.address().port}`;
   const get=(path,user)=>fetch(url+path,{headers:{'X-Test-User':user}});
   const path='/api/usage-sessions?from=2026-09-15T00:00:00Z&to=2026-09-17T00:00:00Z&limit=1';
-  for(const user of [owner,tenant]){const a=await(await get(path,user)).json();assert.equal(a.data.length,1);assert.equal(a.meta.source,'production');assert.equal(a.data[0].data_source,'production');assert.ok(a.next_cursor);const b=await(await get(path+`&cursor=${a.next_cursor}`,user)).json();assert.equal(b.data.length,1);assert.notEqual(a.data[0].id,b.data[0].id);assert.equal(JSON.stringify(a).includes(uid),false);}
+  for(const user of [owner,tenant]){
+   const a=await(await get(path,user)).json();assert.equal(a.data.length,1);assert.equal(a.meta.source,'production');assert.equal(a.data[0].data_source,'production');assert.ok(a.next_cursor);
+   const b=await(await get(path+`&cursor=${a.next_cursor}`,user)).json();assert.equal(b.data.length,1);
+   assert.equal(a.data[0].id,s[1].id);assert.equal(b.data[0].id,s[0].id);
+   assert.ok(Date.parse(a.data[0].started_at)>Date.parse(b.data[0].started_at));assert.equal(b.next_cursor,null);
+   assert.equal(JSON.stringify(a).includes(uid),false);
+  }
   // The observation view filters before the cursor, preserving real pagination and access scope.
   for(const user of [owner,tenant]){const first=await(await get(path+'&data_view=observation',user)).json();assert.equal(first.data.length,1);assert.ok(first.next_cursor);const next=await(await get(path+'&data_view=observation&cursor='+first.next_cursor,user)).json();assert.equal(next.data.length,1);assert.notEqual(next.data[0].id,first.data[0].id);}
   const allFacilities=await(await get('/api/facilities?limit=100',owner)).json(),observedFacilities=await(await get('/api/facilities?limit=100&data_view=observation',owner)).json();
