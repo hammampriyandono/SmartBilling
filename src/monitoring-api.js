@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { HttpError, uuid, limit, timestamp, timeRange } from './http-input.js';
 import { dailyConsumption } from './daily-consumption.js';
+import {meterComparison} from './meter-comparison.js';
 import { catalogScope, readingScope, tenantDaily } from './access.js';
 
 const columns = `id, meter_id, boot_id, sequence_no, counter_epoch, measured_at, received_at,
@@ -15,6 +16,14 @@ export function monitoringApi(pool, { maxGapSeconds = 120 } = {}) {
     const sources = [...new Set(rows.map(row => row[field] || 'unknown'))];
     return { ...meta, source: sources.length > 1 ? 'mixed' : sources[0] || 'no_data' };
   };
+  router.get('/owner/meter-comparison',async(req,res)=>{
+    if(req.user.role!=='owner')throw new HttpError(403,'owner_required');
+    if(Object.keys(req.query).some(key=>key!=='property_id'))throw new HttpError(400,'unknown_filter');
+    const propertyId=uuid(req.query.property_id);
+    const data=await meterComparison(pool,{ownerId:req.user.id,propertyId});
+    if(!data)throw new HttpError(404,'property_not_found');
+    res.json({data});
+  });
   for (const resource of ['rooms', 'meters']) {
     router.get(`/${resource}`, async (req, res) => {
       const size = limit(req.query.limit);

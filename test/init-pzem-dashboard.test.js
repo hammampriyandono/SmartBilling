@@ -12,7 +12,7 @@ test('persiapan firmware Wi-Fi menyertakan header, mempertahankan credential dan
   await mkdir(join(directory,'firmware/pzem-dashboard'),{recursive:true});
   // The init contract is file/config preparation; synthetic source files keep
   // this test independent from hardware sources excluded from the app image.
-  for(const name of ['pzem-dashboard.ino','pzem_frame.h','wifi_profiles.h','wifi_portal.h'])await writeFile(join(source,name),`// isolated source fixture: ${name}\n`);
+  for(const name of ['pzem-dashboard.ino','pzem_frame.h','wifi_profiles.h','wifi_portal.h','utc_sampling.h'])await writeFile(join(source,name),`// isolated source fixture: ${name}\n`);
   await mkdir(join(directory,'.local/pzem-test/ESP32_PZEM_MQTT_Test'),{recursive:true});
   await writeFile(join(directory,'.local/pzem-test/ESP32_PZEM_MQTT_Test/secrets.h'),'#define WIFI_SSID "fixture-old-network"\n#define WIFI_PASSWORD "fixture-old-password"\n');
   const run=()=>spawnSync(process.execPath,[script,'192.168.1.9'],{cwd:directory,encoding:'utf8',env:{...process.env,LOCALAPPDATA:directory}});
@@ -23,7 +23,7 @@ test('persiapan firmware Wi-Fi menyertakan header, mempertahankan credential dan
   const setup=await readFile(join(directory,'.local/expo-pzem/wifi-portal/setup_password'),'utf8');assert.match(setup,/^[a-f0-9]{20}$/);
   const device=await readFile(join(directory,'.local/expo-pzem/device_password'),'utf8');
   assert.ok(!first.stdout.includes(setup)&&!first.stdout.includes(device)&&!first.stdout.includes('fixture-old-password'));
-  for(const name of ['pzem_frame.h','wifi_profiles.h','wifi_portal.h'])assert.equal(await readFile(join(sketch,name),'utf8'),await readFile(join(source,name),'utf8'));
+  for(const name of ['pzem_frame.h','wifi_profiles.h','wifi_portal.h','utc_sampling.h'])assert.equal(await readFile(join(sketch,name),'utf8'),await readFile(join(source,name),'utf8'));
   header=header.replace('fixture-old-network','fixture-current-network').replace('fixture-old-password','fixture-current-password');
   await writeFile(join(sketch,'secrets.h'),header);
   assert.equal(run().status,0);

@@ -71,6 +71,13 @@ test('PostgreSQL master: scope owner, audit, version, move atomik, simulation da
   response=await call(`/api/owner/meter-installations/${meter.id}/move`,'POST',meterMoveBody,meterMoveKey);assert.equal(response.status,200);const meterMoved=(await response.json()).data;
   assert.deepEqual((await (await call(`/api/owner/meter-installations/${meter.id}/move`,'POST',meterMoveBody,meterMoveKey)).json()).data,meterMoved);
   assert.equal((await db.query('SELECT count(*)::int n FROM meters WHERE meter_asset_id=$1',[asset.id])).rows[0].n,2);
+  const facility=(await (await call('/api/owner/facilities','POST',{property_id:property,name:'Peraga luar utama',load_type:'attributable',reason:'uji cakupan'})).json()).data;
+  const extAsset=(await (await call('/api/owner/meter-assets','POST',{property_id:property,label:'Meter luar utama',reason:'uji cakupan'})).json()).data;
+  const extBody={meter_asset_id:extAsset.id,device_id:device.id,kind:'communal',communal_load_id:facility.id,channel_no:3,installed_at:'2026-02-01T00:00:00Z',main_meter_coverage:'outside',reason:'uji cakupan'};
+  response=await call('/api/owner/meter-installations','POST',{...extBody,kind:'room',room_id:room.id});assert.equal(response.status,400);
+  response=await call('/api/owner/meter-installations','POST',{...extBody,main_meter_coverage:'invalid'});assert.equal(response.status,400);
+  response=await call('/api/owner/meter-installations','POST',extBody);assert.equal(response.status,201);const ext=(await response.json()).data;assert.equal(ext.main_meter_coverage,'outside');
+  response=await call(`/api/owner/meter-installations/${ext.id}/move`,'POST',{device_id:device.id,kind:'communal',communal_load_id:facility.id,channel_no:4,effective_at:'2026-03-01T00:00:00Z',row_version:1,reason:'uji pindah mempertahankan cakupan'});assert.equal(response.status,200);assert.equal((await response.json()).data.current.main_meter_coverage,'outside');
   await new Promise(r=>{server.closeAllConnections();server.close(r);});server=null;await startApi();
   assert.equal((await (await call('/api/owner/rooms','POST',createRoom,createKey)).json()).data.id,room.id);
   assert.deepEqual((await (await call('/api/owner/tenants/invitations','POST',invitationBody,inviteKey)).json()).data,invitation);

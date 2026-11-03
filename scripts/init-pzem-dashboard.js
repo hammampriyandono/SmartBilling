@@ -17,7 +17,7 @@ const setupPassword=await secret('wifi-portal/setup_password',10),setupSsid=/^#d
 if(/^#define WIFI_SETUP_PASSWORD /m.test(old)&&setting('WIFI_SETUP_PASSWORD')!==setupPassword)throw new Error('existing_setup_secret_mismatch');
 await writeFile(join(sketch,'secrets.h'),`#pragma once\n// Private LAN test configuration. Never commit or print.\n#define WIFI_SSID ${JSON.stringify(setting('WIFI_SSID'))}\n#define WIFI_PASSWORD ${JSON.stringify(setting('WIFI_PASSWORD'))}\n#define WIFI_SETUP_SSID ${JSON.stringify(setupSsid)}\n#define WIFI_SETUP_PASSWORD ${JSON.stringify(setupPassword)}\n#define MQTT_HOST ${JSON.stringify(host)}\n#define MQTT_PORT 1884\n#define DEVICE_UID "${uid}"\n#define EXPECTED_MAC_HEX "10003bd0ccf0"\n#define MQTT_USERNAME "${uid}"\n#define MQTT_PASSWORD "${password}"\n#define SAMPLE_INTERVAL_MS 60000UL\n`,{mode:0o600});
 await copyFile('firmware/pzem-dashboard/pzem-dashboard.ino',join(sketch,'PZEM_Dashboard.ino'));
-for(const name of ['pzem_frame.h','wifi_profiles.h','wifi_portal.h'])await copyFile(`firmware/pzem-dashboard/${name}`,join(sketch,name));
+for(const name of ['pzem_frame.h','wifi_profiles.h','wifi_portal.h','utc_sampling.h'])await copyFile(`firmware/pzem-dashboard/${name}`,join(sketch,name));
 await writeFile(join(root,'compose.env'),`PZEM_DASHBOARD_BIND_IP=${host}\nPZEM_DASHBOARD_PORT=1884\nPZEM_DASHBOARD_UID=${uid}\n`);
 const slash=value=>value.replaceAll('\\','/');
 const config={directories:{data:slash(join(process.env.LOCALAPPDATA,'Arduino15')),downloads:slash(join(root,'downloads')),user:slash(join(root,'arduino-user'))}};
