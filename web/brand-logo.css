@@ -1,0 +1,9 @@
+.brand-logo { display: block; flex-shrink: 0; overflow: visible; }
+.app-brand .brand-logo { width: 180px; height: auto; }
+.login-brand .brand-logo { width: 188px; height: auto; }
+.login-masthead .login-brand .brand-logo { width: 196px; height: auto; }
+@media (max-width: 760px) {
+  .app-brand .brand-logo { width: 146px; }
+  .login-brand .brand-logo,
+  .login-masthead .login-brand .brand-logo { width: 158px; }
+}

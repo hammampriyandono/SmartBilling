@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 280" fill="none">
+  <defs><linearGradient id="base" x1="65" y1="150" x2="350" y2="240" gradientUnits="userSpaceOnUse"><stop stop-color="#c5e5f0"/><stop offset="1" stop-color="#6ba8c0"/></linearGradient><linearGradient id="paper" x1="0" y1="0" x2="130" y2="150" gradientUnits="userSpaceOnUse"><stop stop-color="#f3f9fc"/><stop offset="1" stop-color="#c6dfeb"/></linearGradient></defs>
+  <g stroke="#a4dbea" opacity=".55" stroke-linecap="round"><path d="m32 173 167 83 207-105M43 162l-13 13m164 76 6 10m201-114 9 9" stroke-dasharray="3 5"/><path d="M49 71h8m-4-4v8m327-30h8m-4-4v8m27 147h8m-4-4v8"/></g>
+  <ellipse cx="221" cy="226" rx="155" ry="30" fill="#153b6b" opacity=".28"/>
+  <path d="m45 169 182-88 170 81-182 91z" fill="url(#base)" stroke="#d7edf6"/><path d="m45 169 170 84v10L45 179z" fill="#7aa9c1"/><path d="m215 253 182-91v10l-182 91z" fill="#426d94"/><path d="m58 167 169-81 156 75-169 84z" stroke="#e1f3f8" opacity=".5"/>
+  <!-- Report clipboard with a symbolic chart. -->
+  <g transform="matrix(1 .42 0 1 90 28)">
+    <path d="M0 0 8-4h126v153l-8 5z" fill="#1d4265"/>
+    <rect width="126" height="154" rx="6" fill="#396a8c" stroke="#9dc8dc"/>
+    <rect x="9" y="10" width="108" height="134" rx="2" fill="url(#paper)"/>
+    <rect x="41" y="-4" width="44" height="18" rx="4" fill="#9fbdd0" stroke="#e4f1f7"/><path d="M52 3h22" stroke="#537b99" stroke-width="3" stroke-linecap="round"/>
+    <path d="M22 30h50m-50 8h77" stroke="#739bb4" stroke-width="3" stroke-linecap="round"/>
+    <path d="M24 56v54h78" stroke="#85adc2" stroke-width="1.5"/><path d="M24 74h78m-78 18h78" stroke="#c1d9e6"/>
+    <rect x="33" y="86" width="14" height="23" rx="2" fill="#4fabc1"/><rect x="56" y="72" width="14" height="37" rx="2" fill="#2b4a8b"/><rect x="79" y="58" width="14" height="51" rx="2" fill="#e6c61b"/>
+    <path d="M23 124h29m9 0h18m9 0h15m-80 8h29m9 0h18m9 0h15" stroke="#91b2c6" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <!-- A separate analysis panel, no actual measurements. -->
+  <g transform="matrix(1 -.48 0 1 252 92)">
+    <path d="M-5 5h110v103H-5z" fill="#1b4166"/>
+    <rect width="110" height="103" rx="5" fill="#d8ebf3" stroke="#f2f9fc" stroke-width="1.5"/>
+    <path d="M0 19h110" stroke="#a8c8da"/><circle cx="10" cy="10" r="2" fill="#2b4a8b"/><path d="M19 10h27" stroke="#719cb6" stroke-width="2" stroke-linecap="round"/>
+    <path d="M15 32v51h81m-81-17h81m-81-17h81" stroke="#b6d3e1"/>
+    <path d="m18 74 20-18 19 8 18-22 19 5" stroke="#0091b5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <g fill="#f8d90f" stroke="#527d98"><circle cx="38" cy="56" r="3"/><circle cx="75" cy="42" r="3"/></g>
+    <path d="M15 92h30m10 0h40" stroke="#85adc2" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <!-- Magnifying glass. -->
+  <path d="m303 211 31 13" stroke="#24496c" stroke-width="12" stroke-linecap="round"/><path d="m303 207 31 13" stroke="#f8d90f" stroke-width="9" stroke-linecap="round"/>
+  <ellipse cx="284" cy="199" rx="25" ry="17" fill="#2b4a8b" stroke="#24496c" stroke-width="6"/><ellipse cx="284" cy="195" rx="25" ry="17" fill="#80c4d7" stroke="#e1f2f8" stroke-width="5"/><path d="m272 195 12-7m-7 14 18-11" stroke="#c8edf5" stroke-width="2" stroke-linecap="round"/>
+</svg>

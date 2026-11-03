@@ -1,0 +1,63 @@
+@keyframes splitz-page-reveal {
+  from { opacity: .45; }
+  to { opacity: 1; }
+}
+@keyframes splitz-surface-reveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes splitz-model-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes splitz-drawer-reveal {
+  from { opacity: .5; transform: translateX(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .login-shell { animation: splitz-page-reveal 320ms ease-out; }
+  .login-intro { animation: splitz-surface-reveal 400ms ease-out both; }
+  .login-model img { animation: splitz-model-reveal 650ms ease-out both; }
+  .login-stage::after { animation: splitz-model-reveal 750ms ease-out both; }
+  .login-access { animation: splitz-surface-reveal 380ms ease-out 70ms both; }
+  .login-features article { animation: splitz-surface-reveal 360ms ease-out both; }
+  .login-features article:nth-child(1) { animation-delay: 110ms; }
+  .login-features article:nth-child(2) { animation-delay: 150ms; }
+  .login-features article:nth-child(3) { animation-delay: 190ms; }
+  .login-features article:nth-child(4) { animation-delay: 230ms; }
+  .login-loading, .activation-card { animation: splitz-page-reveal 220ms ease-out; }
+  .app-frame, .app-content > main { animation: splitz-page-reveal 240ms ease-out; }
+  .mobile-menu[open], .admin-dialog[open], .billing-modal, .billing-drawer-backdrop {
+    animation: splitz-page-reveal 160ms ease-out;
+  }
+  .billing-drawer { animation: splitz-drawer-reveal 220ms ease-out; }
+
+  :is(.login-experience, .app-frame, .activation-card) :is(button, a) {
+    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease,
+      box-shadow 180ms ease, transform 160ms ease;
+  }
+  :is(.login-experience, .app-frame, .activation-card) :is(input, select, textarea) {
+    transition: border-color 160ms ease, background-color 160ms ease, box-shadow 180ms ease;
+  }
+  .login-access input:focus-visible { box-shadow: 0 0 0 4px #0091b514; }
+  .login-submit:active:not(:disabled), .hero-actions button:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+  .login-submit:hover:not(:disabled), .hero-actions button:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+  .login-features article { transition: box-shadow 180ms ease, border-color 180ms ease; }
+  .login-features article:hover { border-color: #a8c8d6; box-shadow: 0 6px 18px #2944570d; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

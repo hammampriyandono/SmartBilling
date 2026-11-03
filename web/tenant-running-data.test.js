@@ -9,7 +9,7 @@ test('tenant running: pagination, pilih terbaru, account header dan endpoint ten
 test('tenant running: kosong, gagal dan finalisasi di tengah fetch tidak menjadi tagihan nol',async()=>{
  const signal=new AbortController().signal;
  const empty=await loadTenantRunning('tenant','',false,signal,async()=>Response.json({data:[],next_after:null}));assert.equal(empty.data,null);
- await assert.rejects(loadTenantRunning('tenant','',false,signal,async()=>Response.json({},{status:503})),/HTTP 503/);
+ await assert.rejects(loadTenantRunning('tenant','',false,signal,async()=>Response.json({},{status:503})),/belum dapat dimuat/);
  const result=await loadTenantRunning('tenant','',false,signal,async path=>path.includes('/billing-estimates/')?Response.json({},{status:404}):Response.json({data:[{id:'ended',starts_at:'2026-10-01Z',revision_no:1}],next_after:null}));assert.equal(result.data,null);assert.equal(result.refreshFinals,true);
  assert.match(tenantEstimateReason({reason:'allocation_pending'}),/ditinjau/);assert.match(tenantEstimateReason({reason:'insufficient_readings'}),/Belum cukup/);
 });

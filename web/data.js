@@ -6,11 +6,12 @@ export async function getJson(path, signal) {
     headers:accountId && /^\/api\/(meters|rooms|facilities|usage-sessions)/.test(path) ? {'X-Account-ID':accountId}:{} }); }
   catch (error) {
     if (signal.aborted) throw error;
-    throw new Error(error.name === 'TimeoutError' ? 'Waktu tunggu habis. Coba lagi.' : 'Tidak dapat menghubungi backend. Periksa layanan lokal.');
+    throw new Error(error.name === 'TimeoutError' ? 'Waktu tunggu habis. Coba lagi.' : 'Layanan belum dapat dihubungi. Periksa koneksi Anda lalu coba lagi.');
   }
   if (response.status===401 && !signal.aborted && typeof window!=='undefined') window.dispatchEvent(new Event('session-expired'));
-  if (!response.ok) throw new Error(response.status === 422 ? 'Data terlalu banyak. Perpendek rentang tanggal.' : `Permintaan gagal (HTTP ${response.status}). Coba lagi.`);
-  return response.json();
+  if (!response.ok) throw new Error(response.status === 422 ? 'Data terlalu banyak. Perpendek rentang tanggal.' : response.status === 401 ? 'Sesi berakhir. Silakan masuk kembali.' : response.status === 403 ? 'Anda tidak memiliki akses ke data ini.' : 'Data belum dapat dimuat. Silakan coba lagi.');
+  try { return await response.json(); }
+  catch (error) { if (signal.aborted) throw error; throw new Error('Data belum dapat dibaca. Silakan coba lagi.'); }
 }
 
 export async function allPages(path, key, signal, progress = () => {}, request = getJson) {
@@ -24,7 +25,7 @@ export async function allPages(path, key, signal, progress = () => {}, request =
     rows.push(...result.data); pages++;
     progress(rows.length, pages);
     cursor = result[key];
-    if (cursor && cursors.has(cursor)) throw new Error('Pagination tidak bergerak. Muat ulang histori.');
+    if (cursor && cursors.has(cursor)) throw new Error('Riwayat belum dapat dimuat lengkap. Silakan coba lagi.');
     if (cursor) cursors.add(cursor);
   } while (cursor);
   return { rows, pages };

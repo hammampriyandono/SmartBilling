@@ -1,0 +1,271 @@
+/* Keep billing copy aligned with panel headings and give lower sections room. */
+.billing-page,
+.tenant-latest {
+  --billing-inset: 24px;
+}
+
+.billing-page .panel-heading {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 24px var(--billing-inset) 20px;
+}
+
+.billing-page .panel-heading > div {
+  min-width: 0;
+}
+
+.billing-page .panel-heading h2 {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.billing-page .billing-observed > p:not(.error):not(.empty):not(.billing-review),
+.billing-page .billing-observed > h3 {
+  margin: 0 var(--billing-inset) 24px;
+}
+
+.billing-page .billing-observed > p,
+.billing-page .shared-billing > p {
+  font-size: 14px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.billing-page .billing-observed > h3 {
+  margin-top: 28px;
+  margin-bottom: 12px;
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.billing-page .billing-summary > div {
+  min-width: 0;
+  padding: 22px var(--billing-inset);
+}
+
+.billing-page .billing-summary strong {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.billing-page .billing-summary small {
+  display: block;
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.billing-page .billing-cards,
+.billing-page .billing-period-list {
+  padding: 0 var(--billing-inset) 24px;
+  gap: 14px;
+}
+
+.billing-page .shared-billing {
+  margin: 24px 0;
+  padding-top: 24px;
+  border-top: 1px solid var(--sb-line);
+}
+
+.billing-page .shared-billing > h3 {
+  margin: 0 var(--billing-inset) 12px;
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.billing-page .shared-billing > p:not(.billing-review) {
+  margin: 0 var(--billing-inset) 24px;
+}
+
+.billing-page .shared-billing > .billing-summary {
+  margin-bottom: 20px;
+}
+
+.billing-page .shared-billing > .billing-table-wrap {
+  margin-bottom: 24px;
+}
+
+.billing-page .shared-billing > details,
+.billing-page .billing-observed > .running-cost-basis {
+  margin: 24px var(--billing-inset);
+  padding: 16px 18px;
+  border: 1px solid var(--sb-line);
+  border-radius: 8px;
+  background: var(--sb-surface-soft);
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.billing-page .shared-billing summary,
+.billing-page .running-cost-basis summary,
+.billing-page .billing-property-evidence > summary {
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1.7;
+}
+
+.billing-page details[open] > summary {
+  margin-bottom: 14px;
+}
+
+.billing-page .running-cost-basis p,
+.billing-page .shared-billing details p {
+  margin: 12px 0 0;
+}
+
+.billing-page .running-cost-basis ul {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding-left: 20px;
+}
+
+.billing-page .billing-rules,
+.billing-page .billing-property-evidence,
+.billing-page .billing-issues {
+  padding: 24px var(--billing-inset);
+  line-height: 1.75;
+}
+
+.billing-page .billing-rules h3,
+.billing-page .billing-evidence h3,
+.billing-page .billing-issues h3 {
+  line-height: 1.5;
+}
+
+.billing-page .billing-rules p {
+  margin: 12px 0 0;
+}
+
+.billing-page .billing-review {
+  margin: 16px var(--billing-inset) 24px;
+  padding: 14px 16px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.billing-page .billing-rules .billing-review,
+.billing-page .billing-evidence article .billing-review {
+  margin: 16px 0 0;
+}
+
+.billing-page .billing-evidence article {
+  padding: 20px 0;
+}
+
+.billing-page .billing-evidence dl {
+  gap: 14px 20px;
+  margin: 18px 0;
+}
+
+.billing-page .billing-rules dl {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(0, 2fr);
+  gap: 12px 20px;
+  margin: 18px 0;
+}
+
+.billing-page .billing-rules dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.billing-page .billing-actions {
+  padding: 22px var(--billing-inset);
+  gap: 12px;
+}
+
+.billing-page .payment-filters {
+  padding: 20px var(--billing-inset);
+  gap: 18px;
+}
+
+.billing-page .payment-filters label {
+  gap: 10px;
+  line-height: 1.5;
+}
+
+.billing-page .billing-table td {
+  padding-top: 20px;
+  padding-bottom: 20px;
+  line-height: 1.7;
+}
+
+.billing-page .billing-table td small {
+  margin-top: 8px;
+  line-height: 1.7;
+}
+
+.tenant-latest .tenant-latest-body {
+  padding: 0 var(--billing-inset) 24px;
+}
+
+.tenant-latest .tenant-latest-body > p {
+  margin: 0 0 22px;
+  line-height: 1.8;
+}
+
+.tenant-latest .tenant-latest-body dl {
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.tenant-latest .tenant-latest-body dl > div {
+  padding: 18px;
+}
+
+.tenant-latest .tenant-running-filter {
+  gap: 10px;
+  margin: 20px 0 24px;
+}
+
+@media (max-width: 1000px) {
+  .billing-page .billing-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .billing-page .payment-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .billing-page,
+  .tenant-latest {
+    --billing-inset: 16px;
+  }
+
+  .billing-page .panel-heading {
+    padding-top: 20px;
+    gap: 12px;
+  }
+
+  .billing-page .billing-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .billing-page .billing-rules dl {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .billing-page .billing-rules dd {
+    margin-bottom: 12px;
+  }
+
+  .billing-page .billing-table td {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .billing-page .billing-table td::before {
+    top: 10px;
+  }
+
+  .billing-page .shared-billing > details,
+  .billing-page .billing-observed > .running-cost-basis {
+    padding: 14px;
+  }
+}

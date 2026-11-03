@@ -8,7 +8,7 @@ test('Administrasi: semua halaman API dimuat, duplikat ID dihapus, cursor macet/
  const section=adminSections[0],signal=new AbortController().signal;let calls=0;
  const rows=await loadAdminSection(section,signal,async path=>{calls++;return path.includes('after=')?{data:[{id:'a'},{id:'b'}],next_after:null}:{data:[{id:'a'}],next_after:'a'};});
  assert.equal(calls,2);assert.deepEqual(rows.map(r=>r.id),['a','b']);
- await assert.rejects(()=>loadAdminSection(section,signal,async()=>({data:[],next_after:'same'})),/Pagination/);
+ await assert.rejects(()=>loadAdminSection(section,signal,async()=>({data:[],next_after:'same'})),/belum dapat dimuat lengkap/);
  await assert.rejects(()=>loadAdminSection(section,signal,async path=>{if(path.includes('after='))throw new Error('offline');return {data:[{id:'a'}],next_after:'a'};}),/offline/);
 });
 test('Administrasi: endpoint tanpa pagination tidak mengirim parameter yang tidak didukung',async()=>{
@@ -35,7 +35,7 @@ test('Administrasi: kartu occupancy hanya menghitung yang aktif, histori/jadwal 
   {starts_at:'2026-09-26T00:00:00Z',ends_at:'2026-09-27T00:00:00Z'},
   {starts_at:'2026-11-01T00:00:00Z'}];
  const summary=sectionSummary(section,rows,now);
- assert.equal(summary.count,1);assert.equal(summary.title,'Occupancy aktif');assert.equal(summary.status,'active');
+ assert.equal(summary.count,1);assert.equal(summary.title,'Masa tinggal aktif');assert.equal(summary.status,'active');
  assert.match(summary.note,/3 catatan/);assert.equal(rows.length,3);
  assert.equal(sectionSummary(section,undefined,now).count,undefined);
  assert.equal(sectionSummary(adminSections[0],rows,now).count,3);

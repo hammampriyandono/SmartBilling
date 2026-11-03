@@ -9,6 +9,7 @@ export function policyFormValues(period) {
     use_preview: Boolean(policy.preview_tariff),
     rate: policy.preview_tariff?.energy_rate_rp_kwh || '',
     reference: policy.preview_tariff?.source_reference || '',
+    shared_allocation: policy.shared_allocation || (period ? 'none' : defaultCalculationPolicy.shared_allocation),
   };
 }
 
@@ -18,6 +19,7 @@ export function policyFormBody(values) {
       production_max_gap_seconds: Number(values.production_max_gap_seconds),
       boundary_method: values.boundary_method,
       boundary_tolerance_seconds: values.boundary_method === 'exact' ? 0 : Number(values.boundary_tolerance_seconds),
+      shared_allocation: values.shared_allocation,
     }),
     preview_tariff: values.use_preview ? previewTariff({energy_rate_rp_kwh: values.rate, source_reference: values.reference}) : null,
   };

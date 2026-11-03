@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 280" fill="none">
+  <defs><linearGradient id="base" x1="65" y1="150" x2="350" y2="240" gradientUnits="userSpaceOnUse"><stop stop-color="#c5e5f0"/><stop offset="1" stop-color="#6ba8c0"/></linearGradient><linearGradient id="paper" x1="0" y1="0" x2="125" y2="150" gradientUnits="userSpaceOnUse"><stop stop-color="#f3f9fc"/><stop offset="1" stop-color="#c6dfeb"/></linearGradient><g id="key"><rect width="15" height="12" rx="2" fill="#b9d8e6"/><path d="M0 9h15" stroke="#739cb4"/></g></defs>
+  <g stroke="#a4dbea" opacity=".55" stroke-linecap="round"><path d="m32 173 167 83 207-105M43 162l-13 13m164 76 6 10m201-114 9 9" stroke-dasharray="3 5"/><path d="M49 71h8m-4-4v8m327-30h8m-4-4v8m27 147h8m-4-4v8"/></g>
+  <ellipse cx="221" cy="226" rx="155" ry="30" fill="#153b6b" opacity=".28"/>
+  <path d="m45 169 182-88 170 81-182 91z" fill="url(#base)" stroke="#d7edf6"/><path d="m45 169 170 84v10L45 179z" fill="#7aa9c1"/><path d="m215 253 182-91v10l-182 91z" fill="#426d94"/><path d="m58 167 169-81 156 75-169 84z" stroke="#e1f3f8" opacity=".5"/>
+  <!-- Folded electricity bill without a fabricated amount or payment state. -->
+  <g transform="matrix(1 .42 0 1 94 26)">
+    <path d="M-5 5H99l21 22v133l-10-5-10 5-10-5-10 5-10-5-10 5-10-5-10 5-10-5-10 5-10-5-10 5z" fill="#8eb4c9"/>
+    <path d="M0 0h98l22 22v133l-10-5-10 5-10-5-10 5-10-5-10 5-10-5-10 5-10-5-10 5-10-5-10 5z" fill="url(#paper)" stroke="#f1f8fb"/>
+    <path d="M98 0v22h22" fill="#8eb9ce" stroke="#b9d8e6"/>
+    <rect x="14" y="15" width="29" height="30" rx="6" fill="#2b4a8b"/><path d="m31 20-11 14h9l-2 8 12-16h-9z" fill="#f8d90f"/>
+    <path d="M53 23h33m-33 9h25m-64 26h91" stroke="#739bb4" stroke-width="3" stroke-linecap="round"/>
+    <path d="M16 75h43m23 0h22m-88 13h35m31 0h22m-88 13h43m23 0h22" stroke="#8eafc4" stroke-width="2" stroke-linecap="round"/>
+    <path d="M15 113h89" stroke="#9bbdd0" stroke-dasharray="3 3"/>
+    <path d="M16 128h31m23 0h34" stroke="#2b4a8b" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <!-- Calculator. -->
+  <g transform="matrix(1 -.48 0 1 253 89)">
+    <path d="M-5 6h91v118H-5z" fill="#173a5c"/>
+    <rect width="86" height="118" rx="7" fill="#3d7190" stroke="#b6d9e6" stroke-width="1.5"/>
+    <rect x="10" y="12" width="66" height="29" rx="3" fill="#193a56"/>
+    <rect x="14" y="16" width="58" height="21" rx="1" fill="#b6d9df"/>
+    <text x="64" y="30" text-anchor="end" fill="#3e697d" font-family="Arial,sans-serif" font-size="12" font-weight="700">Rp</text>
+    <use href="#key" x="11" y="52"/><use href="#key" x="35" y="52"/><use href="#key" x="59" y="52"/>
+    <use href="#key" x="11" y="71"/><use href="#key" x="35" y="71"/><use href="#key" x="59" y="71"/>
+    <use href="#key" x="11" y="90"/><use href="#key" x="35" y="90"/>
+    <rect x="59" y="90" width="15" height="12" rx="2" fill="#f8d90f"/><path d="M63 95h7m-7 3h7" stroke="#8f7526"/>
+  </g>
+  <!-- Stacked rupiah tokens. -->
+  <path d="M246 205v11c0 8 17 14 38 14s38-6 38-14v-11" fill="#b48b31"/><ellipse cx="284" cy="205" rx="38" ry="14" fill="#f8d90f" stroke="#ffed90" stroke-width="1.5"/><path d="M249 218c15 8 52 8 69-1" stroke="#dbb73f"/>
+  <path d="M255 195v8c0 7 14 12 31 12s31-5 31-12v-8" fill="#c39a31"/><ellipse cx="286" cy="195" rx="31" ry="12" fill="#f8d90f" stroke="#fff0a2" stroke-width="1.5"/><ellipse cx="286" cy="195" rx="24" ry="8" stroke="#c6a529"/>
+  <text x="286" y="199" text-anchor="middle" fill="#8c6e25" font-family="Arial,sans-serif" font-size="12" font-weight="700">Rp</text>
+</svg>

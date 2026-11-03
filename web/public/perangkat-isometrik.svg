@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 280" fill="none">
+  <defs>
+    <linearGradient id="base" x1="55" y1="145" x2="350" y2="245" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#c5e5f0"/><stop offset="1" stop-color="#6ba8c0"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="0" y1="25" x2="70" y2="80" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f0f6fa"/><stop offset=".5" stop-color="#bfd4e2"/><stop offset="1" stop-color="#85a6bf"/>
+    </linearGradient>
+    <g id="pin"><path d="M0 0h8v4H0z" fill="#f8d90f"/><path d="M0 4h8v3H0z" fill="#b48b31"/></g>
+    <g id="smd"><rect width="8" height="4" rx="1" fill="#1f3c62"/><path d="M0 0v4m8-4v4" stroke="#c0d9e8" stroke-width="2"/></g>
+    <g id="terminal"><rect width="18" height="21" rx="2" fill="#2b4a8b" stroke="#88c9dd"/><path d="M0 15h18" stroke="#172f57"/><circle cx="9" cy="7" r="4" fill="#bdd5e3"/><path d="m6 8 6-2" stroke="#456480" stroke-width="1.5"/></g>
+  </defs>
+  <!-- Neutral decorative connection marks, independent of device status. -->
+  <g stroke="#a4dbea" opacity=".55" stroke-linecap="round">
+    <path d="m32 168 167 88 207-105M44 156l-13 13m163 82 6 10m201-114 9 9" stroke-dasharray="3 5"/>
+    <path d="M42 62h8m-4-4v8m338-22h8m-4-4v8m22 157h8m-4-4v8"/>
+    <path d="M173 30v-9m-6 16-6-4m19 4 7-4"/>
+  </g>
+  <ellipse cx="219" cy="223" rx="159" ry="31" fill="#153b6b" opacity=".28"/>
+  <!-- Shared isometric plinth. -->
+  <path d="m45 164 182-88 170 81-182 91z" fill="url(#base)" stroke="#d7edf6"/>
+  <path d="m45 164 170 84v10L45 174z" fill="#7aa9c1"/>
+  <path d="m215 248 182-91v10l-182 91z" fill="#426d94"/>
+  <path d="m58 162 169-81 156 75-169 84z" stroke="#e1f3f8" opacity=".5"/>
+  <!-- ESP32 development board, with shield, antenna, pins and USB. -->
+  <path d="m65 170 88-43 70 34-89 43z" fill="#315d83" opacity=".3"/>
+  <g transform="matrix(1 .43 0 1 71 37)">
+    <path d="M-4 4h89v132H-4z" fill="#142c4b"/>
+    <rect width="81" height="130" rx="5" fill="#244e6d" stroke="#91bccd" stroke-width="1.5"/>
+    <g>
+      <use href="#pin" x="-8" y="28"/><use href="#pin" x="-8" y="40"/><use href="#pin" x="-8" y="52"/><use href="#pin" x="-8" y="64"/><use href="#pin" x="-8" y="76"/><use href="#pin" x="-8" y="88"/><use href="#pin" x="-8" y="100"/>
+      <use href="#pin" x="81" y="28"/><use href="#pin" x="81" y="40"/><use href="#pin" x="81" y="52"/><use href="#pin" x="81" y="64"/><use href="#pin" x="81" y="76"/><use href="#pin" x="81" y="88"/><use href="#pin" x="81" y="100"/>
+    </g>
+    <path d="M15 7h50v18H15z" fill="#172f4d"/>
+    <path d="M20 21V11h8v10h8V11h8v10h8V11h8" stroke="#e0ba64" stroke-width="2"/>
+    <rect x="14" y="28" width="53" height="48" rx="3" fill="#142b47"/>
+    <rect x="14" y="25" width="53" height="48" rx="3" fill="url(#metal)" stroke="#e8f3f8"/>
+    <path d="M19 30h43v38H19z" stroke="#94b1c5"/>
+    <text x="40.5" y="49" text-anchor="middle" fill="#2b4a69" font-family="Arial,sans-serif" font-weight="700" font-size="10">ESP32</text>
+    <path d="M28 56h25m-21 5h17" stroke="#7c9aaf"/>
+    <g stroke="#6ca6b8" stroke-width="1.2"><path d="M9 32v76h12m51-76v69H59M27 78v11h25v18M12 84h6m45 4h8"/></g>
+    <use href="#smd" x="22" y="83"/><use href="#smd" x="51" y="82"/><use href="#smd" x="21" y="99"/><use href="#smd" x="53" y="98"/>
+    <rect x="34" y="94" width="13" height="13" rx="1" fill="#142b47" stroke="#94b1c5"/>
+    <rect x="9" y="113" width="11" height="9" rx="2" fill="#172f4d" stroke="#a9c4d4"/>
+    <rect x="61" y="113" width="11" height="9" rx="2" fill="#172f4d" stroke="#a9c4d4"/>
+    <path d="M29 117h23v17H29z" fill="#7997b0"/><rect x="29" y="114" width="23" height="15" rx="3" fill="#d7e7f0" stroke="#f1f7fa"/>
+    <rect x="33" y="123" width="15" height="5" rx="2" fill="#233f5b"/>
+    <circle cx="7" cy="7" r="2" fill="#c3e4ed"/><circle cx="74" cy="123" r="2" fill="#c3e4ed"/>
+  </g>
+  <!-- PZEM sensor PCB. -->
+  <path d="m203 174 140-67 38 40-140 68z" fill="#315d83" opacity=".3"/>
+  <g transform="matrix(1 -.48 0 1 214 119)">
+    <path d="M0 6h145v84H0z" fill="#174560"/>
+    <rect width="145" height="84" rx="4" fill="#37879b" stroke="#a9dce7" stroke-width="1.5"/>
+    <path d="M7 7h131v70H7zM19 43h37v22h33m8-53v15h29v27H96" stroke="#8dc6d1" stroke-width="1.2"/>
+    <circle cx="7" cy="7" r="2" fill="#deedf3"/><circle cx="138" cy="77" r="2" fill="#deedf3"/>
+    <rect x="43" y="15" width="44" height="32" rx="3" fill="#17354d"/>
+    <path d="M43 15v-5h44v5" fill="#456c82"/><rect x="49" y="19" width="32" height="21" rx="2" fill="#ebf2f4"/>
+    <path d="M54 24h22m-22 5h16m-16 5h19" stroke="#8aabba" stroke-width="1.5"/>
+    <rect x="105" y="27" width="24" height="28" rx="4" fill="#9a632d"/>
+    <path d="M108 29v22m4-23v24m5-24v24m5-24v24m4-23v22" stroke="#e9b064" stroke-width="2"/>
+    <use href="#terminal" x="9" y="14"/><use href="#terminal" x="9" y="38"/>
+    <use href="#smd" x="45" y="56"/><use href="#smd" x="61" y="56"/>
+    <rect x="78" y="55" width="17" height="10" rx="1" fill="#19364c" stroke="#b3d0d8"/>
+    <path d="M106 67h25v8h-25z" fill="#e6eef2"/><path d="M110 67v8m6-8v8m6-8v8m5-8v8" stroke="#7197a9"/>
+    <text x="45" y="75" fill="#edf7fa" font-family="Arial,sans-serif" font-size="10" font-weight="700" letter-spacing="1">PZEM</text>
+  </g>
+  <!-- Current transformer and its cable. -->
+  <path d="M332 145c50 8 47 53 12 58l-37 7" stroke="#214468" stroke-width="5" stroke-linecap="round"/>
+  <path d="M332 143c50 8 47 53 12 58l-37 7" stroke="#b8dce8" stroke-width="2" stroke-linecap="round"/>
+  <path d="M267 202v10c0 12 14 21 31 21s31-9 31-21v-10z" fill="#1d3d61"/>
+  <ellipse cx="298" cy="202" rx="31" ry="21" fill="#d4e7ef" stroke="#edf7fa" stroke-width="2"/>
+  <ellipse cx="298" cy="202" rx="15" ry="10" fill="#244869" stroke="#8caec3" stroke-width="3"/>
+  <path d="M281 189c-6 3-9 7-9 12" stroke="#fff" stroke-width="2" opacity=".7"/>
+  <path d="m167 161 28 13 19-9" stroke="#f8d90f" stroke-width="2" stroke-dasharray="4 4" stroke-linecap="round"/>
+</svg>

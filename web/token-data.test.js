@@ -19,7 +19,7 @@ test('token UI: seluruh pagination, scope properti/bulan dan kosong/error bukan 
  const c=new AbortController(),calls=[],request=async(path,opts)=>{calls.push([path,opts]);return new Response(JSON.stringify(path.includes('summary')?{data:{tenant_total_rp:null,difference_rp:null}}:path.includes('after=')?{data:[{id:'b',purchase_date:'2026-10-02'}],next_after:null}:{data:[{id:'a',purchase_date:'2026-10-01'}],next_after:'a'}),{status:200});};
  const result=await loadTokenMonth('property','2026-10',c.signal,'owner',request);assert.deepEqual(result.rows.map(x=>x.id),['b','a']);assert.equal(result.summary.tenant_total_rp,null);assert.equal(calls.length,3);for(const [url,opts] of calls){assert.ok(url.includes('property_id=property'));assert.ok(url.includes('month=2026-10'));assert.equal(opts.headers['X-Account-ID'],'owner');}
  const empty=await loadTokenMonth('property','2026-10',c.signal,'owner',async()=>new Response(JSON.stringify({data:[],next_after:null})));assert.deepEqual(empty.rows,[]);
- await assert.rejects(loadTokenMonth('property','2026-10',c.signal,'owner',async()=>new Response('{}',{status:403})),/ditolak/);
+ await assert.rejects(loadTokenMonth('property','2026-10',c.signal,'owner',async()=>new Response('{}',{status:403})),error=>error.status===403);
 });
 test('token UI: create/correct/cancel, reason, versi, CSRF dan retry key/body stabil',async()=>{
  const row={id:'purchase',row_version:3},values={purchase_date:'2026-10-02',amount_rp:'100000',note:' bukti lokal ',reason:' Koreksi tanggal '};

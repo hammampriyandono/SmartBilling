@@ -2,16 +2,16 @@
 const common=['id','property_id','source','row_version','updated_at'];
 const field=(key,label,type='text')=>({key,label,type});
 export const adminSections=[
- {key:'properties',name:'Properti',note:'Nama dan zona waktu properti. Mengganti nama tidak mengubah ID maupun histori terkait.',fields:[field('name','Nama'),field('timezone','Zona waktu'),field('created_at','Dibuat','date')],actions:'Ubah nama properti'},
+ {key:'properties',name:'Properti',note:'Nama dan zona waktu properti Anda.',fields:[field('name','Nama'),field('timezone','Zona waktu'),field('created_at','Dibuat','date')],actions:'Ubah nama properti'},
  {key:'rooms',name:'Kamar',note:'Identitas kamar dan masa aktifnya.',fields:[field('code','Kode'),field('name','Nama'),field('active_from','Aktif sejak','date'),field('active_until','Aktif sampai','date')],actions:'Tambah kamar, edit nama, nonaktifkan'},
- {key:'tenants',name:'Tenant',note:'Membership tenant pada properti Anda. Tidak memuat credential.',unpaged:true,fields:[field('name','Nama'),field('email','Email'),field('user_id','ID tenant'),field('status','Membership'),field('is_active','Akun aktif','boolean'),field('created_at','Dibuat','date'),field('ended_at','Berakhir','date')],actions:'Buat invitation tenant'},
- {key:'occupancies',name:'Occupancy',note:'Masa tinggal penghuni; riwayat tidak dipindahkan.',unpaged:true,fields:[field('user_id','ID tenant'),field('room_id','ID kamar'),field('starts_at','Mulai','date'),field('ends_at','Selesai','date')],actions:'Tambah, akhiri, pindah kamar'},
- {key:'rfid-cards',name:'Kartu RFID',note:'Pendaftaran kartu. UID mentah tidak ditampilkan.',unpaged:true,fields:[field('label','Label'),field('user_id','ID tenant'),field('registered_at','Terdaftar','date'),field('revoked_at','Dicabut','date')],actions:'Daftar kartu, revoke, replace'},
- {key:'facilities',name:'Fasilitas',note:'Beban komunal bersama atau yang dapat diatribusikan.',fields:[field('name','Nama'),field('load_type','Jenis beban'),field('is_active','Aktif','boolean')],actions:'Tambah, nonaktifkan'},
- {key:'devices',name:'Device',note:'Perangkat dan status administrasinya, bukan indikator koneksi MQTT.',fields:[field('display_name','Nama'),field('device_uid','Identitas device'),field('status','Status perangkat'),field('deactivated_at','Dinonaktifkan','date')],actions:'Tambah, nonaktifkan'},
+ {key:'tenants',name:'Penghuni',note:'Akun dan keanggotaan penghuni di properti Anda.',unpaged:true,fields:[field('name','Nama'),field('email','Email'),field('user_id','ID tenant'),field('status','Keanggotaan'),field('is_active','Akun aktif','boolean'),field('created_at','Dibuat','date'),field('ended_at','Berakhir','date')],actions:'Buat invitation tenant'},
+ {key:'occupancies',name:'Masa Tinggal',note:'Masa tinggal penghuni; riwayat tidak dipindahkan.',unpaged:true,fields:[field('user_id','ID tenant'),field('room_id','ID kamar'),field('starts_at','Mulai','date'),field('ends_at','Selesai','date')],actions:'Tambah, akhiri, pindah kamar'},
+ {key:'rfid-cards',name:'Kartu RFID',note:'Kartu akses penghuni untuk menggunakan fasilitas.',unpaged:true,fields:[field('label','Label'),field('user_id','ID tenant'),field('registered_at','Terdaftar','date'),field('revoked_at','Dicabut','date')],actions:'Daftar kartu, revoke, replace'},
+ {key:'facilities',name:'Fasilitas',note:'Fasilitas bersama dan fasilitas dengan penggunaan tercatat.',fields:[field('name','Nama'),field('load_type','Jenis beban'),field('is_active','Aktif','boolean')],actions:'Tambah, nonaktifkan'},
+ {key:'devices',name:'Perangkat',note:'Kelola identitas dan status perangkat terdaftar.',fields:[field('display_name','Nama'),field('device_uid','Identitas perangkat'),field('status','Status perangkat'),field('deactivated_at','Dinonaktifkan','date')],actions:'Tambah, nonaktifkan'},
  {key:'meter-assets',name:'Aset Meter',note:'Meter fisik, terpisah dari riwayat pemasangannya.',fields:[field('label','Label'),field('serial_number','Nomor seri'),field('model','Model'),field('status','Status aset'),field('retired_at','Pensiun','date')],actions:'Tambah, retire'},
- {key:'meter-installations',name:'Pemasangan Meter',note:'Relasi meter, device, channel, dan titik ukur.',fields:[field('meter_asset_id','ID aset meter'),field('device_id','ID device'),field('kind','Jenis titik ukur'),field('channel_no','Channel'),field('room_id','ID kamar'),field('communal_load_id','ID fasilitas'),field('installed_at','Dipasang','date'),field('retired_at','Dilepas','date')],actions:'Tambah, retire, move'},
- {key:'readers',name:'RFID Reader',note:'Mapping pembaca kartu ke fasilitas.',fields:[field('device_id','ID device'),field('reader_channel','Channel reader'),field('communal_load_id','ID fasilitas'),field('active_from','Aktif sejak','date'),field('active_until','Aktif sampai','date')],actions:'Tambah, retire'},
+ {key:'meter-installations',name:'Pemasangan Meter',note:'Pemasangan perangkat dan meter pada titik pengukuran.',fields:[field('meter_asset_id','ID aset meter'),field('device_id','ID perangkat'),field('kind','Jenis titik ukur'),field('main_meter_coverage','Cakupan meter utama'),field('channel_no','Channel'),field('room_id','ID kamar'),field('communal_load_id','ID fasilitas'),field('installed_at','Dipasang','date'),field('retired_at','Dilepas','date')],actions:'Tambah, retire, move'},
+ {key:'readers',name:'Pembaca RFID',note:'Hubungkan pembaca kartu dengan fasilitas.',fields:[field('device_id','ID perangkat'),field('reader_channel','Channel reader'),field('communal_load_id','ID fasilitas'),field('active_from','Aktif sejak','date'),field('active_until','Aktif sampai','date')],actions:'Tambah, retire'},
 ];
 export function projectRecord(section,row){return Object.fromEntries([...common,...section.fields.map(f=>f.key)].filter(k=>Object.hasOwn(row,k)).map(k=>[k,row[k]]));}
 export async function adminRequest(path,signal,request=fetch,accountId){
@@ -32,13 +32,13 @@ export async function loadAdminSection(section,signal,request=adminRequest){
   if(!Array.isArray(result.data))throw new Error('Format daftar tidak sesuai. Muat ulang data.');
   for(const row of result.data)records.set(row.id,projectRecord(section,row));
   after=section.unpaged?null:result.next_after;
-  if(after&&seen.has(after))throw new Error('Pagination API tidak bergerak. Daftar tidak ditampilkan sebagai hasil lengkap.');
+  if(after&&seen.has(after))throw new Error('Daftar belum dapat dimuat lengkap. Silakan coba lagi.');
   if(after)seen.add(after);
  }while(after&&!signal.aborted);
  if(signal.aborted)throw new DOMException('Aborted','AbortError');
  return [...records.values()];
 }
-const states={active:'Aktif',inactive:'Nonaktif',retired:'Pensiun',invited:'Diundang',ended:'Berakhir',shared:'Bersama',attributable:'Penggunaan tercatat',main:'Utama',room:'Kamar',communal:'Komunal'};
+const states={included:'Di dalam meter utama',outside:'Di luar meter utama',active:'Aktif',inactive:'Nonaktif',retired:'Pensiun',invited:'Diundang',ended:'Berakhir',shared:'Bersama',attributable:'Penggunaan tercatat',main:'Utama',room:'Kamar',communal:'Komunal'};
 export function displayValue(value,type='text'){
  if(value===null||value===undefined||value==='')return 'Tidak tersedia';
  if(type==='date')return Number.isFinite(Date.parse(value))?new Intl.DateTimeFormat('id-ID',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Jakarta'}).format(new Date(value))+' WIB':'Tanggal tidak tersedia';
@@ -58,6 +58,6 @@ export function recordTitle(section,row){return row.name||row.label||row.display
 
 export function sectionSummary(section,rows,now=Date.now()){
  if(section.key!=='occupancies')return {title:section.name,count:rows?.length,note:section.note,status:''};
- return {title:'Occupancy aktif',count:rows?.filter(row=>recordStatus(section,row,now).group==='active').length,
+ return {title:'Masa tinggal aktif',count:rows?.filter(row=>recordStatus(section,row,now).group==='active').length,
   note:rows?`Dari ${rows.length} catatan masa tinggal, termasuk histori dan jadwal.`:section.note,status:'active'};
 }

@@ -1,0 +1,12 @@
+.facility-monitoring>.rfid-description{margin:0;padding:0 24px 18px}
+.facility-reading{padding:20px 24px 0;border-top:1px solid var(--sb-line)}
+.facility-reading-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.facility-reading-heading h3{margin:0;font-size:16px;line-height:1.5;overflow-wrap:anywhere}
+.facility-reading-heading .pill{white-space:normal;flex-shrink:0;max-width:45%}
+.facility-metrics{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.facility-metrics .metric{box-shadow:none;background:var(--sb-surface-soft);padding:16px}
+.facility-metrics .metric-value{font-size:30px;margin:14px 0 12px;overflow-wrap:anywhere}
+.facility-metrics .metric-value.unavailable{font-size:18px}
+.facility-reading .received{margin:14px 0 20px;line-height:1.7}
+@media(min-width:1500px){.facility-metrics{grid-template-columns:repeat(5,minmax(0,1fr))}.facility-metrics .metric{padding:14px 12px}.facility-metrics .metric-value{font-size:27px}.facility-metrics .metric-value.unavailable{font-size:16px}}
+@media(max-width:720px){.facility-monitoring .panel-heading{align-items:flex-start;flex-direction:column}.facility-monitoring>.rfid-description{padding:0 16px 16px}.facility-reading{padding:18px 16px 0}.facility-reading-heading{align-items:flex-start;flex-direction:column}.facility-reading-heading .pill{max-width:100%}.facility-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.facility-metrics .metric{padding:14px 12px}.facility-metrics .metric-value{font-size:26px}.facility-metrics .metric-value.unavailable{font-size:16px}}

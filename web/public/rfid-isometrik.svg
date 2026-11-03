@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 280" fill="none">
+  <defs>
+    <linearGradient id="base" x1="65" y1="150" x2="350" y2="240" gradientUnits="userSpaceOnUse"><stop stop-color="#c5e5f0"/><stop offset="1" stop-color="#6ba8c0"/></linearGradient>
+    <linearGradient id="reader" x1="0" y1="0" x2="100" y2="120" gradientUnits="userSpaceOnUse"><stop stop-color="#487fa1"/><stop offset="1" stop-color="#24496c"/></linearGradient>
+  </defs>
+  <g stroke="#a4dbea" opacity=".55" stroke-linecap="round"><path d="m32 173 167 83 207-105M43 162l-13 13m164 76 6 10m201-114 9 9" stroke-dasharray="3 5"/><path d="M49 71h8m-4-4v8m327-30h8m-4-4v8m27 147h8m-4-4v8"/></g>
+  <ellipse cx="221" cy="226" rx="155" ry="30" fill="#153b6b" opacity=".28"/>
+  <path d="m45 169 182-88 170 81-182 91z" fill="url(#base)" stroke="#d7edf6"/><path d="m45 169 170 84v10L45 179z" fill="#7aa9c1"/><path d="m215 253 182-91v10l-182 91z" fill="#426d94"/><path d="m58 167 169-81 156 75-169 84z" stroke="#e1f3f8" opacity=".5"/>
+  <!-- Contactless reader on a beveled stand. -->
+  <path d="m74 174 53-26 95 45-54 28z" fill="#315d83" opacity=".3"/>
+  <g transform="matrix(1 .43 0 1 85 56)">
+    <path d="M0 0 9-5h104v125l-9 7z" fill="#183b5d"/>
+    <rect width="104" height="127" rx="8" fill="url(#reader)" stroke="#a9d3e3" stroke-width="1.5"/>
+    <rect x="8" y="9" width="88" height="100" rx="6" fill="#163b5c" stroke="#6296ae"/>
+    <g stroke="#9cdae8" stroke-width="2" stroke-linecap="round"><path d="M22 31h60v51H22zM28 37h48v39H28zM34 43h36v27H34z"/><path d="M40 49h24v15H40z" stroke="#f8d90f"/></g>
+    <path d="M20 23h12m40 67h12" stroke="#6199b2" stroke-width="2"/>
+    <text x="52" y="101" text-anchor="middle" fill="#e1f2f8" font-family="Arial,sans-serif" font-size="10" font-weight="700" letter-spacing="2">RFID</text>
+    <path d="M38 118h28" stroke="#95c6d8" stroke-width="3" stroke-linecap="round"/>
+    <path d="M13 128v8h78v-8" fill="#1d4261"/><path d="M4 137h96v7H4z" fill="#6b9bb4" stroke="#b6d9e6"/>
+  </g>
+  <!-- Floating access card, deliberately without an identity or account data. -->
+  <g transform="matrix(1 -.48 0 1 239 74)">
+    <path d="M-4 4h104v69H-4z" fill="#5887a4"/>
+    <rect width="100" height="69" rx="7" fill="#e9f4f8" stroke="#fff" stroke-width="1.5"/>
+    <path d="M0 17h100v13H0z" fill="#9ac8da"/>
+    <rect x="12" y="36" width="22" height="18" rx="4" fill="#f8d90f" stroke="#c4a72e"/><path d="M19 36v18m8-18v18m-15-9h22" stroke="#b29132"/>
+    <g stroke="#49799b" stroke-width="2" stroke-linecap="round"><path d="M72 37q12 8 0 16m-5-13q7 5 0 10m-5-7q3 2 0 4"/></g>
+    <path d="M45 58h36" stroke="#8caec3" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <g stroke="#f8d90f" stroke-width="2.5" stroke-linecap="round"><path d="M211 90q16 13 0 30m9-38q26 20 0 46m10-54q34 27 0 62"/></g>
+  <!-- Key fob and keyring. -->
+  <ellipse cx="299" cy="211" rx="30" ry="15" fill="#315d83" opacity=".25"/>
+  <path d="M284 184c-15 6-24 21-10 30 12 8 33 1 35-12l-11-17z" fill="#24496c"/>
+  <path d="M284 179c-15 6-24 21-10 30 12 8 33 1 35-12l-11-17z" fill="#6fb7cc" stroke="#c7e8f2" stroke-width="1.5"/>
+  <ellipse cx="293" cy="186" rx="4" ry="3" fill="#24496c"/>
+  <ellipse cx="303" cy="178" rx="14" ry="8" transform="rotate(-27 303 178)" stroke="#e4eef4" stroke-width="3"/>
+  <path d="m282 197 10 3m-13 2 9 3" stroke="#d4edf4" stroke-width="2" stroke-linecap="round"/>
+</svg>

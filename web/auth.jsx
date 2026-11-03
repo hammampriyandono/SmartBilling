@@ -1,5 +1,7 @@
 import React,{useEffect,useState,useRef} from 'react';
 import {setAccountId} from './data.js';
+import {LoginScreen} from './login-screen.jsx';
+import {BrandLogo} from './brand-logo.jsx';
 async function request(path,options={}) {
   const response=await fetch(`/api/auth/${path}`,{cache:'no-store',signal:AbortSignal.timeout(15000),...options});
   if(!response.ok) throw Object.assign(new Error(response.status===401?'Email atau password salah, akun nonaktif, atau sesi berakhir.':response.status===429?'Terlalu banyak percobaan. Coba kembali setelah 15 menit.':'Layanan login belum tersedia. Coba lagi.'),{status:response.status});
@@ -29,7 +31,7 @@ export function AuthGate({Dashboard}) {
     async function check() {
       if(running || stopped) return; running=true;const version=generation.current;
       try {const result=await request('me');if(!stopped&&version===generation.current){changeUser(result.user);setError('');}}
-      catch(e) {if(!stopped&&version===generation.current){if(e.status===401)changeUser(null);else setError('Tidak dapat memeriksa sesi. Periksa backend lokal.');}}
+      catch(e) {if(!stopped&&version===generation.current){if(e.status===401)changeUser(null);else setError('Sesi belum dapat diperiksa. Periksa koneksi Anda lalu coba lagi.');}}
       finally {running=false;if(!stopped)setLoading(false);}
     }
     check();const timer=setInterval(check,5000);
@@ -65,10 +67,10 @@ export function AuthGate({Dashboard}) {
     setActivation({active:false,token:''});setActivationSuccess(false);setActivationError('');
   }
   if(activation.active)return <main className="login-page"><section className="login-card activation-card">
-    <a className="login-brand" href="/" aria-label="SmartBilling"><span className="brand-icon">ϟ</span><span>SmartBilling<span className="brand-dot">.</span></span></a>
+    <a className="login-brand" href="/" aria-label="SplitzBill"><BrandLogo/></a>
     <p className="eyebrow">AKTIVASI AKUN TENANT</p>
     {activationSuccess?<><h1>Akun berhasil diaktifkan</h1><p>Gunakan email yang didaftarkan owner dan password baru Anda untuk masuk.</p>{user?<button className="apply" type="button" onClick={leaveActivation} disabled={busy}>{busy?'Keluar…':'Keluar dan ke halaman masuk'}</button>:<a className="activation-login-link" href="/">Ke halaman masuk</a>}</>:<>
-      <h1>Buat password Anda</h1><p>Atur password untuk akun SmartBilling Anda. Password minimal 8 karakter.</p>
+      <h1>Buat password Anda</h1><p>Atur password untuk akun SplitzBill Anda. Password minimal 8 karakter.</p>
       <form onSubmit={activate}>
        <label>Token undangan<input name="token" type="text" autoComplete="off" required maxLength={200} value={activation.token} onChange={e=>setActivation(current=>({...current,token:e.target.value}))}/></label>
        <label>Password baru<input name="password" type="password" autoComplete="new-password" required minLength={8} maxLength={1024}/></label>
@@ -76,10 +78,10 @@ export function AuthGate({Dashboard}) {
        {activationError&&<p role="alert" className="error">{activationError}</p>}
        <button className="apply" type="submit" disabled={activationBusy}>{activationBusy?'Mengaktifkan…':'Aktifkan akun'}</button>
       </form>
-      <small>Token hanya dapat digunakan satu kali. SmartBilling tidak mengirim atau menyimpan password dalam bentuk teks.</small>
+      <small>Tautan aktivasi hanya dapat digunakan satu kali.</small>
     </>}
    </section></main>;
-  if(loading) return <main className="login-page"><div className="login-card login-loading"><a className="login-brand" href="/" aria-label="SmartBilling"><span className="brand-icon">ϟ</span><span>SmartBilling<span className="brand-dot">.</span></span></a><p>Memeriksa sesi…</p></div></main>;
-  if(user) return <div className="authenticated-app"><div className="account-bar"><span>{user.name} · {user.role==='owner'?'Owner':'Tenant'}</span><button onClick={logout} disabled={busy}>Keluar</button>{error&&<span role="alert">{error}</span>}</div><Dashboard key={user.id} user={user}/></div>;
-  return <main className="login-page"><form className="login-card" onSubmit={submit}><a className="login-brand" href="/" aria-label="SmartBilling"><span className="brand-icon">ϟ</span><span>SmartBilling<span className="brand-dot">.</span></span></a><p className="eyebrow">MONITORING LISTRIK</p><h1>Masuk ke monitoring</h1><p>Masuk menggunakan akun owner atau tenant Anda.</p><label>Email<input type="email" name="email" autoComplete="username" required maxLength={254}/></label><label>Password<input type="password" name="password" autoComplete="current-password" required maxLength={1024}/></label>{error&&<p role="alert" className="error">{error}</p>}<button className="apply" disabled={busy}>{busy?'Memeriksa…':'Masuk'}</button><small>Akses data mengikuti properti dan masa tinggal Anda.</small></form></main>;
+  if(loading) return <main className="login-page"><div className="login-card login-loading"><a className="login-brand" href="/" aria-label="SplitzBill"><BrandLogo/></a><p>Memeriksa sesi…</p></div></main>;
+  if(user) return <Dashboard key={user.id} user={user} onLogout={logout} busy={busy} error={error}/>;
+  return <LoginScreen onSubmit={submit} busy={busy} error={error}/>;
 }

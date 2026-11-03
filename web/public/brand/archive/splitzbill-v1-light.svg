@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" role="img" aria-label="SplitzBill, logo versi pertama">
+  <rect y="3" width="34" height="34" rx="10" fill="#f8d90f"/>
+  <svg x="5.5" y="8.5" width="23" height="23" viewBox="0 0 24 24" fill="#2b4a8b" stroke="#2b4a8b" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="m14 2-10 12h7l-1 8 10-13h-7z"/></svg>
+  <text x="43" y="28" fill="#fff" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="-1.2">SplitzBill<tspan fill="#f8d90f">.</tspan></text>
+</svg>

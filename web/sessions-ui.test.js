@@ -11,7 +11,7 @@ test('RFID UI: fasilitas multi-halaman, error dan cursor berulang tidak menjadi 
  const signal=new AbortController().signal;let calls=[];
  const rows=await facilityPages(signal,async path=>{calls.push(path);return path.includes('after=')?{data:[{id:'b'}],next_after:null}:{data:[{id:'a'}],next_after:'a'};});
  assert.deepEqual(rows.map(r=>r.id),['a','b']);assert.ok(calls[1].includes('after=a'));assert.ok(calls.every(p=>p.includes('limit=100')));
- await assert.rejects(()=>facilityPages(signal,async()=>({data:[],next_after:'same'})),/Pagination/);
+ await assert.rejects(()=>facilityPages(signal,async()=>({data:[],next_after:'same'})),/belum dapat dimuat lengkap/);
  await assert.rejects(()=>facilityPages(signal,async path=>{if(path.includes('after='))throw new Error('offline');return {data:[{id:'a'}],next_after:'a'};}),/offline/);
 });
 test('RFID UI: null bukan nol dan alasan aman tanpa kode/payload asing',()=>{
@@ -23,6 +23,6 @@ test('RFID UI: null bukan nol dan alasan aman tanpa kode/payload asing',()=>{
 test('RFID UI: HTTP 401 memicu pembersihan sesi existing dan header akun tetap dikirim',async()=>{
  const previousFetch=globalThis.fetch,previousWindow=globalThis.window;let expired=false,headers;
  try{globalThis.window={dispatchEvent:e=>{expired=e.type==='session-expired';}};globalThis.fetch=async(_url,options)=>{headers=options.headers;return new Response('{}',{status:401});};setAccountId('test-owner');
-  await assert.rejects(()=>getJson('/api/usage-sessions',new AbortController().signal),/401/);assert.equal(expired,true);assert.equal(headers['X-Account-ID'],'test-owner');
+  await assert.rejects(()=>getJson('/api/usage-sessions',new AbortController().signal),/Sesi berakhir/);assert.equal(expired,true);assert.equal(headers['X-Account-ID'],'test-owner');
  }finally{globalThis.fetch=previousFetch;globalThis.window=previousWindow;setAccountId(null);}
 });

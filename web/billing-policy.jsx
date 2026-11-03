@@ -7,8 +7,9 @@ export function CalculationRules({period}) {
   return <div className="billing-rules">
     <strong>Aturan pembacaan periode</strong>
     <p>Jeda maksimum: {policy.production_max_gap_seconds == null ? 'belum ditetapkan' : `${policy.production_max_gap_seconds} detik`}. Batas: {policy.boundary_method === 'inside' ? `sampel di dalam periode, toleransi ${policy.boundary_tolerance_seconds} detik per sisi` : 'harus tepat pada waktu awal dan akhir'}.</p>
+    <p>{policy.shared_allocation==='equal_active_occupants_v1'?'Komunal bersama: selisih konsumsi utama dikurangi seluruh kamar dan fasilitas RFID bermeter, dibagi rata kepada penghuni aktif. Memerlukan putaran pengukuran yang selaras.':'Komunal bersama belum dimasukkan pada aturan periode ini.'}</p>
     {policy.boundary_method === 'inside' && <p>Energi memakai selisih counter antara sampel terpilih. Bagian waktu di tepi periode tidak diperkirakan. Waktu ukur tiap meter dapat berbeda; selisih meter utama dan kamar perlu dibaca bersama bukti waktunya.</p>}
-    {policy.preview_tariff && <p className="billing-review"><strong>Pratinjau uji · tarif asumsi {estimateRate(policy.preview_tariff.energy_rate_rp_kwh)}.</strong> {policy.preview_tariff.source_reference}. Hasil ini tidak dapat difinalisasi dan tidak menjadi tagihan tenant.</p>}
+    {policy.preview_tariff && <p className="billing-review"><strong>Pratinjau · tarif asumsi {estimateRate(policy.preview_tariff.energy_rate_rp_kwh)}.</strong> {policy.preview_tariff.source_reference}. Hasil ini tidak dapat difinalisasi dan tidak menjadi tagihan tenant.</p>}
   </div>;
 }
 
@@ -56,8 +57,10 @@ export function BillingPeriodForm({form, property, busy, close, submit}) {
     {number('production_max_gap_seconds', 'Jeda maksimum antarsampel (detik)', 3600, 1)}
     <label>Pemilihan batas<select value={values.boundary_method} onChange={event => change('boundary_method', event.target.value)}><option value="inside">Sampel terdekat di dalam periode</option><option value="exact">Sampel tepat pada awal dan akhir</option></select></label>
     {values.boundary_method === 'inside' && number('boundary_tolerance_seconds', 'Toleransi awal dan akhir (detik)', Math.min(300, Number(values.production_max_gap_seconds)))}
-    <p>Tidak ada interpolasi atau pengisian data kosong. Jeda di atas ambang, kualitas invalid, dan counter reset tetap perlu ditinjau.</p>
-    <label className="billing-checkbox"><input type="checkbox" checked={values.use_preview} onChange={event => change('use_preview', event.target.checked)}/> Gunakan tarif khusus pratinjau uji</label>
+    <p>Data yang terputus, tidak valid, atau berasal dari meter yang direset tetap perlu ditinjau.</p>
+    <label className="billing-checkbox"><input type="checkbox" checked={values.shared_allocation==='equal_active_occupants_v1'} onChange={event=>change('shared_allocation',event.target.checked?'equal_active_occupants_v1':'none')}/> Bagi rata komunal bersama kepada penghuni aktif</label>
+    <p>Energi bersama adalah estimasi selisih meter pada rentang yang sama. Nilai negatif atau data tidak lengkap perlu ditinjau. Aturan ini tidak mengubah tagihan final lama.</p>
+    <label className="billing-checkbox"><input type="checkbox" checked={values.use_preview} onChange={event => change('use_preview', event.target.checked)}/> Gunakan tarif asumsi untuk pratinjau</label>
     {values.use_preview ? <>
       <p className="billing-review">Tarif asumsi hanya berlaku untuk periode ini. Tidak mengubah jadwal tarif dan tidak dapat difinalisasi.</p>
       <label>Tarif asumsi Rp/kWh<input type="number" required min="0.000000000001" step="0.000000000001" value={values.rate} onChange={event => change('rate', event.target.value)}/></label>

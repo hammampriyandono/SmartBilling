@@ -9,30 +9,32 @@ import {Administration} from './admin.jsx';
 import {Billing,TenantLatestCard} from './billing.jsx';
 import {Reports} from './reports.jsx';
 import {DeviceHealth} from './device-health.jsx';
-import {TokenMonthly} from './token-monthly.jsx';
 import {monitoringCatalog, activeCatalog, preferredMeter, readingSourceLabel, meterChoices} from './monitoring-view.js';
 import {MeterPicker} from './meter-picker.jsx';
+import {MeterComparison} from './meter-comparison.jsx';
 import './monitoring-view.css';
+import './billing-layout.css';
 import {DataViewContext} from './data-view.jsx';
+import {RoomRelayControl} from './room-relay.jsx';
+import {WorkspaceHeader} from './workspace-header.jsx';
+import {Icon} from './interface-icon.jsx';
+import {DailyEnergyChart, DailyEnergyDetails} from './daily-energy.jsx';
+import './dashboard.css';
+import './motion.css';
 
 const operational=import.meta.env.VITE_DATA_MODE==='operational';
-const statuses = { complete: 'Lengkap', partial: 'Parsial', no_data: 'Tanpa data' };
-const reasons = { missing_start_boundary: 'Batas awal tidak tersedia', missing_end_boundary: 'Batas akhir tidak tersedia', gap: 'Jeda pembacaan', counter_reset: 'Counter direset', no_data: 'Belum ada sampel', invalid_quality: 'Kualitas tidak valid', counter_decreased: 'Counter menurun', ambiguous_timestamp: 'Waktu pengukuran ambigu' };
 const formatTime = (value, zone) => value ? new Intl.DateTimeFormat('id-ID', { timeZone: zone, dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(value)) : 'Belum tersedia';
-reasons.access_limited='Dibatasi masa tinggal';
 function ErrorNotice({ text, retry }) { return text && <div className="error" role="alert">{text} {retry && <button onClick={retry}>Coba lagi</button>}</div>; }
 
-function App({tenantBillingCard=null,ownerTokenSummary=null,catalog,catalogError,catalogLoading,meterId,setMeterId,onRefreshCatalog,showTestData,setShowTestData,onOpenAdministration}) {
+function App({user,tenantBillingCard=null,catalog,catalogError,catalogLoading,meterId,setMeterId,onRefreshCatalog,showTestData,onOpenAdministration}) {
   const [refresh, setRefresh] = useState(0), [zone, setZone] = useState('Asia/Jakarta');
   const [range, setRange] = useState(() => ({ from: shiftDate(todayIn('Asia/Jakarta'), -6), to: todayIn('Asia/Jakarta') }));
   const [draft, setDraft] = useState(range), [rangeError, setRangeError] = useState('');
   const [latest, setLatest] = useState({ loading: true, data: null }), [health, setHealth] = useState(null);
   const [history, setHistory] = useState({ loading: true, data: null, progress: '' });
   const [revision, setRevision] = useState(0), [now, setNow] = useState(Date.now());
-  const [showTokenSummary, setShowTokenSummary] = useState(false);
   const lastIdentity = useRef(null);
   const selected = catalog.meters.find(m => m.id === meterId);
-  const choices = meterChoices(catalog);
   const roomFor = (meter) => catalog.rooms.find(r => r.id === meter?.room_id);
   const labelFor = (meter) => meter.kind === 'room' ? (roomFor(meter)?.name || roomFor(meter)?.code || 'Meter kamar') : meter.kind === 'main' ? 'Meter utama' : 'Meter komunal';
 
@@ -74,7 +76,7 @@ function App({tenantBillingCard=null,ownerTokenSummary=null,catalog,catalogError
       setZone(daily.meta.timezone);
       const start = daily.range.from, end = daily.range.to;
       const result = await allPages(`/api/meters/${meterId}/readings?from=${encodeURIComponent(start)}&to=${encodeURIComponent(end)}`, 'next_cursor', controller.signal,
-        (count, pages) => { if (!controller.signal.aborted) setHistory(old => ({ ...old, progress: `${count.toLocaleString('id-ID')} sampel · ${pages} halaman` })); });
+        (count, pages) => { if (!controller.signal.aborted) setHistory(old => ({ ...old, progress: `${count.toLocaleString('id-ID')} pembacaan` })); });
       if (!controller.signal.aborted) setHistory({ loading: false, key, updated: Date.now(), data: { daily, rows: result.rows, pages: result.pages, start, end } });
     })().catch(error => { if (!controller.signal.aborted) setHistory(old => ({ ...old, loading: false, error: `Histori belum berhasil dimuat lengkap. ${error.message}` })); });
     return () => controller.abort();
@@ -91,52 +93,78 @@ function App({tenantBillingCard=null,ownerTokenSummary=null,catalog,catalogError
   const stale = reading !== null && reading !== undefined && now - Date.parse(reading.measured_at) > threshold * 1000;
   const graph = result ? chartRows(result.rows, threshold) : [];
   const refreshAll = () => { setRefresh(v => v + 1); onRefreshCatalog(); };
+  const readingStatus = currentLatest.loading ? 'Memuat pembacaan' : !reading ? 'Belum ada pembacaan' : stale ? 'Pembacaan lama' : age < 0 ? 'Waktu sensor di masa depan' : readingSourceLabel(reading);
 
-  return <div className="shell">
-    <main>
-      <header className="topbar"><span>Workspace <span className="slash">/</span> Monitoring</span><span className={showTestData&&!operational?'simulation-badge':'pill'}>{showTestData&&!operational?'Simulasi dan arsip ditampilkan':!catalog.meters.length?'Menunggu pemasangan meter':'Monitoring perangkat'}</span></header>
-      <section className="page-heading"><div><p className="eyebrow">MONITORING ENERGI</p><h1>Monitoring listrik</h1><p>Pembacaan meter dan riwayat konsumsi properti Anda.</p></div><button className="refresh-button" onClick={refreshAll}>↻ Perbarui data</button></section>
-      {tenantBillingCard}
-      {ownerTokenSummary&&<section className="panel monitoring-token-toggle"><button type="button" aria-expanded={showTokenSummary} onClick={()=>setShowTokenSummary(v=>!v)}><span>Token dan Tagihan Bulanan</span><span>{showTokenSummary?'Tutup ringkasan':'Buka ringkasan'}</span></button>{showTokenSummary&&ownerTokenSummary}</section>}
+  return <main className="monitoring-page">
+      <div className="overview-grid">
+        <header className="energy-hero">
+          <img src="/kost-isometrik.svg" className="hero-building" alt=""/>
+          <div className="hero-copy"><p className="eyebrow"><span/> DASHBOARD ENERGI</p><h1>Monitoring listrik</h1>
+            <p>Pantau daya dan pemakaian energi {user.role === 'owner' ? 'properti' : 'kamar'} Anda.</p>
+            <div className="hero-actions"><button type="button" onClick={refreshAll}><Icon name="refresh" size={15}/>Perbarui data</button>
+              <span className="service-status"><i className={health?.status === 'ready' ? 'dot good' : 'dot'}/>{!health ? 'Memeriksa koneksi…' : health.status === 'ready' ? 'Layanan terhubung' : 'Layanan belum terhubung'}</span></div>
+          </div>
+        </header>
+        <MeterPicker choices={meterChoices(catalog)} selectedId={meterId} onSelect={chooseMeter} loading={catalogLoading} error={catalogError}>
+          {catalog.rooms.length > 0 && <details className="room-directory"><summary>Daftar kamar · {catalog.rooms.length} kamar</summary><ul>{catalog.rooms.map(room => <li key={room.id}><strong>{room.name || room.code}</strong> · {room.code}<span>{catalog.meters.filter(m => m.room_id === room.id).length ? catalog.meters.filter(m => m.room_id === room.id).map(m => <button key={m.id} onClick={() => chooseMeter(m.id)}>Pilih channel {m.channel_no}</button>) : 'Belum ada meter terpasang'}</span></li>)}</ul></details>}
+        </MeterPicker>
+      </div>
+      {showTestData&&!operational&&<p className="simulation-badge">Simulasi dan arsip ditampilkan</p>}
       <ErrorNotice text={catalogError} retry={refreshAll}/>
-      <MeterPicker choices={choices} selectedId={meterId} onSelect={chooseMeter}/>
-      {catalog.rooms.length > 0 && <details className="room-directory"><summary>Daftar kamar · {catalog.rooms.length} kamar</summary><ul>{catalog.rooms.map(room => <li key={room.id}><strong>{room.name || room.code}</strong> · {room.code}<span>{catalog.meters.filter(m => m.room_id === room.id).length ? catalog.meters.filter(m => m.room_id === room.id).map(m => <button key={m.id} onClick={() => chooseMeter(m.id)}>Pilih channel {m.channel_no} · …{m.id.slice(-4)}</button>) : 'Belum ada meter terpetakan'}</span></li>)}</ul></details>}
-      <div className="connection-strip"><span><i className={health?.status === 'ready' ? 'dot good' : 'dot'}/>{!health ? 'Memeriksa backend…' : health.status === 'ready' ? 'Backend terhubung' : 'Backend tidak siap / tidak terjangkau'}</span><span>Polling 5 detik</span><span>Refresh API terakhir: {currentLatest.updated ? formatTime(currentLatest.updated, zone) : 'Belum berhasil'}</span></div>
-      {!catalogLoading && !catalogError && !catalog.meters.length ? <div className="empty panel observation-empty"><span className="observation-icon" aria-hidden="true">ϟ</span><h2>Belum ada meter untuk pengamatan</h2><p>{showTestData?'Belum ada pemasangan meter yang dapat diakses.':'Daftarkan perangkat dan pasangkan meter ke kamar untuk mulai menampilkan pembacaan.'}</p><p className="subtle">{!showTestData?'Data simulasi dan arsip uji disembunyikan dari tampilan ini. ':''}Belum ada pembacaan bukan berarti pemakaian listrik nol.</p>{onOpenAdministration&&<button type="button" className="refresh-button" onClick={onOpenAdministration}>Buka Administrasi</button>}</div> : <>
-        <div className="meter-title"><div><h2>{selected ? labelFor(selected) : 'Memuat titik pengukuran…'}</h2><p>{roomFor(selected)?.code || 'Titik pengukuran'} <span>·</span> {selected?`Channel ${selected.channel_no}`:'Menunggu API'}{selected?.source==='simulation'&&<span className="simulation-badge">Simulasi</span>}</p></div><label className="meter-select">Pilih meter<select value={meterId} onChange={e => chooseMeter(e.target.value)} disabled={!catalog.meters.length}>{catalog.meters.map(m => <option key={m.id} value={m.id}>{labelFor(m)} · channel {m.channel_no}{m.source==='simulation'?' · simulasi':''}</option>)}</select></label></div>
-        {selected?.kind==='main'&&<p className="main-meter-context">Meter utama mengukur total jalur sebelum percabangan kamar. Daya dibandingkan pada waktu yang sama; konsumsi kWh dibandingkan dari selisih counter pada rentang yang sama. Waktu pembacaan, ketelitian sensor, dan rugi-rugi dapat menimbulkan selisih.</p>}
+      {!selected ? <div className="empty panel observation-empty"><span className="observation-icon"><Icon name="meter" size={26}/></span>
+        <h2>{catalogLoading ? 'Memuat titik pengukuran…' : catalogError ? 'Daftar meter belum tersedia' : 'Belum ada meter terpasang'}</h2>
+        {!catalogLoading && !catalogError && <><p>{onOpenAdministration ? 'Daftarkan perangkat dan pasangkan meter untuk mulai menampilkan pembacaan.' : 'Belum ada pemasangan meter yang dapat diakses.'}</p>{onOpenAdministration&&<button type="button" className="refresh-button" onClick={onOpenAdministration}>Buka Administrasi</button>}</>}
+      </div> : <>
+        <div className="reading-heading"><div><p className="eyebrow">PEMBACAAN TERAKHIR</p><h2>{labelFor(selected)} <small>Channel {selected.channel_no}</small></h2>
+          {selected.kind === 'main' && <p className="point-description">Seluruh jalur listrik sebelum percabangan kamar.</p>}</div>
+          <div className="reading-state">{(selected.source === 'simulation' || reading?.data_source === 'simulation') && <span className="simulation-badge">Simulasi</span>}
+            <span className={`pill ${stale || age < 0 ? 'amber' : ''}`}>{readingStatus}</span>
+            {reading && <small>Diukur {formatTime(reading.measured_at, zone)}</small>}</div>
+        </div>
         <ErrorNotice text={currentLatest.error ? `Pembaruan gagal. Nilai sebelumnya mungkin usang. ${currentLatest.error}` : ''} retry={refreshAll}/>
-        <div className="reading-note"><span className={`pill ${stale ? 'amber' : ''}`}>{currentLatest.loading ? 'Memuat pembacaan' : !reading ? 'Belum ada pembacaan' : stale ? 'Pembacaan lama' : age < 0 ? 'Waktu sensor di masa depan' : readingSourceLabel(reading)}</span><span>{reading ? `Diukur ${formatTime(reading.measured_at, zone)} · ${age < 0 ? 'periksa clock' : `${age.toLocaleString('id-ID')} menit lalu`}` : 'Koneksi backend tidak menandakan sensor sedang mengirim.'}</span></div>
-        <section className="metrics" aria-label="Pembacaan terbaru">{[['Tegangan','voltage_v','V','↗'],['Arus','current_a','A','≈'],['Daya','power_w','W','ϟ'],['Energi kumulatif','energy_kwh','kWh','∑']].map(([label, field, unit, icon]) => <article className="metric" key={field}><div className="metric-label">{label}<span>{icon}</span></div><div className={`metric-value ${reading?.[field] == null ? 'unavailable' : ''}`} title={reading?.[field] ?? undefined}>{currentLatest.loading ? 'Memuat…' : decimal(reading?.[field])}{reading?.[field] != null && <small>{unit}</small>}</div><p>{field === 'energy_kwh' ? 'Counter meter · bukan konsumsi harian' : 'Nilai pada waktu pengukuran terakhir'}</p></article>)}</section>
-        <p className="received">Diterima backend: {formatTime(reading?.received_at, zone)} <span>· Zona waktu: {zone}</span></p>
-        <section className="panel history-panel"><div className="panel-heading"><div><p className="eyebrow">RIWAYAT PEMBACAAN</p><h2>Profil daya</h2></div><span className="legend"><i/> Daya (W)</span></div>
+        <section className="reading-cards" aria-label="Pembacaan terbaru">{[
+          ['Daya','power_w','W','power'], ['Energi kumulatif','energy_kwh','kWh','energy'],
+          ['Tegangan','voltage_v','V','voltage'], ['Arus','current_a','A','current'],
+        ].map(([label, field, unit, icon]) => <article key={field}><div><span className="reading-icon"><Icon name={icon}/></span><h3>{label}</h3></div>
+          <p className={reading?.[field] == null ? 'value-missing' : ''} title={reading?.[field] ?? undefined}>{currentLatest.loading ? 'Memuat…' : decimal(reading?.[field])}{reading?.[field] != null && <small>{unit}</small>}</p>
+        </article>)}</section>
+        <p className="reading-time">{reading?.received_at ? `Diterima ${formatTime(reading.received_at, zone)} · ${zone}` : 'Menunggu data dari meter.'}<span>Diperiksa otomatis tiap 5 detik{currentLatest.updated && ' · ' + formatTime(currentLatest.updated, zone)}</span></p>
+        <section className="usage-history" aria-labelledby="history-title">
+          <div className="history-tools">
+          <header className="history-title"><p className="eyebrow">HISTORI METER</p><h2 id="history-title">Riwayat konsumsi</h2></header>
           <form className="filters" onSubmit={e => { e.preventDefault(); if (!validRange(draft.from, draft.to)) setRangeError('Pilih rentang tanggal valid, maksimal 31 hari.'); else chooseRange({ ...draft }); }}>
             <div className="presets"><button type="button" onClick={() => chooseRange({ from: shiftDate(todayIn(zone), -6), to: todayIn(zone) })}>7 hari terakhir</button><button type="button" onClick={() => chooseRange({ from: todayIn(zone), to: todayIn(zone) })}>Hari ini</button></div>
             <label>Dari<input aria-label="Tanggal mulai" type="date" value={draft.from} onChange={e => setDraft({ ...draft, from: e.target.value })} required/></label><label>Sampai<input aria-label="Tanggal akhir" type="date" value={draft.to} onChange={e => setDraft({ ...draft, to: e.target.value })} required/></label><button className="apply">Terapkan</button>
-          </form>
+          </form></div>
           <ErrorNotice text={rangeError}/><ErrorNotice text={history.error} retry={refreshAll}/>
-          <div className="history-info"><span> {range.from} — {range.to} · {zone}</span><span aria-live="polite">{history.loading ? `Memuat seluruh histori… ${history.progress || ''}` : result ? `${result.rows.length.toLocaleString('id-ID')} sampel · ${result.pages} halaman selesai` : 'Belum tersedia'}</span></div>
-          {result && <div className="chart" role="img" aria-label={`Grafik daya, ${result.rows.length} sampel, rentang ${range.from} sampai ${range.to}`}><ResponsiveContainer width="100%" height="100%"><LineChart data={graph} margin={{ top: 20, right: 18, bottom: 8, left: 0 }}><CartesianGrid vertical={false} stroke="#e9eeeb"/><XAxis dataKey="time" type="number" domain={[Date.parse(result.start), Date.parse(result.end)]} scale="time" ticks={range.from === range.to ? Array.from({ length: 7 }, (_, i) => Date.parse(result.start) + i * (Date.parse(result.end) - Date.parse(result.start)) / 6) : [...result.daily.data.map(day => Date.parse(day.starts_at)), Date.parse(result.end)]} tickFormatter={v => new Intl.DateTimeFormat('id-ID',{ timeZone: zone, ...(range.from === range.to ? { hour:'2-digit', minute:'2-digit' } : { day:'2-digit', month:'short' }) }).format(v)} tick={{ fontSize: 11 }} minTickGap={45}/><YAxis tick={{ fontSize: 11 }} width={45} domain={[0,'auto']}/><Tooltip labelFormatter={v => formatTime(v,zone)} formatter={(value, name, item) => [item.payload.original ?? value, 'Daya (W)']}/><Line type="linear" dataKey="power" stroke="#20866a" strokeWidth={2} dot={false} activeDot={{ r:4 }} connectNulls={false} isAnimationActive={false}/></LineChart></ResponsiveContainer>{!result.rows.some(r => r.power_w !== null) && <div className="chart-empty">Belum ada pembacaan daya pada rentang ini.</div>}</div>}
-          {!result && <div className="empty chart-placeholder">{history.loading ? 'Mengambil histori dari PostgreSQL melalui API…' : 'Histori belum tersedia.'}</div>}
-          <div className="panel-foot">Garis terputus menandakan data tidak tersedia atau jeda pembacaan. Tidak ada interpolasi.<span>{history.updated ? `Dimuat ${formatTime(history.updated,zone)}` : ''}</span></div>
+          <div className="history-info"><span> {range.from} — {range.to} · {zone}</span><span aria-live="polite">{history.loading ? `Memuat riwayat… ${history.progress || ''}` : result ? `${result.rows.length.toLocaleString('id-ID')} pembacaan` : 'Belum tersedia'}</span></div>
+          <div className="history-charts">
+          <section className="panel history-panel"><div className="panel-heading"><div><p className="eyebrow">DAYA · W</p><h2>Profil daya</h2></div><span className="legend"><i/> Daya</span></div>
+          {result && <div className="chart" role="img" aria-label={`Grafik daya, ${result.rows.length} sampel, rentang ${range.from} sampai ${range.to}`}><ResponsiveContainer width="100%" height="100%"><LineChart data={graph} margin={{ top: 20, right: 18, bottom: 8, left: 0 }}><CartesianGrid vertical={false} stroke="var(--sb-line)"/><XAxis dataKey="time" type="number" domain={[Date.parse(result.start), Date.parse(result.end)]} scale="time" ticks={range.from === range.to ? Array.from({ length: 7 }, (_, i) => Date.parse(result.start) + i * (Date.parse(result.end) - Date.parse(result.start)) / 6) : [...result.daily.data.map(day => Date.parse(day.starts_at)), Date.parse(result.end)]} tickFormatter={v => new Intl.DateTimeFormat('id-ID',{ timeZone: zone, ...(range.from === range.to ? { hour:'2-digit', minute:'2-digit' } : { day:'2-digit', month:'short' }) }).format(v)} tick={{ fontSize: 11 }} minTickGap={45}/><YAxis tick={{ fontSize: 11 }} width={45} domain={[0,'auto']}/><Tooltip itemStyle={{color:'var(--sb-ink)'}} labelFormatter={v => formatTime(v,zone)} formatter={(value, name, item) => [item.payload.original ?? value, 'Daya (W)']}/><Line type="linear" dataKey="power" stroke="var(--sb-chart-power)" strokeWidth={2} dot={false} activeDot={{ r:4 }} connectNulls={false} isAnimationActive={false}/></LineChart></ResponsiveContainer>{!result.rows.some(r => r.power_w !== null) && <div className="chart-empty">Belum ada pembacaan daya pada rentang ini.</div>}</div>}
+          {!result && <div className="empty chart-placeholder">{history.loading ? 'Memuat riwayat pembacaan…' : 'Histori belum tersedia.'}</div>}
+          <div className="panel-foot">Garis terputus menunjukkan jeda atau data yang belum tersedia.<span>{history.updated ? `Dimuat ${formatTime(history.updated,zone)}` : ''}</span></div>
         </section>
-        <section className="panel daily-panel"><div className="panel-heading"><div><p className="eyebrow">KONSUMSI HARIAN</p><h2>Energi dengan konteks.</h2></div><span className="subtle">Dihitung backend dari selisih counter</span></div>
-          {result?.daily.meta.access_limited && <p className="received">Data hanya mencakup masa tinggal Anda. {result.daily.data.length===0?'Tidak ada masa tinggal yang dapat diakses pada rentang ini.':''}</p>}
-          {result ? <div className="table-scroll"><table><thead><tr><th>Tanggal</th><th>Total (kWh)</th><th>Subtotal valid (kWh)</th><th>Cakupan</th><th>Status</th></tr></thead><tbody>{result.daily.data.map(day => <tr key={day.date}><td>{new Intl.DateTimeFormat('id-ID',{dateStyle:'medium',timeZone:'UTC'}).format(new Date(day.date))}</td><td title={day.consumption_kwh ?? ''}>{decimal(day.consumption_kwh,9)}</td><td title={day.observed_consumption_kwh ?? ''}>{decimal(day.observed_consumption_kwh,9)}</td><td><div className="coverage"><span style={{ width: `${100 * day.coverage_seconds / day.expected_seconds}%` }}/></div><small>{decimal(100 * day.coverage_seconds / day.expected_seconds,1)}% · {day.sample_count} sampel</small></td><td><span className={`pill ${day.status === 'complete' ? 'green' : day.status === 'partial' ? 'amber' : ''}`}>{statuses[day.status] || day.status}</span>{day.reasons.length > 0 && <small className="reason">{day.reasons.map(r => reasons[r] || r.replaceAll('_',' ')).join(' · ')}</small>}</td></tr>)}</tbody></table></div> : <div className="empty">{history.loading ? 'Memuat konsumsi harian…' : 'Konsumsi harian belum tersedia.'}</div>}
-          <div className="panel-foot">Total hanya tersedia untuk hari lengkap. Subtotal valid bukan estimasi total harian; tidak tersedia bukan nol.</div>
+        <section className="panel daily-chart-panel"><div className="panel-heading"><div><p className="eyebrow">ENERGI · kWh</p><h2>Pemakaian energi harian</h2></div></div>
+          {result ? <DailyEnergyChart days={result.daily.data}/> : <div className="empty chart-placeholder">{history.loading ? 'Memuat konsumsi harian…' : 'Konsumsi harian belum tersedia.'}</div>}
+          <div className="panel-foot daily-key"><span>Total lengkap</span><span>Subtotal parsial</span></div>
+        </section></div>
+        <DailyEnergyDetails daily={result?.daily} loading={history.loading}/>
         </section>
       </>}
-      <footer className="footer">SmartBilling <span>Capstone A05</span><span>Histori bersumber dari pembacaan yang tersimpan.</span></footer>
-    </main>
-  </div>;
+      {tenantBillingCard}
+      <RoomRelayControl user={user} meter={selected}/>
+      {onOpenAdministration && selected && <MeterComparison propertyId={selected.property_id}/>}
+      <footer className="footer">SplitzBill <span>Monitoring dan pengelolaan listrik</span></footer>
+    </main>;
 }
-function Workspace({user}) {
+function Workspace({user,onLogout,busy,error}) {
  const [page,setPage]=useState('monitoring');
- const [catalog,setCatalog]=useState({rooms:[],meters:[]}),[catalogLoading,setCatalogLoading]=useState(false),[catalogError,setCatalogError]=useState('');
+ const [catalog,setCatalog]=useState({rooms:[],meters:[]}),[catalogLoading,setCatalogLoading]=useState(true),[catalogError,setCatalogError]=useState('');
  const [catalogVersion,setCatalogVersion]=useState(0),[meterId,setMeterId]=useState('');
  const [showTestData,setShowTestData]=useState(operational);
- const visibleCatalog=operational?activeCatalog(catalog):monitoringCatalog(catalog,showTestData);
- const choices=meterChoices(visibleCatalog);
+ const scopedCatalog=operational?activeCatalog(catalog):monitoringCatalog(catalog,showTestData);
+ // Pembacaan fasilitas komunal berada di Riwayat fasilitas RFID.
+ const visibleCatalog={...scopedCatalog,meters:scopedCatalog.meters.filter(m=>m.kind!=='communal')};
  const visibleMeterId=preferredMeter(visibleCatalog.meters,meterId);
  useEffect(()=>{
   if(page!=='monitoring')return;
@@ -147,29 +175,16 @@ function Workspace({user}) {
    .finally(()=>{if(!controller.signal.aborted)setCatalogLoading(false);});
   return()=>controller.abort();
  },[page,catalogVersion]);
- const navItem=(key,label)=><button key={key} type="button" onClick={()=>setPage(key)} aria-current={page===key?'page':undefined} aria-pressed={page===key}>{label}</button>;
- return <div className="workspace-layout">
-  <aside className="sidebar">
-   <a className="brand" href="/"><span className="brand-icon">ϟ</span>SmartBilling<span className="brand-dot">.</span></a>
-   <p className="side-caption">CAPSTONE A05</p>
-   <button className={`nav-active ${page==='monitoring'?'current':''}`} onClick={()=>setPage('monitoring')} aria-current={page==='monitoring'?'page':undefined}><span>▦</span> Monitoring listrik</button>
-   <div className="side-heading">TITIK PENGUKURAN {page==='monitoring'&&<span>{visibleCatalog.meters.length}</span>}</div>
-   <div className={`sidebar-measurements ${page==='monitoring'?'visible':''}`} aria-label="Titik pengukuran">
-   {page==='monitoring'&&catalogLoading&&!visibleCatalog.meters.length&&<p className="side-note">Memuat meter…</p>}
-   {page==='monitoring'&&catalogError&&<p className="side-note" role="alert">Meter belum dapat dimuat.</p>}
-   {page==='monitoring'&&!catalogLoading&&!catalogError&&!visibleCatalog.meters.length&&<p className="side-note">Meter pengamatan belum dipasang.</p>}
-   {page==='monitoring'&&choices.map(m=>{
-    const label=m.label;
-    return <button className={`meter-button ${visibleMeterId===m.id?'selected':''}`} key={m.id} onClick={()=>setMeterId(m.id)} aria-pressed={visibleMeterId===m.id}><span className="meter-mark">{m.kind==='room'?'▤':'◈'}</span><span><strong>{label}</strong><small>Channel {m.channel_no}{m.source==='simulation'?' · simulasi':''}</small></span><span className="meter-arrow">›</span></button>;
-   })}
-   </div>
-   <div className="side-footer"><span className="mini-dot"/> MONITORING LISTRIK<p>Pembacaan dan histori<br/>sesuai akses akun Anda.</p></div>
-  </aside>
-  <div className="workspace-content">
-   <nav className="workspace-nav" aria-label={`Halaman ${user.role==='owner'?'owner':'tenant'}`}><div className="workspace-nav-inner">{navItem('monitoring','Monitoring listrik')}{navItem('sessions',user.role==='owner'?'Riwayat fasilitas RFID':'Sesi fasilitas RFID')}{navItem('billing',user.role==='owner'?'Billing':'Tagihan Saya')}{user.role==='owner'&&navItem('reports','Laporan')}{user.role==='owner'&&navItem('health','Kesehatan Perangkat')}{user.role==='owner'&&navItem('admin','Administrasi')}</div></nav>
-   {!operational&&<div className="monitoring-view-controls workspace-data-view"><label><input type="checkbox" checked={showTestData} onChange={e=>setShowTestData(e.target.checked)}/> Tampilkan simulasi dan arsip uji</label><span>{showTestData?'Daftar lengkap sesuai akses akun Anda.':'Simulasi dan data uji disembunyikan di semua halaman.'}</span></div>}
+ function navigate(key) {
+  setPage(key);
+  window.scrollTo(0, 0);
+ }
+ return <div className="app-frame">
+  <WorkspaceHeader user={user} page={page} onNavigate={navigate} onLogout={onLogout} busy={busy} error={error}/>
+  <div className="app-content">
+   {import.meta.env.DEV&&!operational&&<div className="monitoring-view-controls workspace-data-view"><label><input type="checkbox" checked={showTestData} onChange={e=>setShowTestData(e.target.checked)}/> Tampilkan simulasi dan arsip uji</label><span>{showTestData?'Daftar lengkap sesuai akses akun Anda.':'Simulasi dan data uji disembunyikan di semua halaman.'}</span></div>}
    <DataViewContext.Provider value={showTestData}><React.Fragment key={`${page}:${showTestData}`}>
-   {page==='admin'?<Administration user={user}/>:page==='health'?<DeviceHealth user={user}/>:page==='reports'?<Reports user={user}/>:page==='billing'?<Billing user={user}/>:page==='sessions'?<Sessions user={user}/>:<App catalog={visibleCatalog} catalogError={catalogError} catalogLoading={catalogLoading} meterId={visibleMeterId} setMeterId={setMeterId} showTestData={showTestData} setShowTestData={setShowTestData} onOpenAdministration={user.role==='owner'?()=>setPage('admin'):null} onRefreshCatalog={()=>setCatalogVersion(v=>v+1)} ownerTokenSummary={user.role==='owner'?<TokenMonthly user={user} showTestData={showTestData}/>:null} tenantBillingCard={user.role==='tenant'?<TenantLatestCard user={user} onOpen={()=>setPage('billing')}/>:null}/>}
+   {page==='admin'?<Administration user={user}/>:page==='health'?<DeviceHealth user={user}/>:page==='reports'?<Reports user={user}/>:page==='billing'?<Billing user={user}/>:page==='sessions'?<Sessions user={user}/>:<App user={user} catalog={visibleCatalog} catalogError={catalogError} catalogLoading={catalogLoading} meterId={visibleMeterId} setMeterId={setMeterId} showTestData={showTestData} onOpenAdministration={user.role==='owner'?()=>navigate('admin'):null} onRefreshCatalog={()=>setCatalogVersion(v=>v+1)} tenantBillingCard={user.role==='tenant'?<TenantLatestCard user={user} onOpen={()=>navigate('billing')}/>:null}/>}
    </React.Fragment></DataViewContext.Provider>
   </div>
  </div>;

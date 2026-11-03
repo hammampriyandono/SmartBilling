@@ -15,7 +15,7 @@ test('ringkasan kamar hanya lengkap bila seluruh energi dan nominal tersedia',()
 });
 test('ringkasan periode membedakan preview, final, review dan tenant temporal',()=>{
  const rooms=[{status:'finalized',total_cost_rp:'1000'},{status:'review',total_cost_rp:null}];assert.deepEqual(periodSummary({status:'draft',preview_total_cost_rp:'1000',room_bills:rooms}),{rooms:2,review:1,preview:1,final:0,total:null});assert.deepEqual(periodSummary({status:'finalized',total_cost_rp:'1000',room_bills:[rooms[0]]}),{rooms:1,review:0,preview:0,final:1,total:'1000'});
- assert.deepEqual(roomBillStatus({status:'draft',source:'production'},rooms[0]),{label:'Preview',tone:''});assert.equal(roomBillStatus({status:'finalized',source:'simulation'},rooms[0]).label,'Pratinjau simulasi');
+ assert.deepEqual(roomBillStatus({status:'draft',source:'production'},rooms[0]),{label:'Pratinjau',tone:''});assert.equal(roomBillStatus({status:'finalized',source:'simulation'},rooms[0]).label,'Pratinjau simulasi');
  const period={starts_at:'2026-09-01Z',ends_at:'2026-10-01Z'},occupancies=[{room_id:'r',user_id:'u',starts_at:'2026-01-01Z',ends_at:null}];assert.equal(tenantForRoom('r',period,occupancies,[{user_id:'u',name:'Tenant A'}]),'Tenant A');assert.match(tenantForRoom('x',period,occupancies,[]),/Owner/);
 });
 test('daftar tenant hanya meratakan revisi final dan energi billable tidak memaksa null menjadi nol',()=>{
@@ -32,7 +32,7 @@ test('GET billing membawa account, no-store, timeout, dan menghapus sesi pada 40
  try{
   const result=await billingGet('/api/billing-periods',new AbortController().signal,'tenant',async(_path,o)=>{options=o;return Response.json({data:[]});});
   assert.deepEqual(result.data,[]);assert.equal(options.cache,'no-store');assert.equal(options.headers['X-Account-ID'],'tenant');
-  await assert.rejects(()=>billingGet('/api/billing-periods',new AbortController().signal,'tenant',async()=>Response.json({error:'login_required'},{status:401})),/HTTP 401/);assert.equal(expired,true);
+  await assert.rejects(()=>billingGet('/api/billing-periods',new AbortController().signal,'tenant',async()=>Response.json({error:'login_required'},{status:401})),/Sesi berakhir/);assert.equal(expired,true);
  }finally{globalThis.window=old;}
 });
 

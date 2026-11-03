@@ -1,0 +1,48 @@
+.health-page .device-health-hero {
+  min-height: 248px;
+  margin: 24px 0 20px;
+  gap: 12px;
+}
+.device-health-hero .hero-copy {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  padding-right: 0;
+}
+.device-health-hero .hero-copy h1 {
+  font-size: clamp(28px, 3.2vw, 44px);
+}
+.device-health-hero .hero-copy > p:not(.eyebrow) {
+  max-width: 540px;
+  line-height: 1.65;
+}
+.health-device-illustration {
+  display: block;
+  flex: 0 1 400px;
+  width: 38%;
+  min-width: 0;
+  height: 248px;
+  margin-right: 20px;
+  object-fit: contain;
+}
+@media (max-width: 1000px) {
+  .health-device-illustration { flex-basis: 330px; margin-right: 8px; }
+}
+@media (max-width: 600px) {
+  .health-page .device-health-hero {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    margin-top: 14px;
+  }
+  .device-health-hero .hero-copy { width: 100%; padding: 22px 20px 0; }
+  .device-health-hero .hero-copy h1 { font-size: clamp(27px, 7vw, 36px); }
+  .device-health-hero .hero-copy > p:not(.eyebrow) { font-size: 13px; }
+  .device-health-hero .hero-actions { margin-top: 14px; }
+  .health-device-illustration {
+    flex: none;
+    width: min(100%, 320px);
+    height: 180px;
+    margin: 0 auto 8px;
+  }
+}

@@ -18,6 +18,7 @@ export async function loadTenantRunning(userId,selectedId,showTestData,signal,re
 }
 
 export function tenantEstimateReason(row){
+ if(row.reason==='shared_pending')return 'Bagian komunal bersama belum tersedia; energi kamar tetap dicatat.';
  if(row.reason==='too_many_samples')return 'Periode terlalu besar untuk estimasi. Hubungi pemilik.';
  if(row.reason==='allocation_pending')return 'Bagian Anda masih perlu ditinjau pemilik.';
  if(row.reason==='pricing_unavailable')return 'Acuan biaya belum lengkap; energi Anda tetap dicatat.';

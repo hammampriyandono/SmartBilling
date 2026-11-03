@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 280" fill="none">
+  <defs><linearGradient id="base" x1="65" y1="150" x2="350" y2="240" gradientUnits="userSpaceOnUse"><stop stop-color="#c5e5f0"/><stop offset="1" stop-color="#6ba8c0"/></linearGradient><g id="drawer"><rect width="81" height="32" rx="3" fill="#d2e6f0" stroke="#91b6cc"/><rect x="27" y="9" width="28" height="11" rx="2" fill="#719db7"/><path d="M33 14h16" stroke="#e4f3f8" stroke-width="2" stroke-linecap="round"/></g><g id="person"><circle cx="0" cy="0" r="8" fill="#85b7cb"/><path d="M-14 25v-8c0-13 28-13 28 0v8" fill="#85b7cb"/></g></defs>
+  <g stroke="#a4dbea" opacity=".55" stroke-linecap="round"><path d="m32 173 167 83 207-105M43 162l-13 13m164 76 6 10m201-114 9 9" stroke-dasharray="3 5"/><path d="M49 71h8m-4-4v8m327-30h8m-4-4v8m27 147h8m-4-4v8"/></g>
+  <ellipse cx="221" cy="226" rx="155" ry="30" fill="#153b6b" opacity=".28"/>
+  <path d="m45 169 182-88 170 81-182 91z" fill="url(#base)" stroke="#d7edf6"/><path d="m45 169 170 84v10L45 179z" fill="#7aa9c1"/><path d="m215 253 182-91v10l-182 91z" fill="#426d94"/><path d="m58 167 169-81 156 75-169 84z" stroke="#e1f3f8" opacity=".5"/>
+  <!-- Master-data filing cabinet, with a small property model on top. -->
+  <path d="m93 67 48-24 100 43-48 25z" fill="#bedce9" stroke="#e2f2f8"/><path d="m193 111 48-25v107l-48 25z" fill="#396a8c" stroke="#8fb8ce"/>
+  <g transform="matrix(1 .43 0 1 93 67)">
+    <rect width="100" height="107" rx="3" fill="#81afc6" stroke="#d6eaf3"/>
+    <use href="#drawer" x="9" y="10"/><use href="#drawer" x="9" y="51"/>
+    <path d="M8 107v7h13v-7m57 0v7h13v-7" fill="#24496c"/>
+  </g>
+  <path d="m119 62 25-13 35 16-25 13z" fill="#d8eaf2"/><path d="m119 62 35 16v22l-35-16z" fill="#eaf4f8"/><path d="m154 78 25-13v22l-25 13z" fill="#8cb9cf"/>
+  <path d="m114 59 28-22 42 19-28 25z" fill="#34658b" stroke="#c3e1ed"/><path d="m114 59 42 22v4l-42-21z" fill="#739eb8"/><path d="m156 81 28-25v4l-28 25z" fill="#24496c"/>
+  <path d="m127 73 8 4v9l-8-4zm14 7 8 4v9l-8-4z" fill="#5e98b3"/>
+  <!-- Linked resident and device records, no personal information. -->
+  <g transform="matrix(1 -.48 0 1 258 69)">
+    <rect x="-7" y="-6" width="92" height="116" rx="6" fill="#749eb7" stroke="#b1d4e3"/>
+    <rect width="92" height="116" rx="6" fill="#e6f2f7" stroke="#fff" stroke-width="1.5"/>
+    <path d="M0 20h92" stroke="#b0cedd"/><path d="M12 10h33" stroke="#6f98b2" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="30" cy="49" r="19" fill="#c7e2ed"/><use href="#person" transform="translate(30 43) scale(.72)"/>
+    <path d="M59 39h19m-19 9h13m-59 28h65m-65 10h65m-65 10h39" stroke="#85aac1" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <!-- Settings gear. -->
+  <g transform="matrix(1 .35 0 .85 294 196)">
+    <path d="m-8-33 16 0 3 8 9 5 9-2 8 14-6 7v10l6 7-8 14-9-2-9 5-3 8H-8l-3-8-9-5-9 2-8-14 6-7V-1l-6-7 8-14 9 2 9-5z" fill="#a67d2e" transform="translate(0 5)"/>
+    <path d="m-8-33 16 0 3 8 9 5 9-2 8 14-6 7v10l6 7-8 14-9-2-9 5-3 8H-8l-3-8-9-5-9 2-8-14 6-7V-1l-6-7 8-14 9 2 9-5z" fill="#f8d90f" stroke="#ffeda0" stroke-width="1.5"/>
+    <circle cy="4" r="16" fill="#b6a253" stroke="#dec64f" stroke-width="2"/><circle cy="1" r="13" fill="#315d83" stroke="#fbe887" stroke-width="2"/>
+  </g>
+</svg>
