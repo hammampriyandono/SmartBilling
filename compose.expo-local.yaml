@@ -39,6 +39,7 @@ services:
     environment:
       APP_ENV: development
       DATA_MODE: operational
+      ROOM_RELAY_CONTROL_ENABLED: ${ROOM_RELAY_CONTROL_ENABLED:-false}
       PORT: 3000
       BIND_HOST: 0.0.0.0
       PGHOST: postgres
