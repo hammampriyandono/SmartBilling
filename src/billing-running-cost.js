@@ -4,13 +4,22 @@ import {defaultExpoEstimate} from './token-summary.js';
 const costScale=10n**21n;
 const overlaps=(row,interval,startKey,endKey)=>+new Date(row[startKey])<+new Date(interval.ends_at)&&(!row[endKey]||+new Date(row[endKey])>+new Date(interval.starts_at));
 const covers=(row,interval,startKey,endKey)=>+new Date(row[startKey])<=+new Date(interval.starts_at)&&(!row[endKey]||+new Date(row[endKey])>=+new Date(interval.ends_at));
-function money(raw){return raw/costScale+(raw%costScale*2n>=costScale?1n:0n);}
-function distributeRoundedCost(buckets){
+export function money(raw){return raw/costScale+(raw%costScale*2n>=costScale?1n:0n);}
+export function distributeRoundedCost(buckets){
  const total=money(buckets.reduce((sum,b)=>sum+b.raw,0n));
  const left=Number(total-buckets.reduce((sum,b)=>sum+b.raw/costScale,0n));
  const order=[...buckets].sort((a,b)=>a.raw%costScale===b.raw%costScale?a.key.localeCompare(b.key):a.raw%costScale>b.raw%costScale?-1:1);
  const bonuses=new Set(order.slice(0,left).map(b=>b.key));
  return new Map(buckets.map(b=>[b.key,String(b.raw/costScale+(bonuses.has(b.key)?1n:0n))]));
+}
+
+export function intervalPrice(interval,tariffs=[]){
+ const matches=tariffs.filter(t=>!t.retired_at&&covers(t,interval,'valid_from','valid_until'));
+ if(!tariffs.length)return {rate:defaultExpoEstimate.tariff_rp_per_kwh,basis:{kind:'expo_default',energy_rate_rp_kwh:defaultExpoEstimate.tariff_rp_per_kwh,reference:'Acuan konversi token expo; biaya energi, tanpa pajak pengisian'}};
+ if(matches.length!==1)return {rate:null,issue:matches.length?'tariff_overlap':'tariff_interval_uncovered'};
+ const t=matches[0];
+ try{if(parseDecimal(t.energy_rate_rp_kwh,12)<=0n)throw Error();}catch{return {rate:null,issue:'unpriced_interval'};}
+ return {rate:t.energy_rate_rp_kwh,basis:{kind:'tariff_schedule',id:t.id,source:t.source,energy_rate_rp_kwh:t.energy_rate_rp_kwh,reference:t.source_reference}};
 }
 
 // Live estimates only: no write to finalized bills, payments or token balance.
@@ -21,11 +30,7 @@ export function runningRoomCosts(rooms,tariffs=[],occupancies=[]){
   const buckets=new Map(),issues=new Set();let raw=0n,hasUnpriced=false;
   for(const interval of room.intervals){
    const energy=parseDecimal(interval.energy_kwh,9);
-   const matches=tariffs.filter(t=>!t.retired_at&&covers(t,interval,'valid_from','valid_until'));
-   let rate=null,basis=null;
-   if(!tariffs.length){rate=defaultExpoEstimate.tariff_rp_per_kwh;basis={kind:'expo_default',energy_rate_rp_kwh:rate,reference:'Acuan konversi token expo; biaya energi, tanpa pajak pengisian'};}
-   else if(matches.length===1){rate=matches[0].energy_rate_rp_kwh;basis={kind:'tariff_schedule',id:matches[0].id,source:matches[0].source,energy_rate_rp_kwh:rate,reference:matches[0].source_reference};}
-   else issues.add(matches.length>1?'tariff_overlap':'tariff_interval_uncovered');
+   const {rate,basis,issue}=intervalPrice(interval,tariffs);if(issue)issues.add(issue);
    let intervalRaw=null;
    try{if(rate!==null){const price=parseDecimal(rate,12);if(price>0n)intervalRaw=energy*price;}}catch{/* Invalid stored pricing must remain unavailable. */}
    if(intervalRaw===null){hasUnpriced=true;issues.add('unpriced_interval');}

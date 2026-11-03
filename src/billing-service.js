@@ -1,6 +1,8 @@
 import {randomUUID} from 'node:crypto';
 import {energyCost,roundHalfUp,parseDecimal,formatDecimal} from './billing-calculation.js';
 import {evaluateReadings} from './billing-meter-evaluation.js';
+import {sharedEnabled} from './billing-shared.js';
+import {addSharedToFinalCalculation} from './billing-shared-final.js';
 const max=(a,b)=>new Date(a)>new Date(b)?a:b,min=(a,b)=>new Date(a)<new Date(b)?a:b;
 const json=v=>JSON.stringify(v);
 async function issue(db,period,scope,code,details={},room=null,session=null){await db.query('INSERT INTO billing_issues(id,billing_period_id,room_bill_id,usage_session_id,scope,code,details) VALUES($1,$2,$3,$4,$5,$6,$7)',[randomUUID(),period,room,session,scope,code,details]);}
@@ -36,7 +38,7 @@ export async function calculatePeriod(db,periodId){
   }
   const occupancies=(await db.query(`SELECT * FROM occupancies WHERE room_id=$1 AND starts_at<=$2 AND (ends_at IS NULL OR ends_at>=$3) ORDER BY id`,[room.id,period.starts_at,period.ends_at])).rows;
   if(occupancies.length>1){valid=false;reasons.push('occupancy_boundary_missing');}
-  const sessions=(await db.query(`SELECT s.*,sp.id participant_id,sp.occupancy_id FROM usage_sessions s JOIN session_participants sp ON sp.usage_session_id=s.id JOIN occupancies o ON o.id=sp.occupancy_id WHERE o.room_id=$1 AND s.started_at<$3 AND (s.ended_at IS NULL OR s.ended_at>$2) ORDER BY s.started_at,s.id`,[room.id,period.starts_at,period.ends_at])).rows;
+  const sessions=(await db.query(`SELECT s.*,sp.id participant_id,sp.occupancy_id FROM usage_sessions s JOIN session_participants sp ON sp.usage_session_id=s.id JOIN occupancies o ON o.id=sp.occupancy_id JOIN meters sm ON sm.id=s.meter_id WHERE sm.main_meter_coverage='included' AND o.room_id=$1 AND s.started_at<$3 AND (s.ended_at IS NULL OR s.ended_at>$2) ORDER BY s.started_at,s.id`,[room.id,period.starts_at,period.ends_at])).rows;
   let attr=0n;for(const session of sessions){let why=null;if(!session.ended_at||session.energy_status!=='valid')why='session_energy_unavailable';else if(+new Date(session.started_at)<+new Date(period.starts_at)||+new Date(session.ended_at)>+new Date(period.ends_at))why='session_crosses_period';else{const oc=(await db.query('SELECT * FROM occupancies WHERE id=$1',[session.occupancy_id])).rows[0];if(+new Date(session.started_at)<+new Date(oc.starts_at)||(oc.ends_at&&+new Date(session.ended_at)>+new Date(oc.ends_at)))why='session_crosses_occupancy';}
    if(session.data_source==='simulation')source='simulation';if(why){valid=false;reasons.push(why);await issue(db,period.id,'session',why,{},null,session.id);}else attr+=parseDecimal(session.energy_kwh,9);
   }
@@ -46,7 +48,7 @@ export async function calculatePeriod(db,periodId){
   const occupancy=occupancies[0]||null;if(valid){const shareId=randomUUID();await db.query(`INSERT INTO bill_shares(id,room_bill_id,occupancy_id,allocation_kind,room_energy_kwh,attributable_energy_kwh,room_cost_rp,attributable_cost_rp,rounding_adjustment_rp,total_cost_rp,allocation_evidence) VALUES($1,$2,$3,$4,$5,$6,$7,$8,0,$9,$10)`,[shareId,roomBillId,occupancy?.id||null,occupancy?'occupancy':'owner_unassigned',roomEnergy,attrEnergy,String(roomCost),String(attrCost),String(preview),json({policy:occupancy?'single_full_period_occupancy':'owner_unassigned'})]);for(const session of sessions.filter(s=>s.energy_status==='valid'&&+new Date(s.started_at)>=+new Date(period.starts_at)&&+new Date(s.ended_at)<=+new Date(period.ends_at)))await db.query(`INSERT INTO bill_session_allocations(id,bill_share_id,usage_session_id,session_participant_id,allocated_energy_kwh,cost_rp,status,calculation_evidence) VALUES($1,$2,$3,$4,$5,$6,'valid',$7)`,[randomUUID(),shareId,session.id,session.participant_id,session.energy_kwh,String(roundHalfUp(energyCost(session.energy_kwh,tariff.energy_rate_rp_kwh))),json({method:'single_participant'})]);total+=preview;}else{allRooms=false;for(const code of new Set(reasons))await issue(db,period.id,'room',code,{},roomBillId);}
  }
  let facilityValid=true;
- const facilityMeters=(await db.query(`SELECT m.* FROM meters m JOIN communal_loads c ON c.id=m.communal_load_id WHERE m.property_id=$1 AND m.kind='communal' AND c.load_type='attributable' AND m.installed_at<$3 AND (m.retired_at IS NULL OR m.retired_at>$2) ORDER BY m.id`,[period.property_id,period.starts_at,period.ends_at])).rows;
+ const facilityMeters=(await db.query(`SELECT m.* FROM meters m JOIN communal_loads c ON c.id=m.communal_load_id WHERE m.property_id=$1 AND m.kind='communal' AND m.main_meter_coverage='included' AND c.load_type='attributable' AND m.installed_at<$3 AND (m.retired_at IS NULL OR m.retired_at>$2) ORDER BY m.id`,[period.property_id,period.starts_at,period.ends_at])).rows;
  for(const meter of facilityMeters){
   const start=max(period.starts_at,meter.installed_at),end=min(period.ends_at,meter.retired_at||period.ends_at),e=await evaluateMeter(db,meter,start,end,policy);
   await saveSegment(db,period,meter,start,end,e);
@@ -61,6 +63,11 @@ export async function calculatePeriod(db,periodId){
  const mainMeters=(await db.query(`SELECT * FROM meters WHERE property_id=$1 AND kind='main' AND installed_at<$3 AND (retired_at IS NULL OR retired_at>$2)`,[period.property_id,period.starts_at,period.ends_at])).rows;let mainValid=mainMeters.length>0,main=0n;
  for(const meter of mainMeters){const start=max(period.starts_at,meter.installed_at),end=min(period.ends_at,meter.retired_at||period.ends_at),e=await evaluateMeter(db,meter,start,end,policy);await saveSegment(db,period,meter,start,end,e);if(e.data_source==='simulation')periodSource=periodSource==='production'?'mixed':periodSource;if(e.status==='valid')main+=parseDecimal(e.energy_kwh,9);else{mainValid=false;await issue(db,period.id,'property',e.reason,{meter_id:meter.id});}}
  if(!mainMeters.length){mainValid=false;await issue(db,period.id,'property','no_data');}
- const status=allRooms?'draft':'review';await db.query(`UPDATE billing_periods SET status=$2,property_reconciliation_status=$3,source=$4,tariff_snapshot=$5,main_energy_kwh=$6,preview_total_cost_rp=$7,total_cost_rp=NULL,row_version=row_version+1,updated_at=now() WHERE id=$1`,[period.id,status,mainValid&&facilityValid?'valid':'review',periodSource,tariff?json({id:tariff.id,energy_rate_rp_kwh:tariff.energy_rate_rp_kwh,currency:'IDR',source_reference:tariff.source_reference,source:tariff.source}):null,mainValid?formatDecimal(main,9):null,String(total)]);
+ let shared=null;
+ if(sharedEnabled(period)){
+  const result=await addSharedToFinalCalculation(db,period,tariff,mainValid&&facilityValid);shared=result.summary;total=result.total;allRooms=allRooms&&result.valid;
+  if(!result.valid)for(const code of shared.reasons)await issue(db,period.id,'property',code);
+ }
+ const status=allRooms?'draft':'review';await db.query(`UPDATE billing_periods SET status=$2,property_reconciliation_status=$3,source=$4,tariff_snapshot=$5,main_energy_kwh=$6,preview_total_cost_rp=$7,total_cost_rp=NULL,row_version=row_version+1,updated_at=now(),shared_summary=$8,residual_energy_kwh=$9,calculation_version=$10 WHERE id=$1`,[period.id,status,mainValid&&facilityValid&&(!shared||shared.complete)?'valid':'review',periodSource,tariff?json({id:tariff.id,energy_rate_rp_kwh:tariff.energy_rate_rp_kwh,currency:'IDR',source_reference:tariff.source_reference,source:tariff.source}):null,mainValid?formatDecimal(main,9):null,total==null?null:String(total),shared?json(shared):null,shared?.energy_kwh??null,shared?'billing-v3-shared':'billing-v2']);
  return(await db.query('SELECT * FROM billing_periods WHERE id=$1',[period.id])).rows[0];
 }

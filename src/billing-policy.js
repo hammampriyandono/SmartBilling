@@ -2,6 +2,7 @@ export const defaultCalculationPolicy = Object.freeze({
   production_max_gap_seconds: 180,
   boundary_method: 'inside',
   boundary_tolerance_seconds: 60,
+  shared_allocation: 'equal_active_occupants_v1',
 });
 
 export function calculationPolicy(input = defaultCalculationPolicy) {
@@ -14,7 +15,9 @@ export function calculationPolicy(input = defaultCalculationPolicy) {
     || !['exact', 'inside'].includes(input.boundary_method)
     || !Number.isInteger(tolerance) || tolerance < 0 || tolerance > Math.min(300, gap)
     || (input.boundary_method === 'exact' && tolerance !== 0)) throw new Error('invalid_calculation_policy');
-  return Object.fromEntries(keys.map(key => [key, input[key]]));
+  const shared=input.shared_allocation??defaultCalculationPolicy.shared_allocation;
+  if(!['none','equal_active_occupants_v1'].includes(shared))throw new Error('invalid_calculation_policy');
+  return {...Object.fromEntries(keys.filter(key=>key!=='shared_allocation').map(key => [key, input[key]])),shared_allocation:shared};
 }
 
 export function previewTariff(input) {

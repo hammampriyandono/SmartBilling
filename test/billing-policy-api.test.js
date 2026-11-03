@@ -6,7 +6,8 @@ import {createPool,requireDevelopment} from '../src/connections.js';
 import {billingApi} from '../src/billing-api.js';
 import {apiError} from '../src/monitoring-api.js';
 import {HttpError} from '../src/http-input.js';
-import {defaultCalculationPolicy} from '../src/billing-policy.js';
+import {defaultCalculationPolicy as defaults} from '../src/billing-policy.js';
+const defaultCalculationPolicy={...defaults,shared_allocation:'none'};
 
 test('PostgreSQL: aturan billing, bukti batas, tarif uji, idempotensi, scope dan snapshot final', {skip:process.env.INTEGRATION_DB!=='1'}, async()=>{
   requireDevelopment();

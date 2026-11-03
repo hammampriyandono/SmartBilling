@@ -2,6 +2,22 @@ import {dailyConsumption} from './daily-consumption.js';
 import {parseDecimal,formatDecimal} from './billing-calculation.js';
 import {observationSql} from './display-policy.js';
 import {runningRoomCosts} from './billing-running-cost.js';
+import {observedSharedUsage,sharedEnabled} from './billing-shared.js';
+
+export function includeSharedCosts(costs,shared){
+ const add=(a,b)=>a==null||b==null?null:String(BigInt(a)+BigInt(b));
+ const plusEnergy=(a,b)=>a==null||b==null?null:formatDecimal(parseDecimal(a,9)+parseDecimal(b,9),9);
+ const rows=costs.rooms.map(room=>{
+  const shares=shared.allocations.filter(a=>a.room_id===room.room_id);
+  const sharedCost=shares.length?String(shares.reduce((s,a)=>s+BigInt(a.estimated_cost_rp),0n)):null;
+  const sharedEnergy=shares.length?formatDecimal(shares.reduce((s,a)=>s+parseDecimal(a.energy_kwh,9),0n),9):null;
+  return {...room,room_estimated_cost_rp:room.estimated_cost_rp,shared_energy_kwh:sharedEnergy,shared_estimated_cost_rp:sharedCost,estimated_cost_rp:add(room.estimated_cost_rp,sharedCost),allocations:room.allocations.map(part=>{
+   const own=shared.allocations.find(a=>a.occupancy_id===part.occupancy_id);
+   return {...part,room_energy_kwh:part.energy_kwh,room_estimated_cost_rp:part.estimated_cost_rp,shared_energy_kwh:own?.energy_kwh??null,shared_estimated_cost_rp:own?.estimated_cost_rp??null,energy_kwh:plusEnergy(part.energy_kwh,own?.energy_kwh),estimated_cost_rp:add(part.estimated_cost_rp,own?.estimated_cost_rp)};
+  })};
+ });
+ return {rooms:rows,shared,cost_estimate:{...costs.cost_estimate,room_estimated_cost_rp:costs.cost_estimate.estimated_cost_rp,shared_estimated_cost_rp:shared.estimated_cost_rp,estimated_cost_rp:add(costs.cost_estimate.estimated_cost_rp,shared.estimated_cost_rp),components_included:['room','shared'],excluded_components:['communal_rfid'],shared_status:shared.status,pricing:[...costs.cost_estimate.pricing,...shared.pricing]}};
+}
 
 // A read-only monitoring subtotal. It never writes bill shares or replaces the
 // frozen calculation used for final billing. Reuse monitoring's gap/reset rules.
@@ -50,7 +66,8 @@ export async function observedPeriodUsage(db,period,query={},maxGapSeconds=120){
    FROM occupancies o JOIN rooms rm ON rm.id=o.room_id JOIN users u ON u.id=o.user_id
    WHERE rm.property_id=p.id AND o.starts_at<$3 AND (o.ends_at IS NULL OR o.ends_at>$2)),'[]'::jsonb) occupancies
   FROM properties p WHERE p.id=$1`,[period.property_id,period.starts_at,period.ends_at])).rows[0]||{};
- const costs=runningRoomCosts(rows,context.tariffs||[],context.occupancies||[]);
+ let costs=runningRoomCosts(rows,context.tariffs||[],context.occupancies||[]);
+ if(sharedEnabled(period))costs=includeSharedCosts(costs,await observedSharedUsage(db,period,context.tariffs||[],context.occupancies||[]));
  return {availability:known.length?'available':'unavailable',...costs,timezone:context.timezone||'Asia/Jakarta',sample_count:samples,last_measured_at:latest,
   observed_consumption_kwh:known.length?formatDecimal(known.reduce((sum,row)=>sum+parseDecimal(row.observed_consumption_kwh,9),0n),9):null,
   max_gap_seconds:maxGapSeconds,interpolation:false,basis:'valid_intervals_only_not_final_bill'};

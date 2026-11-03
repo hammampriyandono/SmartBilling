@@ -2,6 +2,7 @@ import {HttpError} from './http-input.js';
 import {billingObservationSql,observationSql} from './display-policy.js';
 import {observedPeriodUsage} from './billing-observed.js';
 import {parseDecimal,formatDecimal} from './billing-calculation.js';
+import {sharedEnabled} from './billing-shared.js';
 
 const access=`EXISTS(SELECT 1 FROM occupancies own JOIN rooms own_room ON own_room.id=own.room_id
  WHERE own.user_id=$1 AND own_room.property_id=bp.property_id AND own.starts_at<=now()
@@ -28,11 +29,14 @@ export function projectTenantEstimate(period,usage,occupancies,stats){
  }
  const rows=[...rooms.values()].map(({parts,...room})=>{
   const snapshot=stats.find(row=>row.room_id===room.room_id),count=snapshot?.sample_count||0;
-  const energy=parts.length?formatDecimal(parts.reduce((sum,part)=>sum+parseDecimal(part.energy_kwh,9),0n),9):null;
+  const energy=parts.length&&parts.every(p=>p.energy_kwh!=null)?formatDecimal(parts.reduce((sum,part)=>sum+parseDecimal(part.energy_kwh,9),0n),9):null;
   const cost=parts.length&&parts.every(part=>part.estimated_cost_rp!==null)?String(parts.reduce((sum,part)=>sum+BigInt(part.estimated_cost_rp),0n)):null;
+  const shared=sharedEnabled(period),sumEnergy=key=>parts.length&&parts.every(p=>p[key]!=null)?formatDecimal(parts.reduce((s,p)=>s+parseDecimal(p[key],9),0n),9):null;
+  const sumCost=key=>parts.length&&parts.every(p=>p[key]!=null)?String(parts.reduce((s,p)=>s+BigInt(p[key]),0n)):null;
   return {...room,energy_kwh:energy,estimated_cost_rp:cost,sample_count:count,last_measured_at:snapshot?.last_measured_at||null,
+   ...(shared?{room_energy_kwh:sumEnergy('room_energy_kwh'),shared_energy_kwh:sumEnergy('shared_energy_kwh'),room_estimated_cost_rp:sumCost('room_estimated_cost_rp'),shared_estimated_cost_rp:sumCost('shared_estimated_cost_rp')}:{}),
    data_source:snapshot?.data_source||'no_data',availability:cost!==null?'available':count>=2?'review':'unavailable',
-   reason:usage.availability==='too_many_samples'?'too_many_samples':parts.length&&cost===null?'pricing_unavailable':!parts.length&&count>=2?'allocation_pending':!parts.length?'insufficient_readings':null};
+   reason:usage.availability==='too_many_samples'?'too_many_samples':parts.length&&cost===null?(shared&&sumEnergy('shared_energy_kwh')===null?'shared_pending':'pricing_unavailable'):!parts.length&&count>=2?'allocation_pending':!parts.length?'insufficient_readings':null};
  });
  const known=rows.filter(row=>row.energy_kwh!==null),last=rows.map(row=>row.last_measured_at).filter(Boolean).sort((a,b)=>+new Date(b)-+new Date(a))[0]||null;
  return {period_id:period.id,starts_at:period.starts_at,ends_at:period.ends_at,revision_no:period.revision_no,
@@ -40,7 +44,8 @@ export function projectTenantEstimate(period,usage,occupancies,stats){
   estimated_cost_rp:rows.length&&rows.every(row=>row.estimated_cost_rp!==null)?String(rows.reduce((sum,row)=>sum+BigInt(row.estimated_cost_rp),0n)):null,
   energy_kwh:known.length?formatDecimal(known.reduce((sum,row)=>sum+parseDecimal(row.energy_kwh,9),0n),9):null,
   sample_count:rows.reduce((sum,row)=>sum+row.sample_count,0),last_measured_at:last,rooms:rows,
-  components_included:['room'],excluded_components:['communal_rfid','shared']};
+  components_included:sharedEnabled(period)?['room','shared']:['room'],excluded_components:sharedEnabled(period)?['communal_rfid']:['communal_rfid','shared'],
+  ...(sharedEnabled(period)?{shared_status:usage.shared?.status||'unavailable',shared_reasons:usage.shared?.reasons||[],room_energy_kwh:rows.length&&rows.every(r=>r.room_energy_kwh!=null)?formatDecimal(rows.reduce((s,r)=>s+parseDecimal(r.room_energy_kwh,9),0n),9):null,shared_energy_kwh:rows.length&&rows.every(r=>r.shared_energy_kwh!=null)?formatDecimal(rows.reduce((s,r)=>s+parseDecimal(r.shared_energy_kwh,9),0n),9):null}:{})};
 }
 
 export async function tenantRunningEstimate(db,id,userId,query={},maxGapSeconds=120){
