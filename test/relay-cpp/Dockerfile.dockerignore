@@ -1,0 +1,10 @@
+**
+!test/
+!test/relay-cpp/
+!test/relay-cpp/**
+!firmware/
+!firmware/pzem-relay-trial/
+!firmware/pzem-relay-trial/relay_control.h
+!firmware/pzem-relay-trial/relay_command_guard.h
+!firmware/pzem-relay-trial/diagnostic_serial.h
+!firmware/pzem-relay-trial/pzem_request.h

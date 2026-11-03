@@ -9,13 +9,16 @@ import { sensorPrefix,productionSensorPrefix } from './sensor-message.js';
 import { ingestSensor } from './sensor-ingest.js';
 import {receiveTap,createRfidWorker} from './rfid-ingest.js';
 import {rfidApi} from './rfid-api.js';
+import {receiveRfidStatus,rfidDiagnosticsApi} from './rfid-status.js';
 import {masterApi} from './master-api.js';
 import {billingApi} from './billing-api.js';
 import {dataMode,subscribedTopics} from './runtime-mode.js';
 import {tokenApi} from './token-api.js';
 import {deviceHealthApi} from './device-health-api.js';
+import {roomRelayApi,receiveRoomRelayReport,createRoomRelayWorker} from './room-relay.js';
 
 const mode=dataMode(process.env.DATA_MODE);
+const roomRelayEnabled=process.env.ROOM_RELAY_CONTROL_ENABLED==='true';
 requireDevelopment();
 const pool = createPool();
 const client = createMqtt(process.env.MQTT_CLIENT_ID||'smartbilling-simulation-backend-v1', { clean: false });
@@ -23,7 +26,7 @@ let subscribed = false;
 let stopping = false;
 let ingestHealthy = true;
 client.on('connect', () => {
-  const topics=subscribedTopics(mode,testTopic);client.subscribe(topics, { qos: 1 }, (error, granted) => {
+  const topics=subscribedTopics(mode,testTopic,{roomRelay:roomRelayEnabled});client.subscribe(topics, { qos: 1 }, (error, granted) => {
     subscribed = !error && topics.every((topic) => granted?.some((entry) => entry.topic === topic && entry.qos <= 1));
     if (subscribed) console.info(mode==='operational'?'MQTT siap untuk perangkat operasional.':'MQTT siap untuk pesan uji pengembangan.');
   });
@@ -35,7 +38,11 @@ client.handleMessage = (packet, done) => {
   (async () => {
     while (!stopping) {
       try {
-        if(packet.topic.endsWith('/rfid/taps')){
+        if(packet.topic.endsWith('/relay/status')){
+          if(roomRelayEnabled)await receiveRoomRelayReport(pool,packet.topic,packet.payload,packet);
+        }
+        else if(packet.topic.endsWith('/rfid/status'))await receiveRfidStatus(pool,packet.topic,packet.payload,packet);
+        else if(packet.topic.endsWith('/rfid/taps')){
           const result=await receiveTap(pool,packet.topic,packet.payload,packet);
           const reason=result.response?.reason||result.reason;
           if(reason)console.warn(`Event RFID: ${reason}.`);
@@ -78,15 +85,21 @@ const workRfid=createRfidWorker(pool,{gap:Number(process.env.MONITORING_MAX_GAP_
 let rfidBusy=false,rfidHealthy=true;
 async function tickRfid(){if(stopping||rfidBusy)return;rfidBusy=true;try{await workRfid();rfidHealthy=true;}catch{rfidHealthy=false;console.warn('Pemrosesan RFID menunggu database; data inbox dipertahankan.');}finally{rfidBusy=false;}}
 const rfidTimer=setInterval(tickRfid,2000);tickRfid();
+const workRoomRelay=createRoomRelayWorker(pool,client,{enabled:roomRelayEnabled});
+let roomRelayBusy=false;
+async function tickRoomRelay(){if(stopping||roomRelayBusy||!roomRelayEnabled)return;roomRelayBusy=true;try{await workRoomRelay();}catch{console.warn('Kontrol relay menunggu database; hasil perintah belum dikonfirmasi.');}finally{roomRelayBusy=false;}}
+const roomRelayTimer=setInterval(tickRoomRelay,1000);
 app.disable('x-powered-by');
 const auth=authentication(pool,{secret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim(),origin:process.env.AUTH_ORIGIN||'http://127.0.0.1:3000',cookieName:process.env.SESSION_COOKIE_NAME||'smartbilling.sid'});
 app.use('/api',(_req,res,next)=>{res.set('Cache-Control','no-store');next();},auth.middleware);
 app.use('/api/auth',auth.router);
+app.use('/api',auth.requireUser,roomRelayApi(pool,{csrf:auth.csrf,idempotencySecret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim(),enabled:roomRelayEnabled}));
 app.use('/api',auth.requireUser,billingApi(pool,{csrf:auth.csrf,idempotencySecret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim()}));
 app.use('/api',auth.requireUser,tokenApi(pool,{csrf:auth.csrf,idempotencySecret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim()}));
 app.use('/api',auth.requireUser,deviceHealthApi(pool,{csrf:auth.csrf,idempotencySecret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim(),onlineSeconds:Number(process.env.DEVICE_HEALTH_ONLINE_SECONDS||180),offlineSeconds:Number(process.env.DEVICE_HEALTH_OFFLINE_SECONDS||900),maxGapSeconds:Number(process.env.MONITORING_MAX_GAP_SECONDS||120)}));
 app.use('/api',auth.requireUser,masterApi(pool,{csrf:auth.csrf,idempotencySecret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim()}));
 app.use('/api',auth.requireUser,rfidApi(pool));
+app.use('/api',auth.requireUser,rfidDiagnosticsApi(pool));
 app.use('/api',auth.requireUser,monitoringApi(pool, { maxGapSeconds: Number(process.env.MONITORING_MAX_GAP_SECONDS || 120) }));
 app.get('/health/live', (_req, res) => res.json({ status: 'ok', environment: 'development' }));
 app.get('/health/ready', async (_req, res) => {
@@ -106,6 +119,7 @@ async function shutdown() {
   if (stopping) return;
   stopping = true;
   clearInterval(rfidTimer);
+  clearInterval(roomRelayTimer);
   const timeout = setTimeout(() => process.exit(1), 8000);
   server.close();
   await client.endAsync();
