@@ -1,0 +1,43 @@
+# Disposable transfer verification only. No host ports or application volumes.
+name: smartbilling-master-transfer-test
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: smartbilling_dev
+      POSTGRES_DB: smartbilling_dev
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes:
+      - type: tmpfs
+        target: /var/lib/postgresql/data
+    networks: [verification]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U smartbilling_dev -d smartbilling_dev"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  runner:
+    image: ${MASTER_TRANSFER_TEST_IMAGE:-smartbilling-expo-local-backend}
+    environment:
+      APP_ENV: development
+      PGHOST: postgres
+      PGUSER: smartbilling_dev
+      PGDATABASE: smartbilling_dev
+      PGPASSWORD_FILE: /run/secrets/postgres_password
+      INTEGRATION_DB: "1"
+      MASTER_TRANSFER_ISOLATED: "1"
+    secrets: [postgres_password]
+    volumes:
+      - ./scripts:/app/scripts:ro
+      - ./src:/app/src:ro
+      - ./test:/app/test:ro
+      - ./migrations:/app/migrations:ro
+    networks: [verification]
+    command: [node, --test, test/master-transfer.test.js]
+    depends_on:
+      postgres: {condition: service_healthy}
+networks:
+  verification: {internal: true}
+secrets:
+  postgres_password: {file: ./.local/master-transfer-test/postgres_password}
