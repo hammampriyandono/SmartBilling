@@ -3,6 +3,38 @@ Project cpstn_final_v1 {
   Note: 'ERD final v1 untuk capstone. Baca aturan-integritas di panduan sebelum membuat migration. DBML tidak menegakkan seluruh aturan lintas tabel.'
 }
 
+Table room_relay_bindings {
+  Note: 'Runtime migration029, opt-in. Target meter kamar saja; identitas binding immutable. Tidak aktif secara default. Liveness dan mapping diperiksa backend.'
+  id uuid [pk]
+  meter_id uuid [not null, unique, ref: > meters.id]
+  enabled boolean [not null, default: false]
+  row_version int [not null]
+  last_boot_id uuid
+  last_report_sequence bigint
+  last_reported_at timestamptz
+  last_received_at timestamptz
+  reported_state text [note: 'on/off dari driver, bukan bukti tegangan jalur']
+  reported_gpio_level int [note: 'Migration030; null=belum ada laporan GPIO, 0=LOW/OFF, 1=HIGH/ON, pin3']
+  created_at timestamptz [not null]
+}
+
+Table room_relay_commands {
+  Note: 'Outbox manual owner. Deadline maksimal15detik, satu pending per binding, retry ID tetap. Constraint/trigger/service ada pada migration029 dan room-relay.js.'
+  id uuid [pk]
+  binding_id uuid [not null, ref: > room_relay_bindings.id]
+  sequence_no bigint [not null, unique, increment]
+  owner_id uuid [not null, ref: > users.id]
+  target_boot_id uuid [not null]
+  desired_state text [not null]
+  reason text [not null]
+  issued_at timestamptz [not null]
+  expires_at timestamptz [not null]
+  status text [not null]
+  publish_attempted_at timestamptz
+  confirmed_at timestamptz
+  result_reason text
+}
+
 Table users {
   Note: 'Satu sumber akun owner dan tenant. Kredensial tidak disimpan pada tabel kamar.'
   id uuid [pk]

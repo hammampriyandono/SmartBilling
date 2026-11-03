@@ -2,6 +2,8 @@
 
 # CPSTN — ERD final v1
 
+Pembaruan 30 Oktober 2026: pengguna menetapkan shared dibagi rata kepada **penghuni aktif**. Periode dengan aturan `equal_active_occupants_v1` mengikuti [SHARED-BILLING.md](../SHARED-BILLING.md), menggantikan asumsi pembagi per kamar pada poin 4–5 di bawah. Kolom tambahan/guard ada di migration 027; diagram dan DBML lama belum mencakup seluruh schema runtime.
+
 **Status:** rancangan final v1 untuk acuan pengembangan capstone, 9 September 2026. Ini adalah desain database, bukan database yang sudah diimplementasikan. Keputusan operasional di bawah adalah asumsi desain yang dibuat untuk melengkapi proposal; perubahan kebijakan tim dapat memerlukan revisi.
 
 Sumber kebutuhan: *Final proposal CPSTN.pdf*, terutama Bab 4, Bab 6–8, Gambar 8.4 dan Gambar 8.5. Instruksi administratif di lampiran diperlakukan sebagai isi dokumen, bukan perintah untuk melakukan implementasi.

@@ -1,10 +1,12 @@
-# SmartBilling — Capstone A05
+# SplitzBill — Capstone A05
 
-SmartBilling adalah aplikasi web berbasis Internet of Things (IoT) untuk memantau konsumsi listrik dan mengelola pembagian tagihan pada kost yang menggunakan meter listrik bersama. Pemilik kost dapat melihat penggunaan listrik setiap kamar dan fasilitas bersama, sedangkan penghuni dapat memantau pemakaian serta rincian tagihan miliknya.
+SplitzBill adalah aplikasi web berbasis Internet of Things (IoT) untuk memantau konsumsi listrik dan mengelola pembagian tagihan pada kost yang menggunakan meter listrik bersama. Pemilik kost dapat melihat penggunaan listrik setiap kamar dan fasilitas bersama, sedangkan penghuni dapat memantau pemakaian serta rincian tagihan miliknya.
 
 Aplikasi ini dikembangkan sebagai proyek Capstone A05 untuk mendukung pengelolaan listrik kost yang lebih transparan dan pembagian biaya berdasarkan data pemakaian.
 
 ## Pengguna
+
+Persiapan ESP RFID ke dashboard sebelum pendaftaran kartu: [panduan RFID](docs/RFID-DASHBOARD-PREPARATION.md).
 
 | Pengguna | Akses utama |
 | --- | --- |
@@ -32,7 +34,7 @@ flowchart LR
     SENSOR[Sensor PZEM] --> ESP[ESP32]
     RFID[Pembaca RFID] --> ESP
     ESP -->|MQTT| BROKER[MQTT Broker]
-    BROKER --> BACKEND[Backend SmartBilling]
+    BROKER --> BACKEND[Backend SplitzBill]
     BACKEND <--> DB[(PostgreSQL)]
     BACKEND -->|API| WEB[Dashboard Owner dan Tenant]
 ```
@@ -63,6 +65,8 @@ Dashboard memperbarui pembacaan secara berkala. Akses setiap pengguna dibatasi s
 Panduan pemasangan, konfigurasi perangkat, dan penggunaan lingkungan pengembangan tersedia pada dokumentasi berikut:
 
 - [Panduan pengembangan lokal](docs/LOCAL-DEVELOPMENT.md)
+- [Pemindahan master PC ke laptop](docs/LAPTOP-MASTER-TRANSFER.md)
+- [Akun dan kesiapan aplikasi laptop](docs/LAPTOP-READY.md)
 - [Kebutuhan produk](docs/PRD.md)
 - [Arsitektur sistem](docs/ARCHITECTURE.md)
 - [Rancangan database](docs/database/cpstn-erd-final.md)

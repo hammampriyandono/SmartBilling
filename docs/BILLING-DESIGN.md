@@ -1,5 +1,7 @@
 # Backend billing v1 — implementasi dan batas verifikasi
 
+Pembaruan 30 Oktober 2026: [Komunal bersama dan billing](SHARED-BILLING.md) menambahkan aturan opsional `equal_active_occupants_v1`, estimasi owner/tenant dan kalkulasi final tiga komponen. Periode yang mengaktifkannya wajib memiliki bukti shared lengkap sebelum finalisasi. Batas MVP lama tentang residual belum payable di bawah tetap berlaku untuk periode legacy tanpa aturan tersebut; tagihan final lama tidak diubah.
+
 Status 25 September 2026: kebijakan MVP telah disetujui dan backend sudah diimplementasikan melalui migration 013–020, kalkulator murni, service transaksi, API owner/tenant, UI billing, serta lifecycle pembayaran manual. Tidak ada seed tarif atau tagihan permanen dan tidak ada perubahan nilai histori sensor/sesi. Seluruh fixture billing PostgreSQL berjalan dalam transaksi rollback.
 
 ## Batas hasil dan status

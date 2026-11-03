@@ -1,5 +1,7 @@
 # Uji integrasi RFID ESP32 — 3 Oktober 2026
 
+Persiapan baru dengan ESP saja sebelum pendaftaran kartu: [RFID-DASHBOARD-PREPARATION.md](RFID-DASHBOARD-PREPARATION.md). Varian headless mempertahankan driver SPI sketch lokal pengguna dan tetap melapor ketika RC522 belum terdeteksi. Batas/hasil aktual ada di HANDOFF.
+
 **Software teruji; kompilasi Arduino penuh dan hardware belum teruji.** Tidak ada flash atau relay aktif. Backend tetap menentukan sesi melalui tap pertama membuka/tap berikutnya kartu sama menutup, bukan timer/daya/status relay. Varian ini untuk uji LAN terautentikasi, bukan firmware Internet-production tersertifikasi.
 
 ## Firmware, wiring, dependency dan secret

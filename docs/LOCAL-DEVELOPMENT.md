@@ -1,10 +1,29 @@
 # Lingkungan pengembangan lokal
 
+Persiapan kontrol manual relay kamar tanpa ESP: [ROOM-RELAY-CONTROL.md](ROOM-RELAY-CONTROL.md). Default nonaktif; firmware elektro dan uji fisik masih terpisah.
+
+Persiapan koneksi ESP RFID dan pembacaan kartu sebelum pendaftaran penghuni: [RFID-DASHBOARD-PREPARATION.md](RFID-DASHBOARD-PREPARATION.md).
+
 Rehearsal expo dengan database bersih dan arsip pengujian terpisah tersedia sejak 18 Oktober: [EXPO-PREPARATION.md](EXPO-PREPARATION.md). Dashboard baru port 3001; port 3000 tetap lingkungan pengujian lama. Tidak perlu seed/reset pada keduanya.
+
+Pemindahan data master dari PC ke laptop memakai ekspor privat, backup dan rencana konflik sebelum impor: [LAPTOP-MASTER-TRANSFER.md](LAPTOP-MASTER-TRANSFER.md). Git hanya membawa kode; jangan menjalankan bootstrap target-kosong terhadap database laptop existing.
+
+Status akun Nadia/Rozan, histori existing, konfigurasi firmware tiga ESP32 dan batas pengujian hotspot laptop29Oktober ada di [LAPTOP-READY.md](LAPTOP-READY.md).
 
 Frontend Administrasi owner mendukung mutasi sesuai API sejak 23 September 2026: form, invitation, lifecycle, CSRF, versi dan retry idempoten. Cara memakai data existing tanpa migration/seed dan memperbarui aset saja: [FRONTEND-ADMIN.md](FRONTEND-ADMIN.md).
 
 Project aktif: **SmartBilling / Capstone A05**, `C:\Users\Admin\source\repos\SmartBilling`.
+
+## Membuka dashboard lokal dari HP Android
+
+Dashboard expo pada laptop memakai `http://127.0.0.1:3001`. Untuk mencobanya di Chrome Android melalui USB saat layanan berjalan, teruskan port tersebut ke HP.
+
+1. Aktifkan USB debugging di Android, sambungkan kabel data, lalu izinkan koneksi debugging dari laptop.
+2. Pada Chrome laptop buka `chrome://inspect/#devices`, aktifkan **Discover USB devices**, dan tunggu sampai perangkat muncul.
+3. Di **Port forwarding**, aktifkan penerusan dan petakan port perangkat `3001` ke alamat laptop `127.0.0.1:3001`.
+4. Di Chrome HP buka `http://127.0.0.1:3001` lalu login seperti biasa. Alamat persis ini sesuai dengan origin login pada konfigurasi expo. Setelah selesai, nonaktifkan penerusan port.
+
+Penerusan berjalan melalui kabel. Untuk akses langsung lewat Wi-Fi atau internet, HP memerlukan alamat dashboard yang dipublikasikan ke jaringan tersebut. [Panduan port forwarding Chrome](https://developer.chrome.com/docs/devtools/remote-debugging/local-server)
 
 ## Prasyarat dan Docker Windows
 
@@ -454,7 +473,7 @@ Login sebagai owner, buka **Administrasi → Properti**, pilih properti, lalu **
 
 Sejak 18 Oktober 2026, pilihan **Tampilkan simulasi dan arsip uji** berlaku bersama untuk Monitoring, Administrasi, RFID, Billing, Laporan, dan Kesehatan Perangkat. Default tersembunyi; centang untuk mengembalikan daftar lengkap sesuai hak akses. Jumlah pada kartu, daftar, pilihan form, peringatan, dan ringkasan mengikuti mode yang sama. Pergantian mode menutup detail/form dan memuat ulang halaman agar data dari mode sebelumnya tidak tertinggal. Histori database tidak dihapus, transaksi dan hak akses tidak berubah.
 
-Filter memakai provenance simulation serta ID fixture UI/idempotensi yang telah diverifikasi, termasuk relasi turunannya; tidak menebak dari nama. KMR-01/Kamar 1, tenant Nadia dan Uwen, serta properti induknya tetap terlihat meskipun nama properti masih Kost SIMULASI. Nama tersebut dapat diganti melalui Administrasi seperti panduan di atas. Sampai hardware dipetakan, Monitoring menjelaskan **Belum ada meter untuk pengamatan**. Ringkasan token dibuka melalui **Buka ringkasan**.
+Filter memakai provenance simulation serta ID fixture UI/idempotensi yang telah diverifikasi, termasuk relasi turunannya; tidak menebak dari nama. KMR-01/Kamar 1, tenant Nadia dan Uwen, serta properti induknya tetap terlihat meskipun nama properti masih Kost SIMULASI. Nama tersebut dapat diganti melalui Administrasi seperti panduan di atas. Sampai hardware dipetakan, Monitoring menjelaskan **Belum ada meter untuk pengamatan**. Ringkasan token dibuka melalui **Tagihan → Token bulanan**.
 
 API RFID serta daftar periode/pembayaran/laporan menerima opsi tampilan `data_view=observation`; tanpa opsi, perilaku arsip existing tetap tersedia. Filter diterapkan sebelum pagination/rekap. Periode billing yang berisi kamar atau occupancy uji disembunyikan seluruhnya, sehingga nominal periode tidak ditampilkan sebagai total sebagian. CSV memakai hasil laporan terfilter yang sama. Filter tampilan bukan penghapusan, bukan pembatas keamanan, dan tidak menghentikan ingest atau mengubah kalkulasi billing.
 
@@ -464,4 +483,4 @@ Untuk diagnosis ESP32/PZEM `rc=-2`, tersedia broker tes LAN terpisah: [PZEM-MQTT
 
 ## Token dan Tagihan Bulanan
 
-Bagian baru ada pada halaman utama **Monitoring listrik** owner. Pilih properti dan bulan, lalu catat pembelian token yang benar-benar terjadi; tidak ada seed transaksi/tagihan. Migration 023 membuat head dan snapshot revisi pembelian append-only, tanpa menyentuh billing/sensor/RFID. Panduan form, aturan periode lokal/lintas bulan, enam endpoint dan perintah regression/smoke HTTP ada di [TOKEN-MONTHLY.md](TOKEN-MONTHLY.md). Bila belum ada periode final yang sesuai bulan, tagihan dan selisih **Belum tersedia**. Periode final lintas bulan dikecualikan dan diberi peringatan, tidak diprorata.
+Bagian ini ada pada **Tagihan → Token bulanan** owner. Pilih properti dan bulan, lalu catat pembelian token yang benar-benar terjadi; tidak ada seed transaksi/tagihan. Migration 023 membuat head dan snapshot revisi pembelian append-only, tanpa menyentuh billing/sensor/RFID. Panduan form, aturan periode lokal/lintas bulan, enam endpoint dan perintah regression/smoke HTTP ada di [TOKEN-MONTHLY.md](TOKEN-MONTHLY.md). Bila belum ada periode final yang sesuai bulan, tagihan dan selisih **Belum tersedia**. Periode final lintas bulan dikecualikan dan diberi peringatan, tidak diprorata.

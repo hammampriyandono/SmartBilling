@@ -1,5 +1,17 @@
 # Implementasi schema monitoring
 
+Tambahan30Oktober2026: `028_meter_main_coverage.sql` menambahkan cakupan
+`included`/`outside` pada pemasangan meter. Default existing tetap `included`.
+`outside` hanya sah untuk meter komunal dan tidak dapat diubah pada record lama;
+perubahan fisik memerlukan retirement dan pemasangan baru. API owner dan form
+pemasangan/move mendukungnya. Meter luar tetap menyimpan pengukuran asli dan
+tampil di monitoring/health; perbandingan utama/cabang, residual shared dan
+tagihan fasilitas properti mengecualikannya. Ini mengikuti klarifikasi pengguna
+bahwa kipas peraga RFID memiliki catu di luar meter utama dan kedua meter kamar,
+bukan asumsi bahwa meter komunal selalu berada di luar. DBML sumber tidak otomatis
+menegakkan aturan ini. Uji PostgreSQL mencakup default, immutability, API/move dan
+tagihan yang tetap lengkap walau meter luar belum punya sampel.
+
 Tambahan 15 September 2026: `003_running_simulator.sql` membuat `dev_checks.running_simulator`, checkpoint JSONB dengan FK meter dan waktu pembaruan, khusus utilitas simulasi berjalan. Tidak menambah field kontrak MQTT atau mengubah tabel histori. Payload pending disimpan sebelum publish agar restart bisa replay, sementara meter_readings tetap ditulis hanya oleh ingest backend.
 
 `migrations/001_monitoring.sql` menerjemahkan subset ERD v1: users, properties, rooms, devices, communal_loads, meters, meter_readings. Belum mencakup occupancy, RFID, sesi, billing atau audit billing. ERD sumber tetap dipertahankan; dokumen ini mencatat penyesuaian implementasi, bukan persetujuan kebijakan fairness.
@@ -18,3 +30,11 @@ Seed hanya untuk database development `smartbilling_dev`. Akun simulasi nonaktif
 Migration `002_mqtt_rejections.sql` diterapkan 13 September 2026: tabel penolakan dengan alasan, received_at, hash SHA-256 topik/payload, dan ukuran byte; indeks waktu untuk inspeksi. Tidak menyimpan payload mentah atau mengubah migration 001. Tidak ada penghapusan otomatis. Uji MQTT nyata memverifikasi pencatatan invalid/konflik dan invariansi isi pembacaan existing; suite PostgreSQL terbaru 10 lulus, 0 skipped.
 
 Status verifikasi 12 September 2026: migration dan seed berhasil dijalankan pada PostgreSQL 17.11. `test/database.test.js` benar-benar dijalankan dengan INTEGRATION_DB=1; constraint overlap, deduplikasi, larangan perubahan mapping/pembacaan, batas pemasangan dan FK yang dicakup test lulus. Latest, pagination histori dan konsumsi harian juga diuji melalui API dengan fixture PostgreSQL dalam transaksi rollback. Seluruh suite: 7 lulus, 0 skipped. Ini bukan klaim bahwa seluruh integritas ERD sudah ditegakkan atau setiap constraint sudah diuji.
+
+## Migration 029 — persiapan relay kamar
+
+`029_room_relay.sql` menambahkan binding ke pemasangan meter kamar dan outbox perintah owner. Tidak membuat binding atau mengaktifkan perangkat existing. Trigger membatasi target ke meter kamar dan menjaga identitas binding immutable; unique index membatasi satu perintah pending. Scope owner, target tunggal/aktif, liveness, audit dan expiry juga diverifikasi service/API; DBML saja tidak menegakkan semuanya. Kontrak dan batas uji ada di [ROOM-RELAY-CONTROL.md](../ROOM-RELAY-CONTROL.md).
+
+## Migration 030 — laporan GPIO relay
+
+`030_room_relay_gpio.sql` menambahkan level GPIO3 nullable; tidak melakukan backfill. Constraint menolak level di luar0/1, level tanpa state, atau pasangan yang bertentangan dengan HIGH/ON–LOW/OFF yang ditetapkan pengguna. Laporan waktu/state saja tanpa GPIO tidak mengizinkan kontrol. Data sensor/PZEM tetap terpisah dan tidak diisi nol.

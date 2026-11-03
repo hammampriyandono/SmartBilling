@@ -73,6 +73,8 @@ node scripts/verify-pzem-dashboard-broker-isolated.js
 
 Verifikasi ini memakai MQTT.js untuk memeriksa reason code PUBACK MQTT5, bukan exit code mosquitto_pub yang tidak cukup membuktikan ACL rejection. Probe hanya marker status, tidak menghasilkan pembacaan sensor. Uji tersebut bukan bukti LAN/firewall/akses ESP32.
 
+Verifier terisolasi juga memeriksa broker baseline dengan autentikasi serta broker PZEM sebelum dan sesudah restart container yang sama. Skrip startup membuat berkas password/ACL/config sementara baru sebelum mengganti berkas milik Mosquitto; ini mencegah kegagalan tulis di `/tmp` pada restart. Dukungan akun tambahan dan batas topik tetap berlaku.
+
 ## Memeriksa pembacaan tersimpan
 
 ```powershell
@@ -110,4 +112,32 @@ Remove-Item Env:PZEM_VERIFY_REGISTRATION_FILE
 
 Verifier broker mendukung `PZEM_DASHBOARD_UID`, `PZEM_VERIFY_SECRETS`, `PZEM_VERIFY_OBSERVER_PASSWORD_FILE` dan `PZEM_VERIFY_OTHER_UID` untuk menguji kredensial perangkat tambahan dan penolakan publish ke perangkat saudara. Wrapper verifier terisolasi memakai UID/secret directory yang sama, tetap tanpa port host/network luar/database.
 
+## Laptop setelah mengikuti kode GitHub
+
+Konfigurasi laptop lama memakai `compose.expo-main.yaml` dan `PZEM_MAIN_UID` khusus satu meter induk. Kode terbaru memakai direktori `extra-devices` untuk semua perangkat tambahan; wrapper `expo-pzem.ps1` tetap memakai dua berkas Compose existing. Overlay lama tidak perlu dikembalikan dari branch cadangan.
+
+Pada laptop yang sudah memiliki `.local/expo-main/registration.json` dan `.local/expo-main/device_password`, periksa identitas registrasi lalu salin password existing ke `.local/expo-pzem/extra-devices/<device_uid>`. Tolak bila file tujuan sudah ada dengan password berbeda. Jangan membuat password baru karena firmware terpasang masih memakai password lama. Pada sinkronisasi 29 Oktober 2026, UID induk laptop terverifikasi `esp32-pzem-10003bb82298` dan secret existing telah disalin ke lokasi tersebut tanpa diubah. Kedua lokasi tetap diabaikan Git.
+
+Untuk menguji akun induk laptop dengan broker terisolasi:
+
+```powershell
+$env:PZEM_DASHBOARD_UID='esp32-pzem-10003bb82298'
+$env:PZEM_VERIFY_SECRETS='.local/expo-main'
+$env:PZEM_VERIFY_OTHER_UID='esp32-pzem-10003bd0ccf0'
+try { node scripts/verify-pzem-dashboard-broker-isolated.js }
+finally {
+ Remove-Item Env:PZEM_DASHBOARD_UID,Env:PZEM_VERIFY_SECRETS,Env:PZEM_VERIFY_OTHER_UID -ErrorAction SilentlyContinue
+}
+```
+
+Sinkronisasi Git dan konfigurasi broker tidak menyalin database PC. Akun, kamar, occupancy, pemasangan meter dan histori laptop harus diperiksa terhadap ekspor privat PC sebelum impor, dengan konflik UUID/relasi ditangani tanpa menimpa database existing. Paket master dan histori pengukuran adalah dua cakupan berbeda. Alamat broker firmware juga tidak berubah oleh Git; IP/port pada `.local/expo-pzem/compose.env` dan firmware terpasang harus sesuai jaringan laptop sebelum uji fisik. Identitas, ID pemasangan, jumlah kamar dan bukti pengujian PC pada dokumen lain tidak otomatis menggambarkan database laptop.
+
+Exporter `export-expo-master.js` saat ini hanya membawa users, properties, rooms, property_tenants dan occupancies; belum devices, meter_assets atau meters. Importer `bootstrap-expo-master.js` juga hanya menerima lima tabel tersebut dan mewajibkan target kosong. Jangan menjalankan bootstrap ini terhadap database laptop yang sudah berisi data. Paket lengkap dari PC serta pemeriksaan konflik diperlukan sebelum menyamakan master, dan schema harus diselaraskan lebih dahulu. Tidak menjalankan seed untuk mengganti data PC yang belum tersedia.
+
+Alat transfer baru `pc-laptop-master.js` menyiapkan ekspor sembilan tabel beserta rencana konflik/backup sebelum impor. Gunakan [LAPTOP-MASTER-TRANSFER.md](LAPTOP-MASTER-TRANSFER.md); paket data PC tetap harus diekspor di PC, terpisah dari bundle alat.
+
 Hasil persiapan: kedua akun lulus auth/ACL pada broker terisolasi dan LAN aktual, termasuk penolakan silang Kamar1/Kamar2. Rozan dapat membuka latest meter Kamar2 (200, data null) dan ditolak pada Kamar1 (404). Belum ada pembacaan Kamar2; jangan menampilkan nol atau mengklaim pengukuran sensor berhasil. Foto rangkaian menunjukkan komunikasi PZEM belum siap dan ujung kabel terbuka. Pengujian USB tidak memerlukan daya AC; perakitan sensor/CT/catu dan beban diselesaikan tim elektro sebelum pengukuran fisik.
+
+## Sinkronisasi jadwal pengukuran
+
+Perubahan interval tetap60detik dengan patokan awal menit UTC dan panel perbandingan owner dijelaskan di [PZEM-TIME-SYNC.md](PZEM-TIME-SYNC.md). Perangkat perlu firmware baru serta bukti waktu ukur aktual; compile atau koneksi MQTT saja tidak membuktikan tiga sensor sudah selaras.

@@ -1,5 +1,9 @@
 # Frontend billing
 
+Pembaruan 3 November 2026: halaman **Tagihan** owner menyatukan dua bagian, **Tagihan listrik** untuk periode/tarif/pembayaran dan **Token bulanan** untuk pencatatan pembelian serta perbandingan dengan tagihan final. Ringkasan token dipindahkan dari Monitoring; akses tetap khusus owner. Header atas dan navigasi tetap terlihat saat scroll, termasuk pada HP. Panduan token ada di [TOKEN-MONTHLY.md](TOKEN-MONTHLY.md).
+
+Pembaruan 30 Oktober 2026: [Komunal bersama](SHARED-BILLING.md) tersedia pada estimasi owner/tenant dan rincian final. Checkbox **Bagi rata komunal bersama kepada penghuni aktif** ada pada form periode/aturan. Owner melihat pembagi dan bukti rentang; tenant hanya bagiannya sendiri. Kolom energi/biaya kamar dan bersama dipisahkan. Catatan sebelumnya tentang shared belum termasuk di bawah berlaku pada aturan legacy, bukan periode dengan `equal_active_occupants_v1`.
+
 Status 29 Oktober 2026: UI billing owner dan tenant tersedia pada navigasi aplikasi, termasuk estimasi biaya berjalan tenant. UI memakai API backend secara langsung; tidak memiliki dataset mock, kalkulator nominal, atau fallback angka nol.
 
 ## Owner

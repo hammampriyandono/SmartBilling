@@ -4,7 +4,7 @@ Pencatatan owner untuk membandingkan **pembelian token Rupiah** dengan **alokasi
 
 ## Mencoba dari dashboard
 
-1. Masuk sebagai owner lokal dengan akun existing. Pada halaman utama **Monitoring listrik**, bagian **Token dan Tagihan Bulanan** tampil sebelum panel meter.
+1. Masuk sebagai owner lokal dengan akun existing, lalu buka **Tagihan → Token bulanan**. Ringkasan token disatukan dengan pengelolaan tagihan sejak 3 November 2026. Pilih **Tagihan listrik** untuk kembali ke periode dan pembayaran. Ringkasan token tidak lagi berada di Monitoring.
 2. Pilih properti (nama, bukan UUID) dan bulan. Lima kartu menampilkan pembelian token, tagihan final tenant, lunas, belum dibayar, dan **Selisih token dan tagihan**.
 3. **Tambah pembelian token**: isi tanggal pembelian lokal properti, nominal Rupiah bulat tanpa pemisah, energi yang diperoleh dalam kWh (opsional), dan catatan opsional. kWh dapat ditulis dengan koma/titik pada form. Isi dari bukti pengisian, bukan counter kumulatif PZEM; contoh expo diberi catatan Simulasi expo. Beberapa pembelian pada bulan yang sama diperbolehkan. Tidak ada seed pembelian otomatis.
 4. **Koreksi** mengubah tanggal/nominal/catatan dengan alasan wajib. Versi lama tetap tersimpan; koreksi tanggal ke bulan lain memindahkan kontribusi total token, bukan histori billing.

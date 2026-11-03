@@ -104,7 +104,7 @@ Semua endpoint memakai middleware sesi existing, no-store, batas/pagination dan 
 | GET /api/usage-sessions?facility_id=&from=&to=&status=&cursor=&limit= | Sesi fasilitas miliknya | Hanya sesi dengan participant miliknya |
 | GET /api/usage-sessions/:id | Detail sesi fasilitas miliknya | Detail sesi miliknya, tanpa UID mentah/event payload atau identitas penghuni lain |
 
-Untuk histori: from/to timestamp berzona, rentang maksimum 31 hari, irisan sesi dengan [from,to), cursor stabil (started_at,id), limit default 50 maksimum 100. Filter scope dilakukan sebelum pagination; UUID langsung tidak melewati hak akses. Tanpa login 401; resource asing/tidak ada 404. Owner A tidak membaca properti B. Tenant tidak memperoleh akses telemetry meter komunal dari endpoint monitoring existing.
+Untuk histori: from/to timestamp berzona, rentang maksimum 31 hari, irisan sesi dengan [from,to), urutan terbaru dahulu berdasarkan started_at DESC lalu id DESC (diperbarui 2 November 2026), cursor stabil (started_at,id) menuju sesi yang lebih lama, limit default 50 maksimum 100. Filter scope dilakukan sebelum pagination; UUID langsung tidak melewati hak akses. Tanpa login 401; resource asing/tidak ada 404. Owner A tidak membaca properti B. Tenant tidak memperoleh akses telemetry meter komunal dari endpoint monitoring existing.
 
 Histori tenant yang occupancy-nya selesai tetap dapat menampilkan sesi yang diikutinya, berdasarkan identitas peserta tersimpan. Bila sesi menggantung melewati akhir occupancy, tenant hanya mendapat informasi sesi miliknya dan alasan review, bukan data energi/event setelah batas haknya. Tidak boleh menyimpulkan bahwa occupancy saat ini membuka seluruh histori fasilitas.
 
