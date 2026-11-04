@@ -1,5 +1,28 @@
 # Implementasi schema monitoring
 
+Migration033 mendukung pergantian driver/polaritas sesudah uji tanpa menulis ulang
+histori: binding lama dinonaktifkan dan di-retire, binding baru tetap menargetkan
+meter yang sama. Partial unique index menjaga satu binding aktif per meter.
+Binding retired immutable dan tidak boleh memiliki perintah pending saat diarsipkan.
+Laporan/dispatch hanya memakai binding aktif; histori API mencakup semua binding
+pada meter. Utility replace memerlukan target/versi cocok, binding disabled dan
+tanpa pending, mencatat audit, serta memberi binding baru versi lebih tinggi.
+Migration031 tetap menjaga polaritas pada record lama. Tidak mengganti pemasangan
+sensor, menghapus command atau mengubah data energi/RFID.
+
+Migration032 menambahkan `test_until` nullable pada binding relay; existing tetap
+null. Constraint memerlukan binding enabled jika batas uji diisi. Mode uji lokal
+menetapkan batas15menit dan mencatat auditrelay_test, bukan verifikasihardware.
+API dan worker menolak perintah sesudah batas tersebut. Penutupan akses tidak
+melakukan aktuasi listrik. Tidak menambahkan atau mengubah reading/sesi RFID.
+
+Migration031 menambahkan `gpio_on_level` pada binding relay. Default1 mempertahankan
+histori HIGH=ON. Binding LOW=ON memakai0. Parser memvalidasi bentuk payload;
+service mencocokkan state/GPIO dengan polaritas binding, lalu CHECK database
+menegakkan pasangan yang sama. Perubahan polaritas hanya sebelum commissioning,
+binding nonaktif/tanpa command, dengan status lama dikosongkan. Trigger menolak
+perubahan setelah aktif/ada command; ini tidak mengubah reading atau sesi RFID.
+
 Tambahan30Oktober2026: `028_meter_main_coverage.sql` menambahkan cakupan
 `included`/`outside` pada pemasangan meter. Default existing tetap `included`.
 `outside` hanya sah untuk meter komunal dan tidak dapat diubah pada record lama;

@@ -1,5 +1,52 @@
 # Kontrol relay kamar — persiapan tanpa ESP
 
+## Mengganti driver setelah uji
+
+Jika binding sudah memiliki history, polaritas record lama tetap immutable.
+Tutup kontrol melalui `--mode disable`, lalu gunakan `--mode replace
+--gpio-on-level <0|1> --row-version <VERSI_TERBARU> --reason "..."`.
+Migration033 mengarsipkan binding lama dan membuat ID baru dalam keadaan nonaktif
+untuk meter yang sama. ID baru harus dipasang pada firmware; telemetry/mapping
+sensor tidak dipindah. Request lama ditahan oleh versi; laporan/dispatch binding
+retired ditolak. Semua command lama tetap terlihat di histori kamar.
+Setelah firmware dan heartbeat baru sesuai, buka mode uji lagi secara eksplisit.
+
+## Akses uji lampu sebelum verifikasi fisik — 4 November 2026
+
+Pengguna meminta mencoba tombol dan memperjelas bahwa beban Kamar2 hanya lampu.
+Operator lokal dapat membuka mode uji eksplisit melalui utility development:
+`--mode test --test-load-confirmed --row-version <VERSI_TERBARU> --reason "..."`.
+Mode ini tidak menyatakan hardware terverifikasi dan diaudit sebagai `relay_test`.
+Identitas, pemasangan aktif tunggal, statusfresh, otorisasi, CSRF, idempotency,
+deadline15detik dan ACK tetap diperiksa. API dan worker memblokir perintah sesudah
+`test_until` (15menit sejak dibuka); restart backend tidak memperpanjang jendela.
+UI menampilkan mode uji/deadline dan pengguna perlu mengamati lampu langsung.
+Berakhirnya akses **tidak mengubah output relay atau mematikan beban**.
+`--mode disable` menutup akses lebih awal dan mengosongkan test_until.
+Mode enable biasa tetap memerlukan hardware-verified. Tidak ada flash ulang
+atau command ON/OFF otomatis ketika membuka mode uji. Status terkunci pada
+catatan sebelumnya di bawah sudah digantikan oleh akses uji ini; baca HANDOFF.
+
+Pembaruan terbaru 4 November: setelah dipasang, pengguna melaporkan relay dan
+lampu menyala sementara heartbeat asli GPIO3HIGH. Kandidat koreksi kembali ke
+HIGH=ON/LOW=OFF telah dipasang pada ESP asli10003bb78ff4 dan bindinggpio_on_level1
+lokal; heartbeatUSB16:11WIB GPIOLOW/stateOFF. Binding tetap nonaktif sampai uji
+fisik kondisi awalOFF. Label UI mengikuti polaritas binding dan menolak state/GPIO konflik.
+Status upload dan verifikasi terbaru dicatat pada HANDOFF.
+
+Pembaruan4November2026: pengguna memilih mencoba sesuai header elektro yang
+menetapkan **LOW=ON/HIGH=OFF**. Dukungan polaritas per binding ada pada migration031;
+default1 mempertahankan instalasiHIGHlama. Parser menerima bentuk status, service
+memeriksa pasanganstate/GPIO terhadap binding, dan CHECK database menegakkannya.
+Polaritas hanya dapat diganti saat binding nonaktif/tanpa command dan status lama
+dikosongkan. Firmware memakai ROOM_RELAY_ACTIVE_LOW1 untuk bindinggpio_on_level0.
+Uji rangkaian tanpa beban dan commissioning tetap diperlukan; source/codecheck
+bukan bukti kontak/tegangan jalur. Riwayat2November di bawah tetap memakaiHIGH.
+Pada 4 November firmware telah dipasang pada ESP Kamar2 asli10003bb78ff4 dan
+migration031 diterapkan lokal. Binding tetap nonaktif; GPIOLOW yang dilaporkan
+setelah boot belum membuktikan kondisi kontak. Belum ada perintah ON/OFF atau
+commissioning fisik. Detail hasil dan backup ada di HANDOFF terbaru.
+
 Status 2 November 2026: **jalur dashboard → MQTT → board uji → ACK GPIO sudah terpasang dan diverifikasi** pada COM5/MAC10:00:3b:b6:c9:28. Atas koreksi pengguna, GPIO3 HIGH=ON dan LOW=OFF. Uji live mengirim satu OFF yang terkonfirmasi GPIOLOW; tidak mengirim ON dan kontak/tegangan jalur belum diukur. Pemasangan Kamar2 sementara mengikuti board cadangan melalui lifecycle API; histori node asli tetap tersimpan dan firmware node asli belum diubah. WiFi/MQTT kembali tersambung setelah keluar bootloader. PZEM masih belum meresponsUART0/25byte sehingga belum ada pengukuran baru dari pemasangan uji.
 
 ## Lingkup dan keputusan
@@ -73,7 +120,7 @@ Heartbeat/ACK menggunakan field wajib berikut:
 ```
 
 - `report_sequence`: integer aman JavaScript, meningkat untuk setiap laporan dalam boot yang sama. Heartbeat sekitar 10 detik, serta setelah perubahan Serial/lokal. Timestamp akuisisi state menggunakan NTP aktual; jangan memalsukan waktu lama menjadi waktu kirim ulang.
-- `gpio_pin` wajib3 dan `gpio_level` wajib0/1; `state` harus sesuai LOW/OFF atau HIGH/ON. API, database dan UI menjaga pasangan ini. Migration030 menambahkan kolom GPIO tanpa mengisi data lama; laporan tanpa GPIO baru tetap tidak siap dikendalikan.
+- `gpio_pin` wajib3 dan `gpio_level` wajib0/1; `state` harus sesuai `gpio_on_level` pada binding: level yang sama berarti ON, level lainnya OFF. Default1 mempertahankan HIGH/ON dari migration030; migration031 mendukung active LOW secara eksplisit. Laporan tanpa GPIO tetap tidak siap dikendalikan.
 - Heartbeat: `result=status`, command ID/sequence/reason null. ACK sukses: `result=applied`, command ID/sequence dari perintah, state hasil baca driver dan reason null. Penolakan: `result=rejected`, command ID/sequence dari perintah dan reason `expired|wrong_boot|superseded|relay_unavailable`.
 - Firmware wajib memvalidasi namespace/topic, non-retained/QoS, field, NTP siap, binding/boot, deadline maksimal 15 detik, dan sequence sebelum mengubah GPIO. Pesan lama, salah target, sudah kedaluwarsa atau belum sinkron NTP tidak boleh mengubah relay. Nomor urut lebih rendah tidak boleh menimpa perintah baru; retry ID yang sama mengembalikan hasil sebelumnya tanpa mengeksekusi lagi. Boot baru menolak seluruh perintah boot lama.
 - Pengiriman ulang ACK memakai waktu hasil asli; heartbeat baru memakai waktu state yang benar-benar diperiksa ulang. ACK baru hanya boleh dibuat setelah fungsi relay menyelesaikan perubahan/readback driver. Jangan menganggap pemanggilan fungsi atau MQTT publish sebagai bukti tegangan listrik.

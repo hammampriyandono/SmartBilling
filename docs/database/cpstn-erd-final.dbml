@@ -6,7 +6,7 @@ Project cpstn_final_v1 {
 Table room_relay_bindings {
   Note: 'Runtime migration029, opt-in. Target meter kamar saja; identitas binding immutable. Tidak aktif secara default. Liveness dan mapping diperiksa backend.'
   id uuid [pk]
-  meter_id uuid [not null, unique, ref: > meters.id]
+  meter_id uuid [not null, ref: > meters.id, note: 'Migration033: unique hanya untuk binding aktif (retired_at null). Binding lama dan command tetap disimpan.']
   enabled boolean [not null, default: false]
   row_version int [not null]
   last_boot_id uuid
@@ -14,7 +14,10 @@ Table room_relay_bindings {
   last_reported_at timestamptz
   last_received_at timestamptz
   reported_state text [note: 'on/off dari driver, bukan bukti tegangan jalur']
-  reported_gpio_level int [note: 'Migration030; null=belum ada laporan GPIO, 0=LOW/OFF, 1=HIGH/ON, pin3']
+  gpio_on_level int [not null, default: 1, note: 'Migration031; 0=active LOW, 1=active HIGH. Perubahan sebelum commissioning mengosongkan status lama; dikunci setelah aktif/ada command.']
+  test_until timestamptz [note: 'Migration032; nullable. Mode uji lokal 15 menit; expiry memblokir request/dispatch, bukan mengubah output relay. Harus enabled jika terisi.']
+  retired_at timestamptz [note: 'Migration033; binding lama immutable dan nonaktif. Hanya binding aktif boleh menerima laporan/dispatch.']
+  reported_gpio_level int [note: 'Migration030/031; null=belum ada laporan GPIO, 0=LOW, 1=HIGH, pin3. Arti ON/OFF mengikuti gpio_on_level.']
   created_at timestamptz [not null]
 }
 

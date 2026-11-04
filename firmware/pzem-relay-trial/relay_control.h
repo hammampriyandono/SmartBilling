@@ -4,7 +4,10 @@
 
 constexpr int RELAY_PIN = 3;
 // Set false for an active-HIGH module. Verify the module accepts 3.3 V logic.
-constexpr bool RELAY_ACTIVE_LOW = false; // User: GPIO3 HIGH=ON, LOW=OFF.
+#ifndef ROOM_RELAY_ACTIVE_LOW
+#define ROOM_RELAY_ACTIVE_LOW 0
+#endif
+constexpr bool RELAY_ACTIVE_LOW = ROOM_RELAY_ACTIVE_LOW;
 constexpr uint8_t RELAY_ON_LEVEL = RELAY_ACTIVE_LOW ? LOW : HIGH;
 constexpr uint8_t RELAY_OFF_LEVEL = RELAY_ACTIVE_LOW ? HIGH : LOW;
 
@@ -28,6 +31,9 @@ inline void relayPrintStatus() {
   const int level = digitalRead(RELAY_PIN);
   Serial.printf("GPIO3 %s; relay %s berdasarkan GPIO; kontak tidak diukur.\n", level == HIGH ? "HIGH" : "LOW", level == RELAY_ON_LEVEL ? "ON" : "OFF");
 }
+
+inline bool relayLevelIsOn(int level) { return level == RELAY_ON_LEVEL; }
+inline bool relayReportedOn() { return relayLevelIsOn(digitalRead(RELAY_PIN)); }
 
 inline void handleRelayCommand(const String& input) {
   String command = input;

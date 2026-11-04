@@ -14,7 +14,7 @@ extern "C" {
 // Separate transport over the same existing lwmqtt library. The native callback
 // exposes QoS/retain, unlike the Arduino wrapper. Telemetry code is unchanged.
 namespace RelayDashboard {
-static_assert(RELAY_PIN==3&&!RELAY_ACTIVE_LOW,"Relay dashboard requires GPIO3 HIGH=ON, LOW=OFF.");
+static_assert(RELAY_PIN==3,"Relay dashboard requires GPIO3.");
 struct Timer {uint32_t start=0,timeout=0;};
 struct Cached {char id[37]{},wire[512]{},report[640]{};};
 static WiFiClient socket;
@@ -55,7 +55,7 @@ inline bool report(char* output,const char* commandId=nullptr,const char* comman
   strftime(date,sizeof(date),"%Y-%m-%dT%H:%M:%S",&utc);snprintf(timestamp,sizeof(timestamp),"%s.%03luZ",date,(unsigned long)(microseconds%1000000/1000));
   const int level=digitalRead(RELAY_PIN);JsonDocument value;
   value["schema_version"]=1;value["binding_id"]=RELAY_BINDING_ID;value["boot_id"]=bootId;
-  value["report_sequence"]=++reportSequence;value["reported_at"]=timestamp;value["state"]=level==HIGH?"on":"off";
+  value["report_sequence"]=++reportSequence;value["reported_at"]=timestamp;value["state"]=relayLevelIsOn(level)?"on":"off";
   value["gpio_pin"]=RELAY_PIN;value["gpio_level"]=level==HIGH?1:0;
   value["command_id"]=commandId;value["command_sequence"]=commandSequence;value["result"]=result;value["reason"]=reason;
   if(measureJson(value)>=640)return false;
@@ -84,7 +84,7 @@ inline void process(){
   else if(decision==RelayGuard::Decision::superseded)reason="superseded";
   else{
     highest=seq;const bool on=!strcmp(state,"on");setRelay(on);
-    if((digitalRead(RELAY_PIN)==HIGH)!=on)reason="relay_unavailable";
+    if(relayReportedOn()!=on)reason="relay_unavailable";
     relayPrintStatus();
   }
   char result[640];if(!report(result,id,sequence,reason?"rejected":"applied",reason))return;

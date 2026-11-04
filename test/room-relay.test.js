@@ -20,7 +20,7 @@ test('relay protocol: reject retained, QoS0, simulator, unknown fields, bad time
   const value=report();
   for(const bad of [null,[],{...value,extra:'x'},{...value,reported_at:'2026-11-02T09:00:00'},
     {...value,reported_at:new Date(now-30001).toISOString()},{...value,reported_at:new Date(now+5001).toISOString()},
-    {...value,state:'ON'},{...value,state:'on',gpio_level:0},{...value,gpio_pin:4},{...value,gpio_level:2},
+    {...value,state:'ON'},{...value,gpio_pin:4},{...value,gpio_level:2},
     {...value,report_sequence:-1},{...value,result:'applied'},
     {...value,result:'applied',command_id:randomUUID(),command_sequence:'9223372036854775808'},
     {...value,command_id:randomUUID()},{...value,reason:'expired'}])assert.throws(()=>parse(bad));
@@ -33,6 +33,11 @@ test('relay freshness requires recent device time and receipt; no inference from
   assert.equal(relayFresh(fresh,now),true);assert.equal(relayFresh(null,now),false);
   assert.equal(relayFresh({...fresh,last_reported_at:new Date(now-31000)},now),false);
   assert.equal(relayFresh({...fresh,last_received_at:new Date(now-31000)},now),false);
+});
+
+test('relay polarity is interpreted against the registered binding, not inferred by the parser',()=>{
+  assert.equal(parse({...report(),state:'on',gpio_level:0}).state,'on');
+  assert.equal(parse({...report(),state:'off',gpio_level:1}).state,'off');
 });
 test('relay disabled by default: no database access, publish or MQTT subscription',async()=>{
   await createRoomRelayWorker({query(){throw Error('must not query');}},{publish(){throw Error('must not publish');}})();

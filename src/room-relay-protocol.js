@@ -20,7 +20,7 @@ export function parseRoomRelayReport(topic,bytes,packet={},now=Date.now()) {
     p.binding_id=uuid(p.binding_id).toLowerCase();p.boot_id=uuid(p.boot_id).toLowerCase();
     p.reported_at=timestamp(p.reported_at);
     if(!Number.isSafeInteger(p.report_sequence)||p.report_sequence<0||p.gpio_pin!==3||![0,1].includes(p.gpio_level)
-      ||p.state!==(p.gpio_level===1?'on':'off'))throw new Error();
+      ||!['on','off'].includes(p.state))throw new Error();
     const age=now-Date.parse(p.reported_at);
     if(age< -5000||age>RELAY_FRESH_MS)throw new Error();
     if(p.result==='status') {

@@ -7,7 +7,7 @@ import {roomRelayApi,receiveRoomRelayReport,createRoomRelayWorker,configureRoomR
 import {apiError} from '../src/monitoring-api.js';
 import {HttpError} from '../src/http-input.js';
 
-test('PostgreSQL room relay: authorization, outbox, ACK, expiry and lifecycle', {skip:process.env.INTEGRATION_DB!=='1'},async t=>{
+for(const gpioOnLevel of [1,0])test('PostgreSQL room relay: authorization, outbox, ACK, expiry and lifecycle; GPIO ON='+gpioOnLevel, {skip:process.env.INTEGRATION_DB!=='1'},async t=>{
   requireDevelopment();const pool=createPool({timeout:15000}),db=await pool.connect();let server,savepoint=0,time=Date.now(),reportSeq=0;
   const ids=Object.fromEntries(['owner','other','tenant','property','room','device','asset','meter','binding','boot'].map(k=>[k,randomUUID()]));
   const uid=`relay-fixture-${ids.device}`,topic=`smartbilling/v1/devices/${uid}/relay/status`;
@@ -19,12 +19,12 @@ test('PostgreSQL room relay: authorization, outbox, ACK, expiry and lifecycle', 
   }};}};
   const now=()=>time;let acting={id:ids.owner,role:'owner'};
   const report=(extra={})=>({schema_version:1,binding_id:ids.binding,boot_id:ids.boot,report_sequence:++reportSeq,
-    reported_at:new Date(time).toISOString(),state:'off',gpio_pin:3,gpio_level:extra.state==='on'?1:0,command_id:null,command_sequence:null,result:'status',reason:null,...extra});
+    reported_at:new Date(time).toISOString(),state:'off',gpio_pin:3,gpio_level:extra.state==='on'?gpioOnLevel:1-gpioOnLevel,command_id:null,command_sequence:null,result:'status',reason:null,...extra});
   const receive=(p,packet={qos:1},incoming=topic)=>receiveRoomRelayReport(adapter,incoming,Buffer.from(JSON.stringify(p)),packet,{now:time});
   const bound=async()=> (await db.query('SELECT * FROM room_relay_bindings WHERE id=$1',[ids.binding])).rows[0];
   const history=async()=> (await db.query('SELECT * FROM room_relay_commands WHERE binding_id=$1 ORDER BY sequence_no',[ids.binding])).rows;
   const configure=async(mode,extra={})=>configureRoomRelay(adapter,{ownerId:ids.owner,roomId:ids.room,meterId:ids.meter,deviceUid:uid,
-    mode,reason:'Fixture commissioning',now:time,...extra});
+    mode,reason:'Fixture commissioning',now:time,gpioOnLevel,...extra});
   try {
     await db.query('BEGIN');
     for(const [id,role] of [[ids.owner,'owner'],[ids.other,'owner'],[ids.tenant,'tenant']])await db.query("INSERT INTO users(id,name,email,password_hash,role) VALUES($1,'Relay fixture',$2,'unused',$3)",[id,`${id}@fixture.invalid`,role]);
@@ -67,13 +67,40 @@ test('PostgreSQL room relay: authorization, outbox, ACK, expiry and lifecycle', 
       await db.query('ROLLBACK TO SAVEPOINT gpio_constraint');
     });
     await t.test('fresh registered status only, duplicate/foreign/retained reports do not refresh liveness',async()=>{
+      assert.equal((await bound()).gpio_on_level,gpioOnLevel);
+      assert.equal((await receive(report({state:'on',gpio_level:1-gpioOnLevel}))).reason,'relay_polarity_mismatch');
+      assert.equal((await receive(report())).status,'accepted');
+      const changed=await configure('prepare',{gpioOnLevel:1-gpioOnLevel});
+      assert.equal(changed.binding.last_boot_id,null);assert.equal(changed.binding.reported_gpio_level,null);
+      await configure('prepare');
       const p=report();assert.equal((await receive(p)).status,'accepted');const before=await bound();
       assert.equal((await receive(p)).status,'duplicate');
       assert.equal((await receive(report(),{qos:1,retain:true})).status,'rejected');
       assert.equal((await receive(report(),{qos:1},topic.replace(uid,'wrong-device'))).status,'rejected');
       assert.equal(+(await bound()).last_received_at,+before.last_received_at);
       await configure('enable',{rowVersion:before.row_version,hardwareVerified:true});
+      await assert.rejects(configure('prepare',{gpioOnLevel:1-gpioOnLevel}),e=>e.message==='relay_polarity_locked');
       assert.equal((await call()).data.can_control,true);
+    });
+    await t.test('explicit test load enables bounded testing without claiming hardware verification; expiry blocks API and dispatch',async()=>{
+      await db.query('SAVEPOINT test_window');const oldTime=time;
+      try{
+        const before=await bound();
+        await assert.rejects(configure('test',{rowVersion:before.row_version}),/relay_test_load_confirmation_required/);
+        await assert.rejects(configure('test',{rowVersion:0,testLoadConfirmed:true}),/stale_version/);
+        const trial=await configure('test',{rowVersion:before.row_version,testLoadConfirmed:true});
+        assert.equal(trial.binding.enabled,true);assert.equal(+new Date(trial.binding.test_until),time+900000);
+        assert.equal((await call()).data.can_control,true);
+        assert.equal((await db.query("SELECT count(*)::int n FROM audit_logs WHERE entity_type='room_relay_binding' AND entity_id=$1 AND action='relay_test'",[ids.binding])).rows[0].n,1);
+        time+=899000;await receive(report());
+        assert.equal((await call(await body('on'))).http,202);
+        time+=1001;const state=(await call()).data;
+        assert.equal(state.fresh,true);assert.equal(state.blocked_reason,'relay_test_expired');assert.equal(state.can_control,false);
+        assert.equal((await call(await body('off'))).error,'relay_test_expired');
+        const count=published.length;await tick();assert.equal(published.length,count);
+        const disabled=await configure('disable',{rowVersion:(await bound()).row_version});assert.equal(disabled.binding.test_until,null);
+      }finally{time=oldTime;await db.query('ROLLBACK TO SAVEPOINT test_window');}
+      assert.equal((await bound()).test_until,null);
     });
     await t.test('CSRF, stale installation, unknown fields and row version enforced before command',async()=>{
       assert.equal((await call(await body(),{csrf:false})).http,403);
@@ -95,7 +122,7 @@ test('PostgreSQL room relay: authorization, outbox, ACK, expiry and lifecycle', 
     });
     await t.test('mismatched ACK rejected; matching ACK confirms; newer heartbeat cannot be overwritten by delayed ACK',async()=>{
       time+=1000;const ack=report({result:'applied',command_id:first.id,command_sequence:String(first.sequence_no),state:'off'});
-      assert.equal((await receive({...ack,state:'on',gpio_level:1})).status,'rejected');assert.equal((await history())[0].status,'sent');
+      assert.equal((await receive({...ack,state:'on',gpio_level:gpioOnLevel})).status,'rejected');assert.equal((await history())[0].status,'sent');
       time+=1000;assert.equal((await receive(report({state:'on'}))).status,'accepted');const latest=await bound();
       assert.equal((await receive(ack)).status,'accepted');assert.equal((await history())[0].status,'confirmed');
       assert.equal((await bound()).reported_state,'on');assert.equal(+(await bound()).last_reported_at,+latest.last_reported_at);
@@ -118,6 +145,30 @@ test('PostgreSQL room relay: authorization, outbox, ACK, expiry and lifecycle', 
       assert.equal((await receive(ack)).status,'rejected');
       assert.equal((await receive({...ack,result:'rejected',reason:'expired'})).status,'accepted');
       assert.equal((await history()).at(-1).status,'rejected');assert.equal((await history()).at(-1).result_reason,'expired');
+    });
+    await t.test('recommissioning preserves historical polarity and commands; retired bindings cannot refresh or dispatch',async()=>{
+      await db.query('SAVEPOINT binding_revision');const oldTime=time;
+      try{
+        time+=1;await receive(report());
+        await assert.rejects(configure('replace',{rowVersion:(await bound()).row_version,gpioOnLevel:1-gpioOnLevel}),/relay_disable_before_replace/);
+        const queued=await call(await body());assert.equal(queued.http,202);
+        await configure('disable',{rowVersion:(await bound()).row_version});
+        await assert.rejects(configure('replace',{rowVersion:(await bound()).row_version,gpioOnLevel:1-gpioOnLevel}),/relay_command_pending/);
+        const count=(await history()).length;time+=16000;
+        const changed=await configure('replace',{rowVersion:(await bound()).row_version,gpioOnLevel:1-gpioOnLevel});
+        assert.notEqual(changed.binding.id,ids.binding);assert.equal(changed.binding.enabled,false);
+        assert.ok(changed.binding.row_version>(await bound()).row_version);
+        assert.equal(changed.binding.reported_gpio_level,null);assert.equal(changed.binding.gpio_on_level,1-gpioOnLevel);
+        const retired=await bound();assert.ok(retired.retired_at);assert.equal(retired.gpio_on_level,gpioOnLevel);
+        assert.equal((await history()).length,count);assert.equal((await history()).at(-1).status,'unconfirmed');
+        const current=(await call()).data;assert.equal(current.binding_id,changed.binding.id);assert.equal(current.can_control,false);
+        assert.equal(current.history.some(c=>c.id===queued.data.command.id),true);
+        assert.equal((await receive(report())).reason,'unregistered_relay');
+        const before=published.length;await tick();assert.equal(published.length,before);
+        await db.query('SAVEPOINT retired_guard');
+        await assert.rejects(db.query('UPDATE room_relay_bindings SET retired_at=NULL WHERE id=$1',[ids.binding]),/immutable/);
+        await db.query('ROLLBACK TO SAVEPOINT retired_guard');
+      }finally{time=oldTime;await db.query('ROLLBACK TO SAVEPOINT binding_revision');}
     });
     await t.test('disabled binding, reboot, inactive device and retired installation stop dispatch',async()=>{
       time+=1;assert.equal((await receive(report())).status,'accepted');

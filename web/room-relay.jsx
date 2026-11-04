@@ -33,6 +33,7 @@ function OwnerRoomRelay({user,meter}){
     <div className="panel-heading"><div><p className="eyebrow">KONTROL OWNER</p><h2 id={`relay-${meter.id}`}>Relay kamar</h2></div><span className={`pill ${data?.fresh?'green':''}`}>{relayStateLabel(data)}</span></div>
     <p>Kontrol manual untuk kamar yang dipilih. Perintah baru dianggap terkonfirmasi setelah perangkat melaporkan hasilnya.</p>
     {data&&<p className="subtle">{data.room_name} · {data.device_uid}<br/>Laporan terakhir: {when(data.last_reported_at)}</p>}
+    {data?.test_until&&<p className="room-relay-status">Mode uji lampu · akses sampai {when(data.test_until)}. Cocokkan setiap perubahan GPIO dengan lampu secara langsung. Berakhirnya akses uji tidak mematikan beban.</p>}
     {blocked&&<p className="room-relay-status">{blocked}</p>}
     {error&&<p className="error" role="alert">{error}</p>}
     {notice&&<p role="status">{notice}</p>}

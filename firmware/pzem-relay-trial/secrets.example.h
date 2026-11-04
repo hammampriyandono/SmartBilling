@@ -11,3 +11,5 @@
 #define MQTT_USERNAME "<DEVICE_USERNAME>"
 #define MQTT_PASSWORD "<DEVICE_PASSWORD>"
 #define SAMPLE_INTERVAL_MS 60000UL
+// 1 selects LOW=ON; the binding must use gpio_on_level=0.
+#define ROOM_RELAY_ACTIVE_LOW 0

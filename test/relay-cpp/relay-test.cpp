@@ -3,11 +3,11 @@
 #include "relay_control.h"
 #include "relay_command_guard.h"
 int main(){
-  relayBegin();assert(testLevel==LOW&&!relayOn&&testMode==OUTPUT);assert(operations[0]==1&&operations[1]==2&&operations[2]==3);
-  handleRelayCommand(String(" relay on "));assert(testLevel==HIGH&&relayOn);assert(Serial.text.find("GPIO3 HIGH; relay ON")!=std::string::npos);
-  testLevel=LOW;relayPrintStatus();assert(relayOn&&Serial.text.find("GPIO3 LOW; relay OFF")!=std::string::npos);
-  handleRelayCommand(String("RELAY OFF"));assert(testLevel==LOW&&!relayOn);
-  handleRelayCommand(String("UNKNOWN"));assert(testLevel==LOW);
+  relayBegin();assert(testLevel==RELAY_OFF_LEVEL&&!relayOn&&testMode==(RELAY_ACTIVE_LOW?OUTPUT_OPEN_DRAIN:OUTPUT));assert(operations[0]==1&&operations[1]==2&&operations[2]==3);
+  handleRelayCommand(String(" relay on "));assert(testLevel==RELAY_ON_LEVEL&&relayOn&&relayReportedOn());
+  testLevel=RELAY_OFF_LEVEL;relayPrintStatus();assert(relayOn&&!relayReportedOn()&&Serial.text.find("relay OFF")!=std::string::npos);
+  handleRelayCommand(String("RELAY OFF"));assert(testLevel==RELAY_OFF_LEVEL&&!relayOn&&!relayReportedOn());
+  handleRelayCommand(String("UNKNOWN"));assert(testLevel==RELAY_OFF_LEVEL);
   uint64_t now=0,seq=0;assert(RelayGuard::timestamp("2026-11-02T02:00:00.000Z",now));assert(now==1793584800000ULL);
   assert(RelayGuard::timestamp("2024-02-29T00:00:00.000Z",seq));assert(seq==1709164800000ULL);
   for(const char* value:{"2026-02-29T00:00:00.000Z","2026-11-02T24:00:00.000Z","2026-11-02T02:00:60.000Z","2026-11-02T02:00:00Z","2026-11-02T02:00:00.000+07:00"})assert(!RelayGuard::timestamp(value,seq));
@@ -25,5 +25,5 @@ int main(){
   assert(decide(binding,boot,2,1,now,now+15001)==D::invalid);
   assert(decide(binding,boot,2,1,now+5001,now+15000)==D::invalid);
   assert(decide(binding,boot,2,1,now,now)==D::invalid);
-  std::cout<<"PASS: actual relay header HIGH/ON LOW/OFF, startup ordering, GPIO readback; UTC/sequence/boot/TTL guards. No hardware actuated.\n";
+  std::cout<<"PASS: relay polarity="<<(RELAY_ACTIVE_LOW?"LOW=ON":"HIGH=ON")<<", startup ordering, GPIO readback; UTC/sequence/boot/TTL guards. No hardware actuated.\n";
 }

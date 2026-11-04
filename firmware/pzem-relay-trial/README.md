@@ -1,5 +1,21 @@
 # PZEM + relay — source uji tim elektro
 
+## Polaritas per instalasi — 4 November 2026
+
+`ROOM_RELAY_ACTIVE_LOW=1` pada secrets.h privat memilih GPIO3 LOW=ON/HIGH=OFF
+dan output open-drain sesuai lampiran elektro. Default0 mempertahankan adapter
+HIGH=ON yang lama. Heartbeat/ACK membaca GPIO aktual dengan polaritas yang sama.
+Binding backend harus memakai `gpio_on_level=0` untuk active LOW, atau1 untuk
+active HIGH. Utility `configure-room-relay.js --mode prepare --gpio-on-level 0`
+menyiapkan active LOW dalam keadaan nonaktif. Sebelum commissioning/tanpa command,
+polaritas dapat diperbaiki melalui prepare; status lama dikosongkan dan perlu
+heartbeat baru. Setelah aktif/ada command, perubahan diam-diam ditolak.
+
+Konfirmasi elektrik/kontak memerlukan uji rangkaian tanpa beban bersama tim elektro.
+ACKGPIO tidak membuktikan tegangan jalur. Tombol tetap tidak tersedia sebelum
+binding diaktifkan dengan verifikasi hardware; jangan menyalin sketch APmandiri
+local_dashboard.h sebagai pengganti monitoringMQTT.
+
 Paket 2 November 2026 memakai dasar `.ino`, `relay_control.h` dan `wifi_portal.h` kiriman pengguna. Setelah pengguna menetapkan **GPIO3 HIGH=ON, LOW=OFF**, polaritas diubah menjadi active HIGH, output normal dan status membaca GPIO aktual. Parser Serial/portal, frame PZEM, profil Wi-Fi dan penjadwalan UTC mengikuti dasar existing. Jalur I/O diberi batas waktu seperti dijelaskan di bawah. Tidak menyertakan credential.
 
 - ESP32-C3, UART PZEM RX20/TX21, sampling awal menit UTC.

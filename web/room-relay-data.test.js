@@ -7,6 +7,10 @@ test('relay UI: unknown and stale reports do not claim electricity OFF; unready 
   assert.match(relayStateLabel({fresh:false,reported_state:'off'}),/belum diketahui/);
   assert.equal(relayStateLabel({fresh:true,reported_state:'off',gpio_pin:3,gpio_level:0}),'GPIO3 LOW · OFF');
   assert.equal(relayStateLabel({fresh:true,reported_state:'on',gpio_pin:3,gpio_level:1}),'GPIO3 HIGH · ON');
+  assert.equal(relayStateLabel({fresh:true,reported_state:'off',gpio_pin:3,gpio_level:1,gpio_on_level:0}),'GPIO3 HIGH · OFF');
+  assert.equal(relayStateLabel({fresh:true,reported_state:'on',gpio_pin:3,gpio_level:0,gpio_on_level:0}),'GPIO3 LOW · ON');
+  assert.match(relayStateLabel({fresh:true,reported_state:'on',gpio_pin:3,gpio_level:1,gpio_on_level:0}),/belum diketahui/);
+  assert.match(relayStateLabel({fresh:true,reported_state:'on',gpio_pin:3,gpio_level:1,gpio_on_level:null}),/belum diketahui/);
   assert.throws(()=>relayAction({can_control:false},'off','tes','owner'));
 });
 test('relay UI: same action/key/body on retry; desired state and selected installation explicit',async()=>{

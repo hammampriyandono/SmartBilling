@@ -24,6 +24,7 @@ async function currentInstallation(db,roomId,ownerId,lock=false) {
 function readyReason(binding,installation,enabled,now) {
   if(!enabled)return 'relay_control_disabled';
   if(!binding?.enabled)return 'relay_not_commissioned';
+  if(binding.test_until&&+new Date(binding.test_until)<=now)return 'relay_test_expired';
   if(!installation.single_target)return 'relay_installation_ambiguous';
   if(installation.device_status!=='active'||[installation.source,installation.device_source,installation.room_source].includes('simulation'))return 'relay_installation_unavailable';
   if(!relayFresh(binding,now)||binding.reported_gpio_level==null)return 'relay_status_stale';
@@ -37,10 +38,12 @@ async function expire(db,bindingId,now) {
 // Local commissioning utility only; never called automatically or by a tenant.
 // Preparation creates a disabled binding. Enabling requires a fresh report and
 // an explicit operator declaration after actual GPIO/driver verification.
+// Test mode instead requires a confirmed test load and expires in 15 minutes.
 // This is not contact/voltage feedback from the room's electrical circuit.
-export async function configureRoomRelay(pool,{ownerId,roomId,meterId,deviceUid,mode='plan',reason='',rowVersion,hardwareVerified=false,now=Date.now()}) {
+export async function configureRoomRelay(pool,{ownerId,roomId,meterId,deviceUid,mode='plan',reason='',rowVersion,hardwareVerified=false,testLoadConfirmed=false,gpioOnLevel=1,now=Date.now()}) {
   uuid(ownerId);uuid(roomId);uuid(meterId);
-  if(!['plan','prepare','enable','disable'].includes(mode)||typeof deviceUid!=='string'||!/^[A-Za-z0-9_-]{1,80}$/.test(deviceUid))throw new HttpError(400,'invalid_relay_configuration');
+  if(![0,1].includes(gpioOnLevel))throw new HttpError(400,'invalid_relay_polarity');
+  if(!['plan','prepare','replace','enable','test','disable'].includes(mode)||typeof deviceUid!=='string'||!/^[A-Za-z0-9_-]{1,80}$/.test(deviceUid))throw new HttpError(400,'invalid_relay_configuration');
   if(mode!=='plan'&&(typeof reason!=='string'||!reason.trim()||reason.length>500))throw new HttpError(400,'relay_reason_required');
   return transaction(pool,async db=>{
     const installation=await currentInstallation(db,roomId,ownerId,true);
@@ -48,19 +51,35 @@ export async function configureRoomRelay(pool,{ownerId,roomId,meterId,deviceUid,
     if(!installation.single_target)throw new HttpError(409,'relay_installation_ambiguous');
     if(installation.device_status!=='active'||[installation.source,installation.device_source,installation.room_source].includes('simulation'))throw new HttpError(409,'relay_installation_unavailable');
     await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`room-relay-binding:${meterId}`]);
-    const previous=(await db.query('SELECT * FROM room_relay_bindings WHERE meter_id=$1 FOR UPDATE',[meterId])).rows[0]||null;
-    if(mode==='plan'||(mode==='prepare'&&previous))return {changed:false,installation_id:meterId,room_id:roomId,device_uid:deviceUid,binding:previous};
+    const previous=(await db.query('SELECT * FROM room_relay_bindings WHERE meter_id=$1 AND retired_at IS NULL FOR UPDATE',[meterId])).rows[0]||null;
+    if(mode==='plan'||(mode==='prepare'&&previous&&previous.gpio_on_level===gpioOnLevel))return {changed:false,installation_id:meterId,room_id:roomId,device_uid:deviceUid,binding:previous};
     let binding;
-    if(mode==='prepare')binding=(await db.query('INSERT INTO room_relay_bindings(id,meter_id) VALUES($1,$2) RETURNING *',[randomUUID(),meterId])).rows[0];
+    if(mode==='prepare'){
+      if(previous){
+        if(previous.enabled||(await db.query('SELECT 1 FROM room_relay_commands WHERE binding_id=$1',[previous.id])).rowCount)throw new HttpError(409,'relay_polarity_locked');
+        binding=(await db.query(`UPDATE room_relay_bindings SET gpio_on_level=$2,last_boot_id=NULL,last_report_sequence=NULL,
+          last_reported_at=NULL,last_received_at=NULL,reported_state=NULL,reported_gpio_level=NULL,row_version=row_version+1 WHERE id=$1 RETURNING *`,[previous.id,gpioOnLevel])).rows[0];
+      }else binding=(await db.query('INSERT INTO room_relay_bindings(id,meter_id,gpio_on_level) VALUES($1,$2,$3) RETURNING *',[randomUUID(),meterId,gpioOnLevel])).rows[0];
+    }
+    else if(mode==='replace'){
+      if(!previous||rowVersion!==previous.row_version)throw new HttpError(409,'stale_version');
+      if(previous.enabled)throw new HttpError(409,'relay_disable_before_replace');
+      await expire(db,previous.id,now);
+      if((await db.query("SELECT 1 FROM room_relay_commands WHERE binding_id=$1 AND status IN ('queued','sent')",[previous.id])).rowCount)throw new HttpError(409,'relay_command_pending');
+      await db.query('UPDATE room_relay_bindings SET retired_at=$2,row_version=row_version+1 WHERE id=$1',[previous.id,new Date(now)]);
+      binding=(await db.query('INSERT INTO room_relay_bindings(id,meter_id,gpio_on_level,row_version) VALUES($1,$2,$3,$4) RETURNING *',[randomUUID(),meterId,gpioOnLevel,previous.row_version+2])).rows[0];
+    }
     else{
       if(!previous||rowVersion!==previous.row_version)throw new HttpError(409,'stale_version');
-      if(mode==='enable'){
-        if(!hardwareVerified)throw new HttpError(409,'relay_hardware_verification_required');
+      if(mode==='enable'||mode==='test'){
+        if(mode==='enable'&&!hardwareVerified)throw new HttpError(409,'relay_hardware_verification_required');
+        if(mode==='test'&&!testLoadConfirmed)throw new HttpError(409,'relay_test_load_confirmation_required');
         if(!relayFresh(previous,now)||previous.reported_gpio_level==null)throw new HttpError(409,'relay_status_stale');
         await expire(db,previous.id,now);
         if((await db.query("SELECT 1 FROM room_relay_commands WHERE binding_id=$1 AND status IN ('queued','sent')",[previous.id])).rowCount)throw new HttpError(409,'relay_command_pending');
       }
-      binding=(await db.query('UPDATE room_relay_bindings SET enabled=$2,row_version=row_version+1 WHERE id=$1 RETURNING *',[previous.id,mode==='enable'])).rows[0];
+      binding=(await db.query('UPDATE room_relay_bindings SET enabled=$2,test_until=$3,row_version=row_version+1 WHERE id=$1 RETURNING *',
+        [previous.id,mode==='enable'||mode==='test',mode==='test'?new Date(now+15*60*1000):null])).rows[0];
     }
     await db.query(`INSERT INTO audit_logs(property_id,actor_user_id,request_id,action,entity_type,entity_id,before_data,after_data,reason)
       VALUES($1,$2,$3,$4,'room_relay_binding',$5,$6,$7,$8)`,[installation.property_id,ownerId,randomUUID(),`relay_${mode}`,binding.id,previous,binding,reason.trim()]);
@@ -73,15 +92,16 @@ export function roomRelayApi(pool,{csrf,idempotencySecret,enabled=false,now=Date
   const owner=(req,_res,next)=>req.user?.role==='owner'?next():next(new HttpError(403,'owner_required'));
   router.get('/owner/rooms/:roomId/relay',owner,async(req,res)=>{
     const roomId=uuid(req.params.roomId),installation=await currentInstallation(pool,roomId,req.user.id);
-    const binding=(await pool.query('SELECT * FROM room_relay_bindings WHERE meter_id=$1',[installation.id])).rows[0]||null;
-    const history=binding?(await pool.query(`SELECT * FROM room_relay_commands WHERE binding_id=$1 ORDER BY sequence_no DESC LIMIT 10`,[binding.id])).rows:[];
+    const binding=(await pool.query('SELECT * FROM room_relay_bindings WHERE meter_id=$1 AND retired_at IS NULL',[installation.id])).rows[0]||null;
+    const history=(await pool.query(`SELECT c.* FROM room_relay_commands c JOIN room_relay_bindings b ON b.id=c.binding_id WHERE b.meter_id=$1 ORDER BY c.sequence_no DESC LIMIT 10`,[installation.id])).rows;
     const time=now();
     for(const row of history)if(['queued','sent'].includes(row.status)&&+new Date(row.expires_at)<=time){row.status='unconfirmed';row.result_reason='ack_timeout';}
     const reason=readyReason(binding,installation,enabled,time),pending=history.some(c=>['queued','sent'].includes(c.status));
     res.json({data:{room_id:roomId,meter_id:installation.id,room_name:installation.room_name||installation.room_code,
       device_uid:installation.device_uid,binding_id:binding?.id||null,row_version:binding?.row_version||0,
       reported_state:binding?.reported_state||null,last_reported_at:binding?.last_reported_at||null,
-      gpio_pin:binding?.reported_gpio_level==null?null:3,gpio_level:binding?.reported_gpio_level??null,
+      gpio_pin:binding?.reported_gpio_level==null?null:3,gpio_level:binding?.reported_gpio_level??null,gpio_on_level:binding?.gpio_on_level??null,
+      test_until:binding?.test_until||null,
       fresh:relayFresh(binding,time),can_control:!reason&&!pending,blocked_reason:reason||(pending?'relay_command_pending':null),history}});
   });
   router.post('/owner/rooms/:roomId/relay/commands',owner,(req,res,next)=>{
@@ -100,7 +120,7 @@ export function roomRelayApi(pool,{csrf,idempotencySecret,enabled=false,now=Date
       if(prior){if(prior.request_sha256!==hash)throw new HttpError(409,'idempotency_key_conflict');return prior.response_data;}
       const installation=await currentInstallation(db,roomId,req.user.id,true);
       if(installation.id!==body.meter_id)throw new HttpError(409,'stale_version');
-      const binding=(await db.query('SELECT * FROM room_relay_bindings WHERE meter_id=$1 FOR UPDATE',[installation.id])).rows[0];
+      const binding=(await db.query('SELECT * FROM room_relay_bindings WHERE meter_id=$1 AND retired_at IS NULL FOR UPDATE',[installation.id])).rows[0];
       const time=now(),reason=readyReason(binding,installation,enabled,time);
       if(reason)throw new HttpError(409,reason);
       if(binding.row_version!==body.row_version)throw new HttpError(409,'stale_version');
@@ -125,12 +145,13 @@ export async function receiveRoomRelayReport(pool,topic,bytes,packet,{now=Date.n
   try{report=parseRoomRelayReport(topic,bytes,packet,now);}catch(error){if(error instanceof Rejection)return {status:'rejected',reason:error.message};throw error;}
   return transaction(pool,async db=>{
     const binding=(await db.query(`SELECT b.*,d.device_uid FROM room_relay_bindings b JOIN meters m ON m.id=b.meter_id
-      JOIN devices d ON d.id=m.device_id WHERE b.id=$1 AND d.device_uid=$2 AND m.kind='room' AND d.status='active'
+      JOIN devices d ON d.id=m.device_id WHERE b.id=$1 AND b.retired_at IS NULL AND d.device_uid=$2 AND m.kind='room' AND d.status='active'
       AND m.source<>'simulation' AND d.source<>'simulation' AND m.installed_at<=now() AND (m.retired_at IS NULL OR m.retired_at>now())
       AND NOT EXISTS(SELECT 1 FROM meters other WHERE other.device_id=m.device_id AND other.id<>m.id
         AND other.installed_at<=now() AND (other.retired_at IS NULL OR other.retired_at>now()))
       FOR UPDATE OF b`,[report.binding_id,report.device_uid])).rows[0];
     if(!binding)return {status:'rejected',reason:'unregistered_relay'};
+    if(report.state!==(report.gpio_level===binding.gpio_on_level?'on':'off'))return {status:'rejected',reason:'relay_polarity_mismatch'};
     const reportTime=Date.parse(report.reported_at),lastTime=+new Date(binding.last_reported_at);
     const newer=!binding.last_reported_at||reportTime>lastTime||(reportTime===lastTime&&binding.last_boot_id===report.boot_id&&report.report_sequence>Number(binding.last_report_sequence));
     const sequenceOk=binding.last_boot_id!==report.boot_id||report.report_sequence>Number(binding.last_report_sequence);
@@ -167,6 +188,8 @@ export function createRoomRelayWorker(pool,mqtt,{enabled=false,now=Date.now}={})
         JOIN room_relay_bindings b ON b.id=c.binding_id JOIN meters m ON m.id=b.meter_id JOIN devices d ON d.id=m.device_id
         JOIN rooms r ON r.id=m.room_id JOIN properties p ON p.id=m.property_id
         WHERE c.status IN ('queued','sent') AND c.expires_at>$1 AND b.enabled=true AND d.status='active'
+        AND b.retired_at IS NULL
+        AND (b.test_until IS NULL OR b.test_until>$1)
         AND m.source<>'simulation' AND d.source<>'simulation' AND r.source<>'simulation' AND p.owner_id=c.owner_id
         AND m.installed_at<=$1 AND (m.retired_at IS NULL OR m.retired_at>$1) AND r.active_from<=$1 AND (r.active_until IS NULL OR r.active_until>$1)
         AND NOT EXISTS(SELECT 1 FROM meters other WHERE other.device_id=m.device_id AND other.id<>m.id

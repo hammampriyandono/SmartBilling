@@ -1,12 +1,19 @@
 import {newAction,sendAction} from './admin-mutations.js';
 
 export const relayBlocked={relay_control_disabled:'Kontrol relay belum diaktifkan untuk properti ini.',
+  relay_test_expired:'Waktu akses uji relay sudah berakhir. Hubungi operator untuk melanjutkan pengujian.',
   relay_not_commissioned:'Relay kamar belum dipetakan dan diverifikasi.',relay_installation_unavailable:'Pemasangan perangkat tidak tersedia untuk kontrol.',
   relay_installation_ambiguous:'Perangkat terpasang pada lebih dari satu titik ukur. Periksa pemasangan sebelum menggunakan kontrol.',
   relay_status_stale:'Status relay belum tersedia atau sudah lama. Menunggu laporan baru dari perangkat.',relay_command_pending:'Menunggu konfirmasi perintah sebelumnya.'};
 export const relayCommandLabel={queued:'Menunggu pengiriman',sent:'Dikirim · belum dikonfirmasi',confirmed:'Dikonfirmasi perangkat',
   rejected:'Ditolak perangkat',unconfirmed:'Belum terkonfirmasi · batas waktu lewat'};
-export function relayStateLabel(data){return !data?.fresh||data.gpio_pin!==3||![0,1].includes(data.gpio_level)?'Status relay belum diketahui':data.gpio_level===1?'GPIO3 HIGH · ON':'GPIO3 LOW · OFF';}
+export function relayStateLabel(data){
+  const onLevel=data?.gpio_on_level===undefined?1:data.gpio_on_level;
+  if(!data?.fresh||data.gpio_pin!==3||![0,1].includes(data.gpio_level)||![0,1].includes(onLevel))return 'Status relay belum diketahui';
+  const state=data.gpio_level===onLevel?'on':'off';
+  if(data.reported_state!==state)return 'Status relay belum diketahui';
+  return `GPIO3 ${data.gpio_level===1?'HIGH':'LOW'} · ${state.toUpperCase()}`;
+}
 export function relayAction(data,state,reason,accountId){
   if(!data?.can_control||!['on','off'].includes(state)||!reason.trim())throw new Error('Periksa kesiapan perangkat dan isi alasan tindakan.');
   return newAction(`/api/owner/rooms/${encodeURIComponent(data.room_id)}/relay/commands`,'POST',
