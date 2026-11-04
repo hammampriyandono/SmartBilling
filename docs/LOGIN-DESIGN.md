@@ -5,9 +5,17 @@ Keputusan pengguna, 3 November 2026: maket menjadi latar besar dengan sedikit gr
 ## Implementasi
 
 - `web/login-screen.jsx` memisahkan presentasi login dari handler autentikasi di `web/auth.jsx`. Komponen memakai submit, error dan busy existing. Aktivasi dan pemeriksaan sesi tetap memakai alur existing.
-- `web/login-screen.css` memberi panel lebar dengan maket sebagai lapisan latar, gradasi cahaya lembut dan form di tengah. Form memakai permukaan putih transparan, blur latar 16 px dan bayangan. Pada HP form tetap menimpa latar; judul berada di atasnya dan gambar boleh terpotong mengikuti layar. Empat kartu bawah menerangkan fitur tanpa angka pengukuran rekaan. Tombol tampil/sembunyikan password memiliki nama aksesibel dan `aria-pressed`; autocomplete tetap tersedia.
+- `web/login-screen.css` memberi panel lebar dengan maket sebagai lapisan latar, gradasi cahaya lembut dan form di tengah. Form memakai permukaan putih transparan, blur latar 16 px dan bayangan. Pada desktop empat kartu bawah menerangkan fitur tanpa angka pengukuran rekaan. Tombol tampil/sembunyikan password memiliki nama aksesibel dan `aria-pressed`; autocomplete tetap tersedia.
 - `web/public/maket-kos-a05.webp` adalah interpretasi visual 3D berdasarkan maket tim, bukan foto prototipe atau indikator kondisi perangkat. Bentuk utamanya mempertahankan dua kamar, sekat tengah, teras, plafon transparan, tiga kotak sensor, mesin cuci kiri dan meter kanan.
 - Aset dibuat memakai **imagegen bawaan**, dengan render halaman 1 PDF sebagai referensi. PNG RGBA asli 1536 × 1024 disimpan di `.local/login-maket/maket-original.png`, kemudian dikodekan ke WebP dengan alpha dipertahankan, kualitas 90 dan alphaQuality 100. Aset aplikasi berukuran 159.962 byte; tidak memanggil layanan gambar eksternal dari browser.
+
+## Perapian HP — 4 November 2026
+
+Setelah menerima screenshot dari HP pada versi yang sudah dipublikasikan, layout sampai 760 px dibuat lebih ringkas. Margin panel bertingkat diganti satu margin yang mempertimbangkan safe area; judul mengikuti alur normal agar form tetap terpisah saat teks membesar. Maket tetap menjadi latar dengan opacity lebih rendah. Form memakai lebar konten penuh, input 16 px dengan tinggi minimal 50 px, tombol password 48 px, serta jarak yang lebih teratur. Ukuran halaman dapat bertambah dan digulir saat muncul pesan kesalahan atau area layar menyempit.
+
+Empat fitur tersedia melalui tombol **Kenali SplitzBill**, tertutup saat awal pada HP dan selalu terlihat di desktop. Tombol menggunakan `aria-expanded` dan `aria-controls`, dapat dioperasikan dengan keyboard, dan konten yang tertutup memakai `display: none`. Email memakai `autoCapitalize="none"` dan `spellCheck={false}`. Tidak menambahkan font, gambar, dependency atau layanan eksternal.
+
+Build Vite operational dan Docker `splitzbill-login-mobile:20261104` berhasil. Pemeriksaan Chrome headless mencakup 12 ukuran 320–1920 px, fitur dengan klik/keyboard, font 125%, viewport pendek, reduced motion, password, pesan login gagal, login pemilik/penghuni, logout dan tampilan aktivasi; tanpa luapan horizontal atau exception JavaScript. Screenshot dan hasilnya ada di `.local/login-mobile/`. Pengujian ini memakai emulasi, bukan keyboard HP fisik atau Safari. Versi baru tersedia di lokal port 3001; belum di-commit/push/deploy ke Railway.
 
 ## Identitas produk dan transisi
 

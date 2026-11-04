@@ -12,6 +12,7 @@ const features = [
 
 export function LoginScreen({onSubmit, busy, error}) {
   const [showPassword, setShowPassword] = useState(false);
+  const [showFeatures, setShowFeatures] = useState(false);
   return <main className="login-page login-experience">
     <div className="login-shell">
       <header className="login-masthead">
@@ -40,7 +41,7 @@ export function LoginScreen({onSubmit, busy, error}) {
             <span className="eyebrow">AKSES AKUN</span>
           </div>
           <div className="login-welcome"><h2 id="login-title">Selamat datang.</h2><p>Masuk untuk melihat energi dan tagihan Anda.</p></div>
-          <label htmlFor="login-email">Email<input id="login-email" type="email" name="email" autoComplete="username" required maxLength={254} placeholder="nama@email.com"/></label>
+          <label htmlFor="login-email">Email<input id="login-email" type="email" name="email" autoComplete="username" autoCapitalize="none" spellCheck={false} required maxLength={254} placeholder="nama@email.com"/></label>
           <label htmlFor="login-password">Password</label>
           <div className="login-password-field">
             <input id="login-password" type={showPassword?'text':'password'} name="password" autoComplete="current-password" required maxLength={1024} placeholder="Masukkan password"/>
@@ -53,11 +54,17 @@ export function LoginScreen({onSubmit, busy, error}) {
         </form>
       </div>
 
-      <section className="login-features" aria-label="Fitur SplitzBill">
-        {features.map(([icon,title,description],index)=><article key={icon}>
-          <div><span className="login-feature-icon"><Icon name={icon} size={20}/></span><span className="login-feature-number">0{index+1}</span></div>
-          <h2>{title}</h2><p>{description}</p>
-        </article>)}
+      <section className="login-features-section" aria-label="Fitur SplitzBill">
+        <button className="login-features-toggle" type="button" aria-expanded={showFeatures} aria-controls="login-features" onClick={()=>setShowFeatures(value=>!value)}>
+          <span>Kenali SplitzBill<span>Monitoring, fasilitas, dan tagihan</span></span>
+          <Icon name="chevron" size={18}/>
+        </button>
+        <div id="login-features" className={`login-features${showFeatures?' is-expanded':''}`}>
+          {features.map(([icon,title,description],index)=><article key={icon}>
+            <div><span className="login-feature-icon"><Icon name={icon} size={20}/></span><span className="login-feature-number">0{index+1}</span></div>
+            <h2>{title}</h2><p>{description}</p>
+          </article>)}
+        </div>
       </section>
       <footer className="login-footer"><span>SplitzBill · Capstone A-05</span><span>Energi tercatat, biaya lebih jelas.</span></footer>
     </div>
