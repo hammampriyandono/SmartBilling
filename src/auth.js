@@ -5,14 +5,15 @@ import { Router, json } from 'express';
 import { HttpError } from './http-input.js';
 import { hashPassword,verifyPassword } from './password.js';
 
-export function authentication(pool, { secret, origin='http://127.0.0.1:3000', cookieName='smartbilling.sid', lifetime=8*3600000,
+export function authentication(pool, { secret, origin='http://127.0.0.1:3000', cookieName='smartbilling.sid', lifetime=8*3600000, secureCookie=false,
   accountLimit=Number(process.env.AUTH_LOGIN_ACCOUNT_LIMIT||5),ipLimit=Number(process.env.AUTH_LOGIN_IP_LIMIT||30) }={}) {
   if (!secret || secret.length<32) throw new Error('Session secret belum tersedia');
   if(![accountLimit,ipLimit].every(v=>Number.isInteger(v)&&v>0&&v<=1000)) throw new Error('Batas login tidak valid');
   const Store=pgSession(session);
   const store=new Store({pool,tableName:'auth_sessions',createTableIfMissing:false,disableTouch:true,
     errorLog:()=>console.warn('Session store tidak tersedia.')});
-  const cookie={httpOnly:true,sameSite:'lax',secure:false,path:'/',maxAge:lifetime};
+  const cookieOptions={httpOnly:true,sameSite:'lax',secure:secureCookie,path:'/'};
+  const cookie={...cookieOptions,maxAge:lifetime};
   if(!/^[A-Za-z0-9_.-]{1,80}$/.test(cookieName))throw new Error('invalid_cookie_name');
   const middleware=session({name:cookieName,secret,store,resave:false,saveUninitialized:false,rolling:false,cookie});
   const router=Router(), attempts=new Map();
@@ -78,7 +79,7 @@ export function authentication(pool, { secret, origin='http://127.0.0.1:3000', c
   router.get('/me',requireUser,(req,res)=>res.json({user:req.user}));
   router.post('/logout',csrf,async(req,res)=>{
     await new Promise((resolve,reject)=>req.session.destroy(e=>e?reject(e):resolve()));
-    res.clearCookie(cookieName,{httpOnly:true,sameSite:'lax',secure:false,path:'/'}).sendStatus(204);
+    res.clearCookie(cookieName,cookieOptions).sendStatus(204);
   });
   return {middleware,router,requireUser,csrf,store};
 }

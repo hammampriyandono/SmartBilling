@@ -1,9 +1,8 @@
 import express from 'express';
 import { fileURLToPath } from 'node:url';
-import { readFileSync } from 'node:fs';
 import { authentication } from './auth.js';
 import { setTimeout as delay } from 'node:timers/promises';
-import { createPool, createMqtt, requireDevelopment, testTopic, replyPrefix } from './connections.js';
+import { createPool, createMqtt, testTopic, replyPrefix } from './connections.js';
 import { monitoringApi, apiError } from './monitoring-api.js';
 import { sensorPrefix,productionSensorPrefix } from './sensor-message.js';
 import { ingestSensor } from './sensor-ingest.js';
@@ -12,16 +11,17 @@ import {rfidApi} from './rfid-api.js';
 import {receiveRfidStatus,rfidDiagnosticsApi} from './rfid-status.js';
 import {masterApi} from './master-api.js';
 import {billingApi} from './billing-api.js';
-import {dataMode,subscribedTopics} from './runtime-mode.js';
+import {subscribedTopics} from './runtime-mode.js';
+import {httpConfiguration} from './runtime-config.js';
 import {tokenApi} from './token-api.js';
 import {deviceHealthApi} from './device-health-api.js';
 import {roomRelayApi,receiveRoomRelayReport,createRoomRelayWorker} from './room-relay.js';
 
-const mode=dataMode(process.env.DATA_MODE);
+const runtime=httpConfiguration();
+const mode=runtime.mode;
 const roomRelayEnabled=process.env.ROOM_RELAY_CONTROL_ENABLED==='true';
-requireDevelopment();
 const pool = createPool();
-const client = createMqtt(process.env.MQTT_CLIENT_ID||'smartbilling-simulation-backend-v1', { clean: false });
+const client = createMqtt(process.env.MQTT_CLIENT_ID||(runtime.environment==='production'?'splitzbill-backend-v1':'smartbilling-simulation-backend-v1'), { clean: false });
 let subscribed = false;
 let stopping = false;
 let ingestHealthy = true;
@@ -90,18 +90,19 @@ let roomRelayBusy=false;
 async function tickRoomRelay(){if(stopping||roomRelayBusy||!roomRelayEnabled)return;roomRelayBusy=true;try{await workRoomRelay();}catch{console.warn('Kontrol relay menunggu database; hasil perintah belum dikonfirmasi.');}finally{roomRelayBusy=false;}}
 const roomRelayTimer=setInterval(tickRoomRelay,1000);
 app.disable('x-powered-by');
-const auth=authentication(pool,{secret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim(),origin:process.env.AUTH_ORIGIN||'http://127.0.0.1:3000',cookieName:process.env.SESSION_COOKIE_NAME||'smartbilling.sid'});
+app.set('trust proxy',runtime.trustProxy);
+const auth=authentication(pool,{secret:runtime.sessionSecret,origin:runtime.origin,secureCookie:runtime.secureCookie,cookieName:process.env.SESSION_COOKIE_NAME||'smartbilling.sid'});
 app.use('/api',(_req,res,next)=>{res.set('Cache-Control','no-store');next();},auth.middleware);
 app.use('/api/auth',auth.router);
-app.use('/api',auth.requireUser,roomRelayApi(pool,{csrf:auth.csrf,idempotencySecret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim(),enabled:roomRelayEnabled}));
-app.use('/api',auth.requireUser,billingApi(pool,{csrf:auth.csrf,idempotencySecret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim()}));
-app.use('/api',auth.requireUser,tokenApi(pool,{csrf:auth.csrf,idempotencySecret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim()}));
-app.use('/api',auth.requireUser,deviceHealthApi(pool,{csrf:auth.csrf,idempotencySecret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim(),onlineSeconds:Number(process.env.DEVICE_HEALTH_ONLINE_SECONDS||180),offlineSeconds:Number(process.env.DEVICE_HEALTH_OFFLINE_SECONDS||900),maxGapSeconds:Number(process.env.MONITORING_MAX_GAP_SECONDS||120)}));
-app.use('/api',auth.requireUser,masterApi(pool,{csrf:auth.csrf,idempotencySecret:readFileSync(process.env.SESSION_SECRET_FILE,'utf8').trim()}));
+app.use('/api',auth.requireUser,roomRelayApi(pool,{csrf:auth.csrf,idempotencySecret:runtime.sessionSecret,enabled:roomRelayEnabled}));
+app.use('/api',auth.requireUser,billingApi(pool,{csrf:auth.csrf,idempotencySecret:runtime.sessionSecret}));
+app.use('/api',auth.requireUser,tokenApi(pool,{csrf:auth.csrf,idempotencySecret:runtime.sessionSecret}));
+app.use('/api',auth.requireUser,deviceHealthApi(pool,{csrf:auth.csrf,idempotencySecret:runtime.sessionSecret,onlineSeconds:Number(process.env.DEVICE_HEALTH_ONLINE_SECONDS||180),offlineSeconds:Number(process.env.DEVICE_HEALTH_OFFLINE_SECONDS||900),maxGapSeconds:Number(process.env.MONITORING_MAX_GAP_SECONDS||120)}));
+app.use('/api',auth.requireUser,masterApi(pool,{csrf:auth.csrf,idempotencySecret:runtime.sessionSecret}));
 app.use('/api',auth.requireUser,rfidApi(pool));
 app.use('/api',auth.requireUser,rfidDiagnosticsApi(pool));
 app.use('/api',auth.requireUser,monitoringApi(pool, { maxGapSeconds: Number(process.env.MONITORING_MAX_GAP_SECONDS || 120) }));
-app.get('/health/live', (_req, res) => res.json({ status: 'ok', environment: 'development' }));
+app.get('/health/live', (_req, res) => res.json({ status: 'ok', environment: runtime.environment }));
 app.get('/health/ready', async (_req, res) => {
   let database = false;
   try { await pool.query('SELECT 1'); database = true; } catch { /* Retry pada probe berikutnya. */ }
@@ -111,7 +112,7 @@ app.get('/health/ready', async (_req, res) => {
 });
 app.use(apiError);
 app.use(express.static(fileURLToPath(new URL('../dist/', import.meta.url)), { index: 'index.html' }));
-const server = app.listen(Number(process.env.PORT || 3000), process.env.BIND_HOST || '127.0.0.1', () => {
+const server = app.listen(runtime.port, runtime.host, () => {
   console.info('Backend minimum berjalan; endpoint /health/live dan /health/ready tersedia.');
 });
 

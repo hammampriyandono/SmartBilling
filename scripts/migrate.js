@@ -1,8 +1,9 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { createPool, requireDevelopment } from '../src/connections.js';
+import { createPool } from '../src/connections.js';
+import { runtimeEnvironment } from '../src/runtime-config.js';
 
-requireDevelopment();
+runtimeEnvironment();
 const pool = createPool({ timeout: 30000 });
 let connection;
 try {
