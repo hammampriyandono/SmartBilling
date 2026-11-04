@@ -16,6 +16,7 @@
 #else
 #include "secrets.h"
 #endif
+#include "mqtt_transport.h"
 #include "wifi_portal.h"
 #include "utc_sampling.h"
 
@@ -33,7 +34,7 @@ PersistentState state{};
 Preferences preferences;
 HardwareSerial pzemSerial(1);
 WifiPortal wifiPortal;
-WiFiClient network;
+MqttTransport network;
 MQTTClient mqtt(1024);
 std::atomic<bool> ntpSynced{false};
 char bootId[37];String dataTopic,statusTopic;
@@ -117,7 +118,7 @@ void sampleOnUtcBoundary(){
  if(tick==SamplingTick::due)sample(slotUs);
  else if(tick==SamplingTick::missed){sampleState="sampling_late";diagnosticDirty=true;Serial.println("Putaran UTC terlewat; menunggu awal menit berikutnya tanpa sampel pengganti.");}
 }
-bool networkTimeAvailable(){return !ntpSynced.load()||sampling.networkWindow(utcNowUs(),4000000ULL);}
+bool networkTimeAvailable(){return !ntpSynced.load()||sampling.networkWindow(utcNowUs(),MQTT_NETWORK_GUARD_US);}
 void setup(){
  Serial.begin(115200);delay(2000);Serial.println("PZEM -> dashboard SmartBilling, schema v1 / QoS1 / UTC minute sampling");
  loadState();makeBootId();pzemSerial.begin(9600,SERIAL_8N1,PZEM_RX_PIN,PZEM_TX_PIN);
@@ -126,14 +127,16 @@ void setup(){
  if(!wifiPortal.begin(WIFI_SSID,WIFI_PASSWORD,WIFI_SETUP_SSID,WIFI_SETUP_PASSWORD))halt("Konfigurasi Wi-Fi tidak valid/gagal disimpan; checkpoint sensor tidak dihapus.");
  esp_sntp_set_time_sync_notification_cb(timeReady);configTime(0,0,"pool.ntp.org","time.google.com");
  dataTopic=String("smartbilling/v1/devices/")+DEVICE_UID+"/readings";statusTopic=String("smartbilling/v1/devices/")+DEVICE_UID+"/status";
+ configureMqttTransport(network);
  mqtt.begin(MQTT_HOST,MQTT_PORT,network);mqtt.setOptions(30,true,3000);
  mqtt.setWill(statusTopic.c_str(),"{\"connected\":false}",true,1);
 }
 void loop(){
  sampleOnUtcBoundary();wifiPortal.tick();sampleOnUtcBoundary();const uint32_t now=millis();
  // Synchronous MQTT operations may block for three seconds. Reserve the last
- // four seconds before a boundary for sampling, while keeping Wi-Fi responsive.
- if(networkTimeAvailable()&&WiFi.status()==WL_CONNECTED&&!mqtt.connected()&&(lastMqttAttempt==0||now-lastMqttAttempt>=5000)){
+ // transport-specific interval before a boundary for sampling, while keeping
+ // Wi-Fi responsive. TLS connections wait for a synchronized clock.
+ if(networkTimeAvailable()&&mqttTransportReady(ntpSynced.load())&&WiFi.status()==WL_CONNECTED&&!mqtt.connected()&&(lastMqttAttempt==0||now-lastMqttAttempt>=5000)){
   lastMqttAttempt=now;
   if(mqtt.connect(DEVICE_UID,MQTT_USERNAME,MQTT_PASSWORD)){Serial.println("MQTT terhubung ke broker dashboard.");diagnosticDirty=true;lastStatusAttempt=0;}
   else Serial.printf("MQTT gagal: %d\n",int(mqtt.returnCode()));

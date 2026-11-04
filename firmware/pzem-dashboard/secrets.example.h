@@ -1,4 +1,7 @@
 #pragma once
+#define MQTT_USE_TLS 0
+// Cloud only: trusted PEM CA string, valid hostname/port and per-device account.
+// #define MQTT_CA_CERT R"PEM(<TRUSTED_MQTT_CA_PEM>)PEM"
 // Compile-only placeholders. Operational secrets live under ignored .local/.
 #define WIFI_SSID "<WIFI_SSID>"
 #define WIFI_PASSWORD "<WIFI_PASSWORD>"

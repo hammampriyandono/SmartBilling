@@ -1,5 +1,12 @@
 # Handoff Capstone A05
 
+## Kamar 1 dipasang firmware cloud; verifikasi rangkaian menunggu — 4 November 2026, 17.39 WIB
+
+- Pengguna memilih melanjutkan perangkat lain dan mengonfirmasi Kamar1 hanyaUSB. COM6 tersedia; upload memverifikasi MAC **10003bd0ccf0** dan firmwarelokald7f1a58e... lewat verify-flash sebelum menulis. Firmware baru hanya monitoring, **tanpa menambahkan relay atau mengubah GPIO3**.
+- `firmware/pzem-dashboard` mendapat transportTLS opt-in yang sama dengan sketchrelay: CA/hostname/NTP, koneksi+handshaketerbatas, guardTLS12detik/LAN4detik. Uji `test/pzem-mqtt-transport.test.js` lulus: setelah hanya perubahanjaringan dilepas, hashmain tepatbaselineb3b5e14 **f8e5211dbf53d6440fc424971ece65eb62a1e2660bc5fd35ce42491d210ecb9c**; frame/payload/counter/antrean/pin/profilportal tetap, dan tidak ada fungsi relay. Headertransportmandiri kedua sketch sama byte-normalized dan tercakup shimC++ yang sudah lulus.
+- BinaryKamar1 **1.155.536byte/SHA256919efe32da4a54966527d4e311e7cb1336ed77131b9ed0bf286542f8be56f4af**; sketch+dua sourceTLSdibangun ulang dari perintahArduino terverifikasi dan objekcore/libraryexisting. UploadCOM6 app0saja selesai **17:37:45,372WIB**, metadata/NVS64KiBidentikSHA256 **007080e9c772c0a852541b24ef0f1bec3b9c69eaded115ae8dbab34b96f3ab0c**, partitiontablecocok, tanpa erase-all/resetcounter. UIDesp32-pzem-10003bd0ccf0, endpointTLScenterbeam.proxy.rlwy.net:26654, akunperUID sendiri; Wi-FiHAQFAMS/suoweng tetaptersimpan. Artefak `.local/cloud-pilot/kamar1/`, termasuk rollback-local.bin danmetadataactual.
+- Mappingcloud Kamar1 **ac782899-605f-4c41-a6e7-a35b51faf610** ready. API17:39:02WIB masihlatestlama2November23:55WIB, bukan sampelbaru; USBsaja belum membuktikan PZEMvalid. Pengguna diminta memasang kembali Kamar1 saat catu mati, menyalakan rangkaian, lalu memasang meterutama10003bb82298 hanyaUSB untuk langkahberikutnya. Jawaban belum diterima pada saat bagian ini ditulis. Kandidatmeterutama disiapkanoffline; belum diupload. Kamar2cloud tetapberjalan, RFIDbelumdiubah.
+
 ## Pilot Kamar 2 Railway berhasil — 4 November 2026, 17.26 WIB
 
 - Pengguna mengonfirmasi **lampu bisa dikontrol dari situs Railway** sesudah firmwarecloud dipasang, dengan jeda pada lampu dan tampilan; pengguna menyatakan **tidak apa-apa**. Jangan melanjutkan optimasi latensi/reflash hanya demi memperluas lingkup. Target tetap ESP **10003bb78ff4**; ESPKamar1/utama/RFID masihfirmwarelokal, belum dipindahkan cloud pada tahapini.
