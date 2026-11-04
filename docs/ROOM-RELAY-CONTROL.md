@@ -14,6 +14,19 @@ Sebelum migrasi cloud, simpan snapshotdatabase dan sourceLF dari Git agar checks
 migrationexisting konsisten. Source/windowsCRLF tidak boleh mengubah metadata
 checksum production secara otomatis. Bindingcloud tetap disiapkan nonaktif hingga
 heartbeat nyata diperiksa. Perubahan ini tidak menyalakan pemutusan otomatis tagihan.
+Pada Windows, gunakan `git -c core.autocrlf=false -c core.eol=lf archive ...` dan
+verifikasi hash file hasil ekspor; git archive tanpa override masih dapat
+menghasilkan CRLF sesuai konfigurasi lokal. Uji restore+migration pada snapshot
+sebelum upload. Jangan mengubah checksum database untuk menyesuaikan artifact salah.
+
+Pilot Kamar2 berhasil4November: MQTTpublikTLS dan GPIOLOW/open-drain, heartbeat,
+commandACK serta pengukuranPZEM asli diterima Railway. Pengguna mengonfirmasi lampu
+dapat dikontrol dari situs publik. ReserveTLS12detik sebelum sampling menit dapat
+menunda penerimaan command; uji nyata request17:25:50,292 dikonfirmasi17:26:00,835WIB
+(sekitar10,5detik). publish_attempted_at adalah **percobaan publish terakhir**,
+bukan waktu pertama masuk antrean. UIpolling5detik menambah jeda tampilan.
+Pengguna menerima jeda ini untuk versi sekarang; jangan mengubah timing/firmware
+tanpa kebutuhan berikutnya. Mode TTL15detik/boot/sequence tetap dipertahankan.
 
 ## Mengganti driver setelah uji
 
