@@ -14,6 +14,9 @@ valid_password() {
 backend=${MQTT_BACKEND_USERNAME:-}
 valid_uid "$backend" || fail
 valid_password "${MQTT_BACKEND_PASSWORD:-}" || fail
+relay_uid=${ROOM_RELAY_DEVICE_UID:-}
+[ -z "$relay_uid" ] || valid_uid "$relay_uid" || fail
+relay_found=false
 auth_dir=$(mktemp -d /tmp/splitzbill-mqtt.XXXXXX)
 trap 'rm -rf "$auth_dir"' EXIT HUP INT TERM
 passwords=$auth_dir/passwords
@@ -28,6 +31,9 @@ printf '%s\n' "${MQTT_DEVICE_CREDENTIALS:-}" > "$auth_dir/devices"
  printf 'topic read smartbilling/v1/devices/+/rfid/taps\n'
  printf 'topic read smartbilling/v1/devices/+/rfid/status\n'
  printf 'topic write smartbilling/v1/devices/+/rfid/responses\n\n'
+ if [ -n "$relay_uid" ]; then
+  printf 'topic read smartbilling/v1/devices/%s/relay/status\ntopic write smartbilling/v1/devices/%s/relay/commands\n\n' "$relay_uid" "$relay_uid"
+ fi
 } > "$acl"
 while IFS='|' read -r uid role password extra; do
  [ -n "$uid$role$password$extra" ] || continue
@@ -45,8 +51,14 @@ while IFS='|' read -r uid role password extra; do
  if [ "$role" = rfid ] || [ "$role" = combined ]; then
   printf 'topic write smartbilling/v1/devices/%s/rfid/taps\ntopic write smartbilling/v1/devices/%s/rfid/status\ntopic read smartbilling/v1/devices/%s/rfid/responses\n' "$uid" "$uid" "$uid" >> "$acl"
  fi
+ if [ -n "$relay_uid" ] && [ "$uid" = "$relay_uid" ]; then
+  [ "$role" = sensor ] || [ "$role" = combined ] || fail
+  relay_found=true
+  printf 'topic read smartbilling/v1/devices/%s/relay/commands\ntopic write smartbilling/v1/devices/%s/relay/status\n' "$uid" "$uid" >> "$acl"
+ fi
  printf '\n' >> "$acl"
 done < "$auth_dir/devices"
+[ -z "$relay_uid" ] || [ "$relay_found" = true ] || fail
 mosquitto_passwd -U "$passwords" >/dev/null 2>&1 || fail
 rm "$auth_dir/users" "$auth_dir/devices"
 cat > "$config" <<CONF

@@ -1,5 +1,20 @@
 # Kontrol relay kamar — persiapan tanpa ESP
 
+## Persiapan Railway
+
+Broker production mendukung `ROOM_RELAY_DEVICE_UID` opsional untuk satu akun
+sensor/combined yang terdaftar. Backend hanya memperoleh read status/write
+commands relay target tersebut; perangkat target sebaliknya. Nilai kosong tetap
+tertutup, UID tak terdaftar/roleRFID biasa menggagalkan startup. ACL telemetri dan
+RFID existing dipertahankan. Pengujian `node scripts/test-production-relay-broker.js`
+memakai namespace Docker networknone; tidak mengirim ke perangkat nyata.
+Firmware cloud mengaktifkan TLS untuk telemetri dan relay melalui mqtt_transport.h,
+dengan CA/hostname serta NTP; driver dan aturan command tetap sama.
+Sebelum migrasi cloud, simpan snapshotdatabase dan sourceLF dari Git agar checksum
+migrationexisting konsisten. Source/windowsCRLF tidak boleh mengubah metadata
+checksum production secara otomatis. Bindingcloud tetap disiapkan nonaktif hingga
+heartbeat nyata diperiksa. Perubahan ini tidak menyalakan pemutusan otomatis tagihan.
+
 ## Mengganti driver setelah uji
 
 Jika binding sudah memiliki history, polaritas record lama tetap immutable.

@@ -13,3 +13,7 @@
 #define SAMPLE_INTERVAL_MS 60000UL
 // 1 selects LOW=ON; the binding must use gpio_on_level=0.
 #define ROOM_RELAY_ACTIVE_LOW 0
+// Cloud: use verified hostname/port and a static-lifetime PEM CA string.
+// Both telemetry and relay use this same TLS setting; NTP must be ready.
+#define MQTT_USE_TLS 0
+// #define MQTT_CA_CERT R"PEM(<TRUSTED_MQTT_CA_PEM>)PEM"

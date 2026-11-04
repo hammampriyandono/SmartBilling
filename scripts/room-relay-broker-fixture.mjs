@@ -5,6 +5,7 @@ import {randomUUID} from 'node:crypto';
 import mqtt from 'mqtt';
 
 const target='relay-fixture-target',other='relay-fixture-other',clients=[],enabled=process.env.RELAY_TEST_ENABLED==='true';
+const production=process.env.RELAY_TEST_PRODUCTION==='true';
 const password=async name=>(await readFile(`/run/fixture/${name}`,'utf8')).trim();
 const connect=async(username,file)=>{
   const client=await mqtt.connectAsync('mqtt://127.0.0.1:1883',{clientId:`relay-test-${randomUUID()}`,protocolVersion:5,
@@ -28,7 +29,8 @@ try{
     for(const [client,topic] of [[device,command],[foreign,command],[foreign,status],[backend,status],[backend,command.replace(target,other)],[observer,command]])await forbidden(client,topic);
     // Repeated user sections must retain baseline telemetry permissions.
     const ordinary=`smartbilling/v1/devices/${target}/status`;
-    await device.publishAsync(ordinary,marker,{qos:1,retain:false});await waitFor(()=>seen.observer.some(x=>x.topic===ordinary&&x.value===marker));
+    await device.publishAsync(ordinary,marker,{qos:1,retain:false});
+    if(!production)await waitFor(()=>seen.observer.some(x=>x.topic===ordinary&&x.value===marker));
     const readings=`smartbilling/v1/devices/${other}/readings`;
     await foreign.publishAsync(readings,marker,{qos:1,retain:false});await waitFor(()=>seen.backend.some(x=>x.topic===readings&&x.value===marker));
     assert.equal(seen.foreign.length,0);

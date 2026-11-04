@@ -4,6 +4,7 @@
 #include <time.h>
 #include "relay_command_guard.h"
 #include "relay_control.h"
+#include "mqtt_transport.h"
 extern "C" {
 #include <lwmqtt/lwmqtt.h>
 }
@@ -17,7 +18,7 @@ namespace RelayDashboard {
 static_assert(RELAY_PIN==3,"Relay dashboard requires GPIO3.");
 struct Timer {uint32_t start=0,timeout=0;};
 struct Cached {char id[37]{},wire[512]{},report[640]{};};
-static WiFiClient socket;
+static MqttTransport socket;
 static lwmqtt_client_t client;
 static uint8_t readBuffer[1024],writeBuffer[1024];
 static Timer timer1,timer2;
@@ -33,13 +34,13 @@ static int previousLevel=-1;
 inline void timerSet(void* ref,uint32_t timeout){auto* t=static_cast<Timer*>(ref);t->start=millis();t->timeout=timeout;}
 inline int32_t timerGet(void* ref){auto* t=static_cast<Timer*>(ref);const uint32_t elapsed=millis()-t->start;return elapsed>=t->timeout?0:int32_t(t->timeout-elapsed);}
 inline lwmqtt_err_t networkRead(void* ref,uint8_t* buffer,size_t length,size_t* received,uint32_t timeout){
-  auto* stream=static_cast<WiFiClient*>(ref);*received=0;const uint32_t start=millis();
+  auto* stream=static_cast<MqttTransport*>(ref);*received=0;const uint32_t start=millis();
   while(*received<length&&uint32_t(millis()-start)<timeout){const int n=stream->read(buffer+*received,length-*received);
     if(n>0)*received+=size_t(n);else if(!stream->connected())return LWMQTT_NETWORK_FAILED_READ;else delay(1);}
   return *received?LWMQTT_SUCCESS:LWMQTT_NETWORK_TIMEOUT;
 }
 inline lwmqtt_err_t networkWrite(void* ref,uint8_t* buffer,size_t length,size_t* sent,uint32_t){
-  *sent=static_cast<WiFiClient*>(ref)->write(buffer,length);return *sent==length?LWMQTT_SUCCESS:LWMQTT_NETWORK_FAILED_WRITE;
+  *sent=static_cast<MqttTransport*>(ref)->write(buffer,length);return *sent==length?LWMQTT_SUCCESS:LWMQTT_NETWORK_FAILED_WRITE;
 }
 inline void receive(lwmqtt_client_t*,void*,lwmqtt_string_t topic,lwmqtt_message_t message){
   if(hasIncoming||message.retained||message.qos!=LWMQTT_QOS1||lwmqtt_strcmp(topic,commandTopic)||!message.payload||message.payload_len>=sizeof(incoming))return;
@@ -93,6 +94,7 @@ inline void process(){
 }
 inline void disconnect(){socket.stop();online=false;hasIncoming=false;}
 inline void begin(const char* boot,bool (*clockReady)(),uint64_t (*utcNow)()){
+  configureMqttTransport(socket);
   strlcpy(bootId,boot,sizeof(bootId));ready=clockReady;utcUs=utcNow;
   snprintf(commandTopic,sizeof(commandTopic),"smartbilling/v1/devices/%s/relay/commands",DEVICE_UID);
   snprintf(statusTopic,sizeof(statusTopic),"smartbilling/v1/devices/%s/relay/status",DEVICE_UID);

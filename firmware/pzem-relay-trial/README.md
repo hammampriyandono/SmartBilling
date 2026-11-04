@@ -1,5 +1,19 @@
 # PZEM + relay — source uji tim elektro
 
+## Transport Railway opsional
+
+Default `MQTT_USE_TLS=0` mempertahankan koneksi broker LAN. Pilot cloud memakai
+`MQTT_USE_TLS=1`, hostname publik broker, port TLS, akun perangkat unik dan
+`MQTT_CA_CERT` berupa PEM CA terpercaya dalam konfigurasi privat. Kedua koneksi
+(telemetri dan relay) memakai CA yang sama; tidak ada fallback plaintext atau
+setInsecure. Koneksi TLS menunggu NTP. Timeout koneksi2detik/handshake2detik;
+jendela jaringan ditutup12detik sebelum sampling menit (LAN tetap4detik).
+Sampel terlambat tetap ditandai/dilewati sesuai aturanexisting, tanpa waktu buatan.
+Driver GPIO3LOW=ON/open-drain yang sudah teruji tidak berubah karena transport.
+Uji shim C++ mencakup kedua transport, CA pada kedua client dan gateclock.
+Panduan CA/hostname mengikuti library Espressif NetworkClientSecure; implementasi
+diverifikasi terhadap header core ArduinoESP32 3.3.8 yang terpasang.
+
 ## Polaritas per instalasi — 4 November 2026
 
 `ROOM_RELAY_ACTIVE_LOW=1` pada secrets.h privat memilih GPIO3 LOW=ON/HIGH=OFF
