@@ -1,1 +1,112 @@
-.room-relay{margin:24px 0;padding:24px}.room-relay .panel-heading{padding:0}.room-relay p{line-height:1.6}.room-relay-buttons{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}.room-relay-status{padding:12px 16px;background:var(--sb-surface-soft);border-radius:8px}.room-relay-confirm{border:1px solid var(--sb-line);border-radius:10px;padding:18px;margin:20px 0}.room-relay-confirm label{display:grid;gap:8px;margin:16px 0}.room-relay-confirm textarea{width:100%;min-height:85px;box-sizing:border-box}.room-relay-confirm button{margin:0 12px 8px 0}.room-relay caption{text-align:left;font-weight:600;margin:16px 0}.room-relay td small{display:block}.room-relay button:disabled{opacity:.55;cursor:not-allowed}
+.room-relay {
+  margin: 24px 0;
+  padding: 24px;
+}
+
+.room-relay .panel-heading { padding: 0; }
+.room-relay p { line-height: 1.6; }
+
+.room-relay-buttons,
+.room-relay-confirm-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.room-relay-buttons { margin: 22px 0; }
+
+.room-relay button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 11px 17px;
+  border: 1px solid var(--sb-control-line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--sb-ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  box-shadow: 0 2px 4px #192d4806;
+}
+
+.room-relay button svg { flex-shrink: 0; }
+
+.room-relay .relay-primary {
+  border-color: var(--sb-primary);
+  background: var(--sb-primary);
+  color: #fff;
+}
+
+.room-relay .relay-secondary {
+  border-color: var(--sb-selected-line);
+  background: var(--sb-selected);
+  color: var(--sb-primary);
+}
+
+@media (hover: hover) {
+  .room-relay button:hover:not(:disabled) {
+    border-color: var(--sb-primary);
+    background: var(--sb-selected);
+    box-shadow: 0 3px 8px #192d4812;
+  }
+
+  .room-relay .relay-primary:hover:not(:disabled) {
+    background: var(--sb-primary-hover);
+    border-color: var(--sb-primary-hover);
+  }
+}
+
+.room-relay button:disabled {
+  border-color: var(--sb-line);
+  background: var(--sb-canvas);
+  color: var(--sb-muted);
+  box-shadow: none;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.room-relay-status {
+  padding: 12px 16px;
+  background: var(--sb-surface-soft);
+  border-radius: 10px;
+}
+
+.room-relay-confirm {
+  border: 1px solid var(--sb-line);
+  border-radius: 14px;
+  background: var(--sb-surface-soft);
+  padding: 18px;
+  margin: 20px 0;
+}
+
+.room-relay-confirm h3 { margin: 0; }
+.room-relay-confirm label { display: grid; gap: 8px; margin: 16px 0; }
+
+.room-relay-confirm textarea {
+  width: 100%;
+  min-height: 104px;
+  padding: 11px 13px;
+  border: 1px solid var(--sb-control-line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--sb-ink);
+  font: inherit;
+  resize: vertical;
+}
+
+.room-relay caption { text-align: left; font-weight: 600; margin: 16px 0; }
+.room-relay td small { display: block; }
+
+@media (max-width: 720px) {
+  .room-relay { padding: 16px; }
+  .room-relay-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .room-relay-buttons > button:last-child { grid-column: 1 / -1; }
+  .room-relay-confirm { padding: 14px; }
+  .room-relay-confirm-actions > button { flex: 1 1 auto; }
+  .room-relay caption { display: block; }
+}

@@ -1,5 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {loadRoomRelay,relayAction,sendRelayAction,relayStateLabel,relayBlocked,relayCommandLabel} from './room-relay-data.js';
+import {Icon} from './interface-icon.jsx';
 import './room-relay.css';
 
 const when=value=>value?new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',dateStyle:'medium',timeStyle:'medium'}).format(new Date(value))+' WIB':'Belum tersedia';
@@ -36,14 +37,20 @@ function OwnerRoomRelay({user,meter}){
     {error&&<p className="error" role="alert">{error}</p>}
     {notice&&<p role="status">{notice}</p>}
     {!data&&!error&&<p role="status">Memeriksa kesiapan kontrol…</p>}
-    <div className="room-relay-buttons"><button type="button" disabled={!data?.can_control||Boolean(pending)||busy} onClick={()=>{setChoice('on');setReason('');setNotice('');}}>Minta ON</button><button type="button" disabled={!data?.can_control||Boolean(pending)||busy} onClick={()=>{setChoice('off');setReason('');setNotice('');}}>Minta OFF</button><button type="button" disabled={busy} onClick={()=>setRefresh(v=>v+1)}>Perbarui status</button></div>
+    <div className="room-relay-buttons">
+      <button className="relay-primary" type="button" disabled={!data?.can_control||Boolean(pending)||busy} onClick={()=>{setChoice('on');setReason('');setNotice('');}}><Icon name="powerSwitch" size={17}/>Minta ON</button>
+      <button className="relay-secondary" type="button" disabled={!data?.can_control||Boolean(pending)||busy} onClick={()=>{setChoice('off');setReason('');setNotice('');}}><Icon name="powerSwitch" size={17}/>Minta OFF</button>
+      <button type="button" disabled={busy} onClick={()=>setRefresh(v=>v+1)}><Icon name="refresh" size={17}/>Perbarui status</button>
+    </div>
     {choice&&<form className="room-relay-confirm" onSubmit={submit}>
       <h3>Konfirmasi permintaan {choice.toUpperCase()}</h3><p>Tujuan: {data?.room_name||'Kamar yang dipilih'} · {data?.device_uid||'Perangkat belum tersedia'}</p>
       <label>Alasan tindakan<textarea value={reason} required maxLength={500} disabled={Boolean(pending)||busy} onChange={e=>setReason(e.target.value)}/></label>
-      <button disabled={busy||(!pending&&!data?.can_control)}>{busy?'Mengirim…':pending?'Periksa / ulangi permintaan yang sama':`Kirim permintaan ${choice.toUpperCase()}`}</button>
-      {!pending&&!busy&&<button type="button" onClick={()=>setChoice(null)}>Batal</button>}
+      <div className="room-relay-confirm-actions">
+        <button className="relay-primary" type="submit" disabled={busy||(!pending&&!data?.can_control)}>{busy?'Mengirim…':pending?'Periksa / ulangi permintaan yang sama':`Kirim permintaan ${choice.toUpperCase()}`}</button>
+        {!pending&&!busy&&<button type="button" onClick={()=>setChoice(null)}>Batal</button>}
+      </div>
     </form>}
-    {Boolean(data?.history.length)&&<div className="billing-table-wrap"><table className="billing-table"><caption>Riwayat kontrol kamar</caption><thead><tr><th>Waktu</th><th>Permintaan</th><th>Hasil</th><th>Alasan owner</th></tr></thead><tbody>{data.history.map(c=><tr key={c.id}><td>{when(c.issued_at)}</td><td>{c.desired_state.toUpperCase()}</td><td>{relayCommandLabel[c.status]||'Belum diketahui'}{c.confirmed_at&&<small>{when(c.confirmed_at)}</small>}</td><td>{c.reason}</td></tr>)}</tbody></table></div>}
+    {Boolean(data?.history.length)&&<div className="billing-table-wrap"><table className="billing-table"><caption>Riwayat kontrol kamar</caption><thead><tr><th>Waktu</th><th>Permintaan</th><th>Hasil</th><th>Alasan owner</th></tr></thead><tbody>{data.history.map(c=><tr key={c.id}><td data-label="Waktu">{when(c.issued_at)}</td><td data-label="Permintaan">{c.desired_state.toUpperCase()}</td><td data-label="Hasil">{relayCommandLabel[c.status]||'Belum diketahui'}{c.confirmed_at&&<small>{when(c.confirmed_at)}</small>}</td><td data-label="Alasan owner">{c.reason}</td></tr>)}</tbody></table></div>}
     <p className="subtle">Status menunjukkan laporan relay dari perangkat. Kondisi listrik pada jalur kamar perlu diperiksa langsung.</p>
   </section>;
 }

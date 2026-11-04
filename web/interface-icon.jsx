@@ -9,6 +9,7 @@ const paths = {
   admin: 'M3 7h5m6 0h7 M3 17h10m6 0h2 M8 4h5v6H8z M13 14h5v6h-5z',
   more: 'M3 4h7v7H3z M14 4h7v7h-7z M3 15h7v6H3z M14 15h7v6h-7z',
   power: 'm14 2-10 12h7l-1 8 10-13h-7z',
+  powerSwitch: 'M12 3v9 M6.5 5.5a9 9 0 1 0 11 0',
   energy: 'm3 7 9-5 9 5-9 5z M3 12l9 5 9-5 M3 17l9 5 9-5',
   voltage: 'M2 13c4 0 3-8 7-8s3 14 7 14 3-8 6-8',
   current: 'M3 7h15m-4-4 4 4-4 4 M21 17H6m4-4-4 4 4 4',
