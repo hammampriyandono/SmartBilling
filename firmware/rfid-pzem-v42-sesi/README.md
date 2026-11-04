@@ -34,6 +34,21 @@ jendela kehilangan saat daya putus. Dua outbox bukan satu transaksi lintas
 namespace; kehilangan salah satu bukti menghasilkan energi unavailable.
 Layout dan namespace NVS yang sudah dipakai tidak dihapus atau diganti.
 
+## Dua jaringan Wi-Fi
+
+`WIFI_SSID`/`WIFI_PASSWORD` tetap jaringan pertama. Opsional
+`WIFI_FALLBACK_SSID`/`WIFI_FALLBACK_PASSWORD` pada secrets.h privat menambahkan
+jaringan kedua. Saat belum tersambung, percobaan bergantian mengikuti interval
+ulang existing 20 detik; koneksi yang masih tersambung dipertahankan. Tombol
+existing menyambung ulang profil yang sedang dipilih. Tanpa fallback, perilaku
+satu jaringan tetap. Kedua jaringan harus tersedia pada 2,4 GHz dan menyediakan
+akses ke broker yang sama. Ini konfigurasi firmware, bukan portal profil PZEM.
+Alamat broker LAN perlu disesuaikan jika IP laptop berubah.
+
+Pemilihan jaringan tidak mengubah otorisasi kartu, pin/relay, countdown, pembacaan
+batas sesi, payload MQTT atau penyimpanan NVS. Uji sambungan dan tap fisik tetap
+diperlukan setelah pemasangan; hasilnya dicatat di HANDOFF.
+
 Counter dikirim dari Wh integer sebagai kWh dengan tiga desimal. Karena itu
 selisih sesi pendek pada kipas kecil dapat0kWh walau ada daya: counter belum
 bertambah1Wh. Nol hanya sah bila kedua batas valid dan counternya memang sama;

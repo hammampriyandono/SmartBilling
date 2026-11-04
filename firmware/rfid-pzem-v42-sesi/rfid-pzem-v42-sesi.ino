@@ -30,6 +30,12 @@
 #ifndef WIFI_PASSWORD
 #define WIFI_PASSWORD ""
 #endif
+#ifndef WIFI_FALLBACK_SSID
+#define WIFI_FALLBACK_SSID ""
+#endif
+#ifndef WIFI_FALLBACK_PASSWORD
+#define WIFI_FALLBACK_PASSWORD ""
+#endif
 
 // MQTT opsional. 0 = mati (data hanya tampil di Serial Monitor).
 // Isi 1 bila backend/dashboard sudah siap menerima topik di bawah (butuh library PubSubClient).
@@ -214,6 +220,7 @@ uint32_t sessionStartMs = 0;
 
 // ---------------- WiFi & tombol ----------------
 const bool wifiConfigured = sizeof(WIFI_SSID) > 1;
+bool wifiUseFallback = false;
 uint32_t wifiLastTry = 0;
 bool wifiWasConnected = false;
 bool buttonLastRaw = HIGH;
@@ -816,9 +823,11 @@ void wifiConnect(const char *reason) {
         Serial.println("[WIFI] WIFI_SSID kosong. Isi secrets.h untuk memakai WiFi.");
         return;
     }
-    Serial.printf("[WIFI] Menyambung ke \"%s\" (%s)...\n", WIFI_SSID, reason);
+    const char *ssid = wifiUseFallback ? WIFI_FALLBACK_SSID : WIFI_SSID;
+    const char *password = wifiUseFallback ? WIFI_FALLBACK_PASSWORD : WIFI_PASSWORD;
+    Serial.printf("[WIFI] Menyambung ke \"%s\" (%s)...\n", ssid, reason);
     WiFi.disconnect(false, false);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    WiFi.begin(ssid, password);
     wifiLastTry = millis();
 }
 
@@ -900,7 +909,10 @@ void updateWiFi() {
                                      WiFi.localIP().toString().c_str(), WiFi.RSSI());
         else Serial.println("[WIFI] Terputus. Coba ulang otomatis, atau tekan tombol.");
     }
-    if (!connected && millis() - wifiLastTry >= WIFI_RETRY_MS) wifiConnect("otomatis");
+    if (!connected && millis() - wifiLastTry >= WIFI_RETRY_MS) {
+        if (sizeof(WIFI_FALLBACK_SSID) > 1) wifiUseFallback = !wifiUseFallback;
+        wifiConnect("otomatis");
+    }
 #if ENABLE_MQTT
     updateMQTT();
 #endif
