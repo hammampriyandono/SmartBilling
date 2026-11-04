@@ -2,6 +2,12 @@
 
 Panduan 4 November 2026. Repository membawa kode, bukan akun, tarif, tagihan atau pengamatan PostgreSQL lokal. Jangan menjalankan seed/demo di cloud. Migrasi skema dijalankan sebelum backend dimulai; pemindahan data nyata merupakan langkah tersendiri.
 
+## Instalasi aktif setelah transfer data
+
+Backend pada [dashboard Railway](https://splitzbilla05.up.railway.app) telah Online dan datanya dipindahkan4November2026. Domain dipersingkat sesuai pilihan pengguna; AUTH_ORIGIN mengikuti `https://${{RAILWAY_PUBLIC_DOMAIN}}` dan login ketigaakun sudah diuji setelah redeploy. **DATABASE_URL Backend sekarang menuju `splitzbill_prod_20261104`** pada service Postgres yang sama. Databaseawal `railway` tetap disimpan kosong sebagai cadangan sebelum transfer; contoh umum `${{Postgres.DATABASE_URL}}` di bawah berlaku untuk setup baru dan tidak menunjuk dataset aktif ini. File privat `.local/railway-setup/backend-variables.env` sudah mengikuti konfigurasi aktif.
+
+Tiga akun existing (owner/Gloria/Rozan),2.430reading,22sesiRFID dan3periode tagihan ikut dipindahkan, tanpa sesi login lama/fixture. Login dan isolasi tenant, snapshot tagihan final serta readiness PostgreSQL/MQTT terverifikasi. Backup/receipt privat ditunjuk `.local/railway-setup/local-backup-pointer.json`; kunci SSH sementara transfer sudah dicabut. ESP dan listenerMQTTTLS publik belum dikonfigurasi. Rincian pemeriksaan serta penyesuaian checksumCRLF/LF saat restore ada di HANDOFF.
+
 ## Persiapan kode
 
 - Backend memakai Dockerfile Node22, build frontend operational, migrasi pre-deploy dan healthcheck `/health/ready`. Broker memakai `Dockerfile.mqtt`. Pengaturan Build/Deploy diisi langsung pada setiap service sesuai langkah di bawah.
