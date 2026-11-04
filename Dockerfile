@@ -6,7 +6,7 @@ COPY web ./web
 COPY src/display-policy.js ./src/display-policy.js
 COPY src/billing-policy.js ./src/billing-policy.js
 COPY vite.config.js ./
-ARG VITE_DATA_MODE=archive
+ARG VITE_DATA_MODE=operational
 ENV VITE_DATA_MODE=$VITE_DATA_MODE
 RUN npm run build
 
@@ -22,6 +22,6 @@ COPY --chown=node:node test ./test
 COPY --chown=node:node web/data.js ./web/data.js
 COPY --from=dashboard-build --chown=node:node /app/dist ./dist
 USER node
-ENV NODE_ENV=development
+ENV NODE_ENV=production
 EXPOSE 3000
 CMD ["node", "src/server.js"]

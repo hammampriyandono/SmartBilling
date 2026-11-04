@@ -1,0 +1,4 @@
+FROM eclipse-mosquitto:2
+COPY --chmod=755 docker/mosquitto/start-production.sh /opt/splitzbill/start.sh
+EXPOSE 1883 8883
+ENTRYPOINT ["/bin/sh", "/opt/splitzbill/start.sh"]

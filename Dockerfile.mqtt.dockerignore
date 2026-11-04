@@ -1,0 +1,4 @@
+*
+!docker/
+!docker/mosquitto/
+!docker/mosquitto/start-production.sh

@@ -40,7 +40,10 @@ services:
     networks: [development]
 
   backend:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_DATA_MODE: archive
     init: true
     environment: &backend_environment
       APP_ENV: development
