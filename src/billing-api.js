@@ -59,6 +59,27 @@ export function billingApi(pool,{csrf,idempotencySecret}={}){
  r.post('/owner/billing-periods/:id/finalize',mutate,async(req,res)=>{allowed(req.body,['row_version','reason']);const out=await tx(req,async db=>{const old=await period(db,req.params.id,req.user.id);if(old.row_version!==req.body.row_version)throw new HttpError(409,'stale_version');if(old.policy_snapshot?.preview_tariff)throw new HttpError(409,'preview_tariff_not_finalizable');if(old.source!=='production')throw new HttpError(409,'simulation_not_finalizable');if(old.policy_snapshot?.shared_allocation==='equal_active_occupants_v1'&&!old.shared_summary?.complete)throw new HttpError(409,'shared_billing_review');if((await db.query("SELECT 1 FROM room_bills WHERE billing_period_id=$1 AND status<>'finalized' LIMIT 1",[old.id])).rowCount)throw new HttpError(409,'room_bill_review');if(!(await db.query('SELECT 1 FROM room_bills WHERE billing_period_id=$1 LIMIT 1',[old.id])).rowCount)throw new HttpError(409,'billing_not_calculated');if(old.supersedes_period_id)await db.query("UPDATE billing_periods SET status='superseded',row_version=row_version+1,updated_at=now() WHERE id=$1 AND status='finalized'",[old.supersedes_period_id]);const total=(await db.query('SELECT sum(total_cost_rp)::numeric(18,0) total FROM room_bills WHERE billing_period_id=$1',[old.id])).rows[0].total,row=(await db.query("UPDATE billing_periods SET status='finalized',total_cost_rp=$2,finalized_at=now(),finalized_by=$3,row_version=row_version+1,updated_at=now() WHERE id=$1 RETURNING *",[old.id,total,req.user.id])).rows[0];await audit(db,req,old.property_id,'finalize_billing',old.id,old,row,txt(req.body.reason,500));return row;});res.json({data:out});});
  r.post('/owner/billing-periods/:id/corrections',mutate,async(req,res)=>{allowed(req.body,['reason']);const out=await tx(req,async db=>{const old=await period(db,req.params.id,req.user.id);if(old.status!=='finalized')throw new HttpError(409,'finalized_period_required');const id=randomUUID(),row=(await db.query(`INSERT INTO billing_periods(id,property_id,starts_at,ends_at,revision_no,revision_kind,supersedes_period_id,source,calculation_version,policy_snapshot,created_by) VALUES($1,$2,$3,$4,$5,'correction',$6,'production',$7,$8,$9) RETURNING *`,[id,old.property_id,old.starts_at,old.ends_at,old.revision_no+1,old.id,old.calculation_version,old.policy_snapshot,req.user.id])).rows[0];await audit(db,req,old.property_id,'correct_billing',id,old,row,txt(req.body.reason,500));return row;});res.status(201).json({data:out});});
  r.get('/billing-periods',async(req,res)=>{const q=await pool.query(`SELECT DISTINCT bp.id,bp.starts_at,bp.ends_at,bp.status,bp.revision_no,bp.source,bp.tariff_snapshot FROM billing_periods bp JOIN room_bills rb ON rb.billing_period_id=bp.id JOIN bill_shares bs ON bs.room_bill_id=rb.id JOIN occupancies o ON o.id=bs.occupancy_id WHERE bp.status='finalized' AND o.user_id=$1 ${billingObservationSql(req.query)} ORDER BY bp.starts_at DESC`,[req.user.id]);res.json({data:q.rows});});
- r.get('/billing-periods/:id',async(req,res)=>{const q=await pool.query(`SELECT bp.id,bp.starts_at,bp.ends_at,bp.status,bp.revision_no,bp.source,bp.tariff_snapshot,rb.id room_bill_id,rb.room_id,bs.id share_id,bs.occupancy_id,bs.room_energy_kwh,bs.attributable_energy_kwh,bs.shared_energy_kwh,bs.shared_cost_rp,bs.room_cost_rp,bs.attributable_cost_rp,bs.rounding_adjustment_rp,bs.total_cost_rp,COALESCE(ps.status,'unpaid') payment_status,ps.paid_at,ps.paid_note,COALESCE(ps.row_version,0) payment_row_version FROM billing_periods bp JOIN room_bills rb ON rb.billing_period_id=bp.id JOIN bill_shares bs ON bs.room_bill_id=rb.id JOIN occupancies o ON o.id=bs.occupancy_id LEFT JOIN bill_payment_states ps ON ps.bill_share_id=bs.id WHERE bp.id=$1 AND bp.status='finalized' AND o.user_id=$2`,[uuid(req.params.id),req.user.id]);if(!q.rowCount)throw new HttpError(404,'billing_period_not_found');res.json({data:q.rows});});
+ r.get('/billing-periods/:id',async(req,res)=>{
+  const q=await pool.query(`SELECT bp.id,bp.starts_at,bp.ends_at,bp.status,bp.revision_no,bp.source,bp.tariff_snapshot,
+   rb.id room_bill_id,rb.room_id,bs.id share_id,bs.occupancy_id,bs.room_energy_kwh,bs.attributable_energy_kwh,
+   bs.shared_energy_kwh,bs.shared_cost_rp,bs.room_cost_rp,bs.attributable_cost_rp,bs.rounding_adjustment_rp,bs.total_cost_rp,
+   COALESCE(ps.status,'unpaid') payment_status,ps.paid_at,ps.paid_note,COALESCE(ps.row_version,0) payment_row_version,
+   COALESCE((SELECT jsonb_agg(jsonb_build_object(
+    'segment_starts_at',s.segment_starts_at,'segment_ends_at',s.segment_ends_at,
+    'start_energy_kwh',s.start_energy_kwh::text,'end_energy_kwh',s.end_energy_kwh::text,
+    'consumption_kwh',s.consumption_kwh::text,'quality',s.quality,
+    'measured_starts_at',s.calculation_evidence->>'measured_starts_at',
+    'measured_ends_at',s.calculation_evidence->>'measured_ends_at'
+   ) ORDER BY s.segment_starts_at,s.segment_ends_at,s.id)
+    FROM billing_meter_segments s JOIN meters m ON m.id=s.meter_id
+    WHERE s.billing_period_id=bp.id AND s.room_id=rb.room_id AND m.kind='room'
+     AND m.room_id=rb.room_id AND m.property_id=bp.property_id
+     AND s.segment_starts_at>=o.starts_at AND (o.ends_at IS NULL OR s.segment_ends_at<=o.ends_at)
+   ),'[]'::jsonb) meter_segments
+   FROM billing_periods bp JOIN room_bills rb ON rb.billing_period_id=bp.id JOIN bill_shares bs ON bs.room_bill_id=rb.id
+   JOIN occupancies o ON o.id=bs.occupancy_id LEFT JOIN bill_payment_states ps ON ps.bill_share_id=bs.id
+   WHERE bp.id=$1 AND bp.status='finalized' AND o.user_id=$2`,[uuid(req.params.id),req.user.id]);
+  if(!q.rowCount)throw new HttpError(404,'billing_period_not_found');res.json({data:q.rows});
+ });
  return r;
 }

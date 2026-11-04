@@ -8,9 +8,10 @@ export const estimateRupiah=value=>value===null||value===undefined?'Belum tersed
 export function estimateRate(value){
  if(typeof value!=='string'||!/^\d+(\.\d{1,12})?$/.test(value))return 'Perlu ditinjau';
  const [whole,fraction='']=value.split('.'),decimal=fraction.replace(/0+$/,'');
- return `Rp${new Intl.NumberFormat('id-ID').format(BigInt(whole))}${decimal?','+decimal:''} / kWh`;
+ return `Rp${new Intl.NumberFormat('id-ID').format(BigInt(whole))}${decimal?','+decimal.padEnd(2,'0'):''} / kWh`;
 }
 export const kwh=value=>value===null||value===undefined?'Perlu ditinjau':`${new Intl.NumberFormat('id-ID',{maximumFractionDigits:9}).format(Number(value))} kWh`;
+export const wh=value=>value===null||value===undefined?'Perlu ditinjau':`${new Intl.NumberFormat('id-ID',{maximumFractionDigits:6}).format(Number(value)*1000)} Wh`;
 export const periodDate=value=>value?new Intl.DateTimeFormat('id-ID',{dateStyle:'medium',timeZone:'Asia/Jakarta'}).format(new Date(value)):'Belum tersedia';
 export const periodTime=value=>value?new Intl.DateTimeFormat('id-ID',{dateStyle:'medium',timeStyle:'medium',timeZone:'Asia/Jakarta'}).format(new Date(value))+' WIB':'Belum tersedia';
 export const periodLabel=period=>period.policy_snapshot?.preview_tariff?(period.source!=='production'?'Pratinjau simulasi · tarif asumsi':'Pratinjau uji · tarif asumsi'):period.source!=='production'?'Pratinjau simulasi':billingStatus[period.status]||period.status;

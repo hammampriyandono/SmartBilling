@@ -1,0 +1,3 @@
+.bill-meter-reading{display:block}
+.bill-meter-reading+.bill-meter-reading{margin-top:12px}
+.bill-meter-reading small{display:block;color:var(--sb-muted);font-size:.85em;font-weight:400}

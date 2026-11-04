@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {billableEnergy,billingAction,billingGet,filterPayments,estimateRupiah,estimateRate,kwh,paymentLabel,periodSummary,periodAmount,periodTone,propertyOptions,reasonLabel,roomBillStatus,roomTotals,rupiah,sendBillingAction,tenantBillRows,tenantForRoom} from './billing-data.js';
+import {billableEnergy,billingAction,billingGet,filterPayments,estimateRupiah,estimateRate,kwh,wh,paymentLabel,periodSummary,periodAmount,periodTone,propertyOptions,reasonLabel,roomBillStatus,roomTotals,rupiah,sendBillingAction,tenantBillRows,tenantForRoom} from './billing-data.js';
 
 test('nilai null billing selalu perlu ditinjau dan simulasi tidak tampak final',()=>{
  assert.equal(kwh(null),'Perlu ditinjau');assert.equal(rupiah(undefined),'Perlu ditinjau');
@@ -53,5 +53,10 @@ test('estimasi rupiah menjaga presisi besar dan null berbeda dari nol',()=>{
  assert.equal(estimateRupiah(null),'Belum tersedia');
  assert.match(estimateRupiah('0'),/Rp.*0/);
  assert.match(estimateRupiah('9007199254740993'),/9\.007\.199\.254\.740\.993/);
- assert.equal(estimateRate('1444.700000000000'),'Rp1.444,7 / kWh');
+ assert.equal(estimateRate('1444.700000000000'),'Rp1.444,70 / kWh');
+ assert.equal(estimateRate('1444.700123456789'),'Rp1.444,700123456789 / kWh');
+ assert.equal(estimateRate('1500.000000000000'),'Rp1.500 / kWh');
+ assert.equal(wh(null),'Perlu ditinjau');assert.equal(wh(undefined),'Perlu ditinjau');
+ assert.equal(wh('0.000000000'),'0 Wh');assert.equal(wh('0.010000000'),'10 Wh');
+ assert.equal(wh('0.000200000'),'0,2 Wh');assert.equal(wh('0.000000001'),'0,000001 Wh');
 });
