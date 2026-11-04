@@ -1,7 +1,7 @@
 import {IllustratedHeading} from './illustrated-heading.jsx';
 import React,{useEffect,useState} from 'react';
 import {getJson,decimal,shiftDate,todayIn} from './data.js';
-import {facilityPages,sessionRange,energyReason,reviewReason,sessionDate} from './sessions-data.js';
+import {facilityPages,sessionRange,energyReason,reviewReason,sessionDate,sessionEnergyWh} from './sessions-data.js';
 import {useTestData} from './data-view.jsx';
 import {viewPath} from '../src/display-policy.js';
 import {RfidDevices} from './rfid-devices.jsx';
@@ -53,12 +53,12 @@ export function Sessions({user}) {
    {validation&&<p className="error" role="alert">{validation}</p>}
    {error&&<p className="error" role="alert">{error} {result?'Data terakhir mungkin belum diperbarui.':''} <button onClick={()=>setRefresh(v=>v+1)}>Coba lagi</button></p>}
    <div className="rfid-history-info"><span>{range.from} — {range.to} · WIB · tanggal akhir termasuk</span><span>Pembaruan terakhir: {sessionDate(updated)}</span></div>
-   {!result?<p className="empty" role="status">{busy?'Memuat riwayat sesi…':'Riwayat belum tersedia. Coba lagi setelah layanan pulih.'}</p>:!result.data.length?<p className="empty" role="status">Tidak ada sesi {tenant?'milik Anda ':''}pada rentang dan filter ini.</p>:<div className="rfid-table-wrap"><table className="rfid-table"><caption className="sr-only">Riwayat sesi fasilitas, halaman {cursors.length}</caption><thead><tr>{['Fasilitas','Mulai (WIB)','Selesai (WIB)','Status','Durasi','Energi (kWh)'].map(h=><th key={h} scope="col">{h}</th>)}</tr></thead><tbody>{result.data.map(s=><tr key={s.id}>
+   {!result?<p className="empty" role="status">{busy?'Memuat riwayat sesi…':'Riwayat belum tersedia. Coba lagi setelah layanan pulih.'}</p>:!result.data.length?<p className="empty" role="status">Tidak ada sesi {tenant?'milik Anda ':''}pada rentang dan filter ini.</p>:<div className="rfid-table-wrap"><table className="rfid-table"><caption className="sr-only">Riwayat sesi fasilitas, halaman {cursors.length}</caption><thead><tr>{['Fasilitas','Mulai (WIB)','Selesai (WIB)','Status','Durasi','Energi (Wh)'].map(h=><th key={h} scope="col">{h}</th>)}</tr></thead><tbody>{result.data.map(s=><tr key={s.id}>
     <td data-label="Fasilitas"><strong>{s.facility_name}</strong><small>{s.data_source==='simulation'?'Simulasi':s.data_source==='production'?'Perangkat':'Sumber belum tersedia'}</small></td>
     <td data-label="Mulai (WIB)">{sessionDate(s.started_at)}</td><td data-label="Selesai (WIB)">{s.ended_at?sessionDate(s.ended_at):'Belum selesai'}</td>
     <td data-label="Status"><span className={`pill ${tone(s.status)}`}>{labels[s.status]||'Status belum diketahui'}</span>{s.status==='review'&&<small>{reviewReason(s.review_reason)}</small>}</td>
     <td data-label="Durasi">{s.duration_seconds===null?'Belum selesai':`${decimal(s.duration_seconds,3)} detik`}</td>
-    <td data-label="Energi (kWh)"><strong title={s.energy_kwh??undefined}>{decimal(s.energy_kwh,9)}</strong><small>{energyReason(s.energy_reason,s.energy_kwh)}</small></td>
+    <td data-label="Energi (Wh)"><strong title={s.energy_kwh==null?undefined:`${sessionEnergyWh(s.energy_kwh)} Wh`}>{sessionEnergyWh(s.energy_kwh)}</strong><small>{energyReason(s.energy_reason,s.energy_kwh)}</small></td>
    </tr>)}</tbody></table></div>}
    <nav className="rfid-pagination" aria-label="Halaman riwayat sesi"><label>Sesi per halaman<select value={size} onChange={e=>filter(setSize,Number(e.target.value))}>{[10,25,50].map(n=><option key={n}>{n}</option>)}</select></label><span aria-live="polite">Halaman {cursors.length}{result?` · ${result.data.length} sesi ditampilkan`:''}</span><button disabled={busy||cursors.length===1} onClick={()=>setCursors(v=>v.slice(0,-1))}>Sebelumnya</button><button disabled={busy||!!error||!result?.next_cursor||cursors.includes(result?.next_cursor)} onClick={()=>setCursors(v=>[...v,result.next_cursor])}>Berikutnya</button></nav>
    <div className="panel-foot">Energi sesi tersedia setelah pembacaan awal dan akhir lengkap.{tenant?' Riwayat hanya memuat sesi Anda, termasuk masa tinggal sebelumnya.':''}</div>

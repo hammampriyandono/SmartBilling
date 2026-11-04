@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {sessionRange,facilityPages,energyReason,reviewReason} from './sessions-data.js';
+import {sessionRange,facilityPages,energyReason,reviewReason,sessionEnergyWh} from './sessions-data.js';
 import {decimal,getJson,setAccountId} from './data.js';
 test('RFID UI: rentang WIB akhir inklusif, batas 31 hari dan tanggal invalid',()=>{
  assert.deepEqual(sessionRange({from:'2026-09-17',to:'2026-09-19'}),{from:'2026-09-17T00:00:00+07:00',to:'2026-09-20T00:00:00+07:00'});
@@ -16,6 +16,10 @@ test('RFID UI: fasilitas multi-halaman, error dan cursor berulang tidak menjadi 
 });
 test('RFID UI: null bukan nol dan alasan aman tanpa kode/payload asing',()=>{
  assert.equal(decimal(null,9),'Tidak tersedia');assert.equal(decimal('0.000000000',9),'0');
+ assert.equal(sessionEnergyWh(null),'Tidak tersedia');assert.equal(sessionEnergyWh(undefined),'Tidak tersedia');
+ assert.equal(sessionEnergyWh('0.000000000'),'0');assert.equal(sessionEnergyWh('0.012000000'),'12');
+ assert.equal(sessionEnergyWh('0.022000000'),'22');assert.equal(sessionEnergyWh('0.007000000'),'7');
+ assert.equal(sessionEnergyWh('0.000000001'),'0,000001');
  assert.match(energyReason('missing_boundary',null),/waktu tap/);assert.match(energyReason('counter_reset',null),/reset/);
  assert.equal(energyReason('PRIVATE_UID',null).includes('PRIVATE_UID'),false);
  assert.equal(reviewReason('PRIVATE_UID').includes('PRIVATE_UID'),false);

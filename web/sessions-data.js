@@ -1,9 +1,10 @@
-import {getJson,shiftDate,validRange} from './data.js';
+import {getJson,decimal,shiftDate,validRange} from './data.js';
 export function sessionRange({from,to}) {
  if(!validRange(from,to)||[from,to].some(d=>new Date(`${d}T00:00:00Z`).toISOString().slice(0,10)!==d))throw new Error('Pilih rentang tanggal valid, maksimal 31 hari.');
  return {from:`${from}T00:00:00+07:00`,to:`${shiftDate(to,1)}T00:00:00+07:00`};
 }
 export const sessionDate=value=>value?new Intl.DateTimeFormat('id-ID',{dateStyle:'medium',timeStyle:'medium',timeZone:'Asia/Jakarta'}).format(new Date(value)):'Belum diperbarui';
+export const sessionEnergyWh=value=>decimal(value==null?null:Number(value)*1000,6);
 const energy={session_open:'Menunggu tap penutup.',missing_boundary:'Pembacaan tepat pada waktu tap awal atau akhir belum tersedia.',invalid_quality:'Ada pembacaan sensor yang tidak valid.',ambiguous_timestamp:'Lebih dari satu pembacaan memiliki waktu yang sama.',gap:'Jeda pembacaan terlalu lama untuk menghitung energi sesi.',counter_reset:'Catatan energi meter direset selama sesi.',counter_decreased:'Counter energi turun pada interval sesi.',too_many_samples:'Data sesi terlalu banyak untuk dihitung. Hubungi pengelola.'};
 export const energyReason=(reason,value)=>value!==null&&value!==undefined?'Energi pemakaian selama sesi.':energy[reason]||'Rangkaian pembacaan belum memenuhi syarat perhitungan.';
 const review={participant_or_facility_no_longer_valid:'Akses peserta, kartu, meter, atau fasilitas tidak lagi berlaku.',invalid_card_or_account:'Kartu atau akun peserta tidak lagi berlaku.',invalid_occupancy:'Masa tinggal peserta tidak sesuai dengan sesi.',meter_changed_or_unavailable:'Meter berubah atau tidak tersedia.',non_increasing_time:'Urutan waktu tap perlu diperiksa.',unavailable_facility:'Fasilitas tidak tersedia untuk digunakan.'};
