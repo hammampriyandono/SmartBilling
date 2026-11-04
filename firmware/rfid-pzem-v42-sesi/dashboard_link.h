@@ -21,6 +21,7 @@
 #else
 #include "secrets.h"
 #endif
+#include "mqtt_transport.h"
 
 #include "pzem_link.h"
 
@@ -98,7 +99,7 @@ private:
     static constexpr uint64_t MAX_SEQUENCE = 9007199254740991ULL;
     QueueHandle_t queue = nullptr;
     std::atomic<bool> healthy{false}, online{false}, busy{true}, readerReady{false};
-    WiFiClient network;
+    MqttTransport network;
     MQTTClient mqtt{2048};
     Preferences storage;
     JsonDocument checkpoint;
@@ -291,6 +292,7 @@ private:
         responsesTopic = String("smartbilling/v1/devices/") + DEVICE_UID + "/rfid/responses";
         statusTopic = String("smartbilling/v1/devices/") + DEVICE_UID + "/rfid/status";
         if (load()) { healthy.store(true); busy.store(!pending.isEmpty()); }
+        configureMqttTransport(network);
         mqtt.begin(MQTT_HOST, MQTT_PORT, network);
         mqtt.setOptions(30, true, 1000);
         mqtt.onMessage([this](String &topic, String &message) {
@@ -305,7 +307,7 @@ private:
                     ntpStarted = true; lastNtp = millis();
                     configTime(0, 0, NTP_SERVER, "time.google.com", "time.cloudflare.com");
                 }
-                if (!mqtt.connected() && uint32_t(millis() - lastConnect) >= 5000) {
+                if (mqttTransportReady(clockReady()) && !mqtt.connected() && uint32_t(millis() - lastConnect) >= 5000) {
                     lastConnect = millis();
                     String will = status(false); mqtt.setWill(statusTopic.c_str(), will.c_str(), true, 1);
                     String clientId = String("sb-rfid-") + DEVICE_UID;

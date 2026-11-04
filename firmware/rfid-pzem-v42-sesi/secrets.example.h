@@ -1,4 +1,7 @@
 #pragma once
+#define MQTT_USE_TLS 0
+// Cloud: trusted static PEM CA, broker hostname/port and per-device credential.
+// #define MQTT_CA_CERT R"PEM(<TRUSTED_MQTT_CA_PEM>)PEM"
 // Private per-device credentials belong in ignored secrets.h, never in Git.
 #define WIFI_SSID "<WIFI_SSID>"
 #define WIFI_PASSWORD "<WIFI_PASSWORD>"

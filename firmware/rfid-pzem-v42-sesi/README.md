@@ -1,5 +1,16 @@
 # v4.2 dengan counter pada batas sesi
 
+Transport cloud opsional4November2026: `MQTT_USE_TLS=1` memakai hostname/port
+broker, akun perangkat dan PEMCA privat yang benar. Client MQTT menunggu NTP,
+memverifikasi CA/hostname, memakai timeout koneksi/handshake terbatas dan tidak
+memakai setInsecure/plaintextfallback. Default0 mempertahankan LAN. Source utama
+kartu/relay/countdown dan pzem_link.h tetap identik dengan versi yang telah diuji;
+dashboard_link.h hanya mengganti tipe client, mengatur TLS dan gateclock koneksi.
+Header transport mandiri sama dengan sketch meter dan relay, diverifikasi test.
+Sebelum cutover, periksa sesi aktif/tap pending pada kedua backend. Sesudahnya,
+uji reader dan tap awal/akhir asli; statusonline saat USB tidak membuktikan reader
+sudah terpasang atau sesi kartu berhasil. Kedua profil Wi-Fi tetap dipertahankan.
+
 Kandidat ini melengkapi pengiriman counter sesi dari integrasi v4.2. Source
 v4.2 sebelumnya tetap tersimpan pada folder firmware/rfid-pzem-v42. Pin,
 GPIO relay, dua kartu91EAA066/2A9E2AF2, penolakan kartu asing, autoarah UART,
