@@ -1,5 +1,7 @@
 # Audit kesiapan Railway — 4 November 2026
 
+> Pembaruan setelah audit: pengguna telah mem-push sampai b51207c. Adaptasi runtime dan paket Railway kini disiapkan serta diuji pada Docker production terisolasi; perubahan baru masih perlu commit/push. Ikuti [RAILWAY-DEPLOYMENT.md](RAILWAY-DEPLOYMENT.md) dan entri terbaru HANDOFF. Isi audit di bawah merupakan kondisi sebelum adaptasi, bukan status Git/runtime terkini. Transfer data nyata dan endpoint TLS ESP belum selesai.
+
 ## Keputusan
 
 **Aplikasi lokal berjalan, tetapi belum siap langsung dideploy sebagai production. Push saja belum cukup.** Urutan menyiapkan cloud lebih dahulu lalu mengonfigurasi ESP satu per satu tetap dapat dipakai; adaptasi runtime dan persiapan data harus selesai sebelum layanan cloud dinyatakan siap.

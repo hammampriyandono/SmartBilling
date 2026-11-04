@@ -4,6 +4,8 @@ SplitzBill adalah aplikasi web berbasis Internet of Things (IoT) untuk memantau 
 
 Aplikasi ini dikembangkan sebagai proyek Capstone A05 untuk mendukung pengelolaan listrik kost yang lebih transparan dan pembagian biaya berdasarkan data pemakaian.
 
+Persiapan production dan urutan konfigurasi backend, PostgreSQL serta broker: [Deploy Railway](docs/RAILWAY-DEPLOYMENT.md).
+
 ## Pengguna
 
 Persiapan ESP RFID ke dashboard sebelum pendaftaran kartu: [panduan RFID](docs/RFID-DASHBOARD-PREPARATION.md).
