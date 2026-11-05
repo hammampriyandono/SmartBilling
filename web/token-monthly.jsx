@@ -1,3 +1,4 @@
+import {MutationButton,MutationForm} from './access-mode.jsx';
 import React,{useEffect,useRef,useState} from 'react';
 import {adminSections,adminRequest,loadAdminSection} from './admin-data.js';
 import {sendAction} from './admin-mutations.js';
@@ -60,7 +61,7 @@ function TokenForm({action,row,property,user,onClose,onSaved}){
  return <dialog className="admin-dialog" ref={dialog} aria-labelledby="token-form-title" onCancel={e=>{e.preventDefault();close();}}>
   <div className="admin-dialog-heading"><h2 id="token-form-title">{title}</h2><button disabled={busy} onClick={close}>Tutup</button></div>
   <p>{property.name} · tanggal lokal {property.timezone}. {row?'Riwayat pembelian sebelumnya tetap tersimpan.':''}</p>
-  <form onSubmit={execute}><fieldset disabled={busy||uncertain||error?.code==='stale_version'}>
+  <MutationForm onSubmit={execute}><fieldset disabled={busy||uncertain||error?.code==='stale_version'}>
    {action!=='cancel'?<>
     <div className="admin-form-grid">
      <label>Tanggal pembelian<input type="date" required min="2000-01-01" max="2099-12-31" value={values.purchase_date} onChange={e=>change('purchase_date',e.target.value)}/></label>
@@ -74,6 +75,6 @@ function TokenForm({action,row,property,user,onClose,onSaved}){
    {action!=='create'&&<label>Alasan {action==='cancel'?'pembatalan':'koreksi'} (wajib)<textarea required maxLength={500} value={values.reason} onChange={e=>change('reason',e.target.value)}/></label>}
   </fieldset>
   {error&&<p className="error" role="alert">{error.message}</p>}{uncertain&&<p>Hasil penyimpanan belum dapat dipastikan. Gunakan tombol ulangi untuk melanjutkan permintaan ini.</p>}
-  <div className="admin-form-actions"><button type={uncertain?'button':'submit'} onClick={uncertain?()=>execute():undefined} disabled={busy||error?.code==='stale_version'||!uncertain&&estimateBlocked}>{busy?'Menyimpan…':uncertain?'Ulangi aksi yang sama':action==='cancel'?'Konfirmasi pembatalan':'Simpan'}</button>{error?.code==='stale_version'&&<button type="button" onClick={()=>{onSaved();onClose();}}>Muat versi terbaru</button>}<button type="button" disabled={busy} onClick={close}>Tutup</button></div>
- </form></dialog>;
+  <div className="admin-form-actions"><MutationButton type={uncertain?'button':'submit'} onClick={uncertain?()=>execute():undefined} disabled={busy||error?.code==='stale_version'||!uncertain&&estimateBlocked}>{busy?'Menyimpan…':uncertain?'Ulangi aksi yang sama':action==='cancel'?'Konfirmasi pembatalan':'Simpan'}</MutationButton>{error?.code==='stale_version'&&<button type="button" onClick={()=>{onSaved();onClose();}}>Muat versi terbaru</button>}<button type="button" disabled={busy} onClick={close}>Tutup</button></div>
+ </MutationForm></dialog>;
 }

@@ -4,6 +4,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { allPages, getJson, shiftDate, todayIn, validRange, chartRows, decimal } from './data.js';
 import './style.css';
 import {AuthGate} from './auth.jsx';
+import {ReadOnlyContext,dashboardUser} from './access-mode.jsx';
 import {Sessions} from './sessions.jsx';
 import {Administration} from './admin.jsx';
 import {Billing,TenantLatestCard} from './billing.jsx';
@@ -157,7 +158,8 @@ function App({user,tenantBillingCard=null,catalog,catalogError,catalogLoading,me
       <footer className="footer">SplitzBill <span>Monitoring dan pengelolaan listrik</span></footer>
     </main>;
 }
-function Workspace({user,onLogout,busy,error}) {
+function Workspace({user:account,onLogout,busy,error}) {
+ const user=dashboardUser(account);
  const [page,setPage]=useState('monitoring');
  const [catalog,setCatalog]=useState({rooms:[],meters:[]}),[catalogLoading,setCatalogLoading]=useState(true),[catalogError,setCatalogError]=useState('');
  const [catalogVersion,setCatalogVersion]=useState(0),[meterId,setMeterId]=useState('');
@@ -179,14 +181,15 @@ function Workspace({user,onLogout,busy,error}) {
   setPage(key);
   window.scrollTo(0, 0);
  }
- return <div className="app-frame">
+ return <ReadOnlyContext.Provider value={Boolean(user.read_only)}><div className="app-frame">
   <WorkspaceHeader user={user} page={page} onNavigate={navigate} onLogout={onLogout} busy={busy} error={error}/>
   <div className="app-content">
+   {user.read_only&&<aside className="panel" role="status"><strong>Pengunjung expo · Hanya baca</strong><p>Jelajahi semua halaman dan coba pratinjau formulir. Penyimpanan data dan pengiriman perintah perangkat dinonaktifkan.</p></aside>}
    {import.meta.env.DEV&&!operational&&<div className="monitoring-view-controls workspace-data-view"><label><input type="checkbox" checked={showTestData} onChange={e=>setShowTestData(e.target.checked)}/> Tampilkan simulasi dan arsip uji</label><span>{showTestData?'Daftar lengkap sesuai akses akun Anda.':'Simulasi dan data uji disembunyikan di semua halaman.'}</span></div>}
    <DataViewContext.Provider value={showTestData}><React.Fragment key={`${page}:${showTestData}`}>
    {page==='admin'?<Administration user={user}/>:page==='health'?<DeviceHealth user={user}/>:page==='reports'?<Reports user={user}/>:page==='billing'?<Billing user={user}/>:page==='sessions'?<Sessions user={user}/>:<App user={user} catalog={visibleCatalog} catalogError={catalogError} catalogLoading={catalogLoading} meterId={visibleMeterId} setMeterId={setMeterId} showTestData={showTestData} onOpenAdministration={user.role==='owner'?()=>navigate('admin'):null} onRefreshCatalog={()=>setCatalogVersion(v=>v+1)} tenantBillingCard={user.role==='tenant'?<TenantLatestCard user={user} onOpen={()=>navigate('billing')}/>:null}/>}
    </React.Fragment></DataViewContext.Provider>
   </div>
- </div>;
+ </div></ReadOnlyContext.Provider>;
 }
 createRoot(document.getElementById('root')).render(<AuthGate Dashboard={Workspace}/>);

@@ -13,6 +13,7 @@ Sistem mendukung pengamatan prototipe selama tujuh hari. Pengguna dapat membandi
 | Pengguna | Kebutuhan |
 |---|---|
 | Owner | Melihat seluruh kamar miliknya, meter utama/fasilitas, histori dan perbandingan, status perangkat, sesi serta estimasi biaya. |
+| Pengunjung expo | Keputusan 4 November 2026: semua halaman owner dalam mode hanya baca melalui akun viewer terpisah, scoped ke satu owner dan memiliki kedaluwarsa/pencabutan. Lihat EXPO-VISITOR.md. |
 | Tenant | Melihat konsumsi kamar pada masa tinggalnya, sesi yang terkait identitasnya, dan biaya yang menjadi bagiannya. |
 | Tim pengembang | Menjalankan aplikasi lokal lewat Docker, menguji alur tanpa hardware melalui simulator, lalu deploy di Railway. |
 
@@ -47,6 +48,8 @@ Prototipe proposal maksimal tiga kamar. Jenis titik ukur: utama, kamar, komunal.
 - Tidak menghapus data setelah tujuh hari. Membandingkan dua minggu penuh membutuhkan minimal 14 hari rekaman.
 
 ### F04 — Login dan pengelolaan minimum
+
+- Keputusan 5 November 2026: semua role logout setelah15menit tanpa aktivitas manusia; polling otomatis tidak dihitung. Batas absolut8jam serta expiry/pencabutan viewer tetap berlaku. Rincian: [AUTH-SESSIONS.md](AUTH-SESSIONS.md).
 
 - Login owner/tenant dan pemeriksaan hak akses pada API.
 - Mapping pengguna, kamar, kartu RFID, perangkat dan meter dapat dikonfigurasi secara terstruktur. UI admin lengkap bukan syarat milestone pertama; seed/config lokal yang terdokumentasi dapat digunakan untuk prototipe.

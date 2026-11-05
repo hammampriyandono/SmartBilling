@@ -25,7 +25,7 @@ export function WorkspaceHeader({user, page, onNavigate, onLogout, busy, error})
       <a className="app-brand" href="/" aria-label="SplitzBill"><BrandLogo tone="light"/></a>
       <span className="masthead-date"><Icon name="calendar" size={16}/>{new Intl.DateTimeFormat('id-ID', {dateStyle:'full', timeZone:'Asia/Jakarta'}).format(new Date())}</span>
       <div className="user-identity"><span className="user-initial" aria-hidden="true">{user.name?.trim().charAt(0) || '•'}</span>
-        <span className="user-name"><strong>{user.name}</strong><small>{owner ? 'Pemilik' : 'Penghuni'}</small></span>
+        <span className="user-name"><strong>{user.name}</strong><small>{user.read_only ? 'Pengunjung expo · Hanya baca' : owner ? 'Pemilik' : 'Penghuni'}</small></span>
       </div>
       <button className="logout-button" type="button" onClick={onLogout} disabled={busy} aria-label="Keluar"><Icon name="logout" size={17}/><span>Keluar</span></button>
     </div></div>

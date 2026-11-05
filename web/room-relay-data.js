@@ -1,6 +1,6 @@
 import {newAction,sendAction} from './admin-mutations.js';
 
-export const relayBlocked={relay_control_disabled:'Kontrol relay belum diaktifkan untuk properti ini.',
+export const relayBlocked={viewer_read_only:'Pengunjung expo hanya dapat melihat status dan riwayat relay.',relay_control_disabled:'Kontrol relay belum diaktifkan untuk properti ini.',
   relay_test_expired:'Waktu akses uji relay sudah berakhir. Hubungi operator untuk melanjutkan pengujian.',
   relay_not_commissioned:'Relay kamar belum dipetakan dan diverifikasi.',relay_installation_unavailable:'Pemasangan perangkat tidak tersedia untuk kontrol.',
   relay_installation_ambiguous:'Perangkat terpasang pada lebih dari satu titik ukur. Periksa pemasangan sebelum menggunakan kontrol.',

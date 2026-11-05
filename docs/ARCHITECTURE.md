@@ -33,6 +33,10 @@ Untuk prototipe, API dan subscriber boleh satu proses backend dengan lifecycle/r
 
 ## Batas modul backend
 
+Sesi autentikasi (5 November2026): `auth_sessions.sess` menyimpan waktu aktivitas manusia. Endpoint CSRF-protected memperbarui satu field JSON secara atomik, sementara seluruh request terproteksi memeriksa idle15menit dan expiry absolut8jam. Polling tidak memperpanjang sesi. Frontend mengamati input pengguna, bukan request otomatis, dengan timer yang diselaraskan ke waktu server. Tidak ada migration atau perubahan lifecycle MQTT/RFID. Lihat [AUTH-SESSIONS.md](AUTH-SESSIONS.md).
+
+Akses pengunjung expo (4 November2026): role `viewer` dan grant `owner_viewers` dipisahkan dari akun owner. Autentikasi memeriksa grant/expiry setiap request. Middleware sebelum seluruh business router hanya meneruskan daftar GET/HEAD yang sudah diperiksa menggunakan scope owner dari database, mempertahankan actor asli dan menandai `read_only`. Metode mutasi/endpoint baru ditolak sebelum handler. `/auth/me` tetap mengembalikan identitas viewer asli; menu owner di frontend adalah presentasi dengan tombol mutasi nonaktif. Prosedur dan batas data yang terlihat: [EXPO-VISITOR.md](EXPO-VISITOR.md).
+
 Implementasi lokal RFID (17 September 2026): topik tap simulasi terpisah dirutekan ke inbox `device_events`; transaksi mengunci stream perangkat dan fasilitas sebelum membuka/menutup `usage_sessions`. `session_participants` mengikat kartu/occupancy yang sah pada waktu tap. Worker melanjutkan inbox pending dan merekonsiliasi energi dari `meter_readings`, bukan dari frontend/payload tap. Owner melihat riwayat properti; tenant API hanya sesi sendiri tanpa membuka telemetry komunal. Kontrak dan deviasi ERD tahap satu peserta ada di `RFID-SIMULATION-PLAN.md`; firmware, billing dan deployment belum diterapkan.
 
 - **MQTT adapter/inbox:** decode dan validasi pesan, mapping perangkat, deduplikasi, status pemrosesan.

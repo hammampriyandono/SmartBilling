@@ -1,3 +1,4 @@
+import {MutationButton,MutationForm} from './access-mode.jsx';
 import React, {useState} from 'react';
 import {estimateRate, kwh, periodTime, reasonLabel} from './billing-data.js';
 import {policyFormBody, policyFormValues} from './billing-policy-data.js';
@@ -48,7 +49,7 @@ export function BillingPeriodForm({form, property, busy, close, submit}) {
       setError(error.message === 'invalid_period' ? 'Akhir periode harus setelah awal periode.' : error.message === 'invalid_preview_tariff' ? 'Isi tarif asumsi positif dan sumbernya.' : 'Periksa batas jeda dan toleransi. Toleransi maksimal 300 detik dan tidak melebihi jeda maksimum.');
     }
   }
-  return <div className="billing-modal" role="dialog" aria-modal="true" aria-labelledby="period-form-title"><form onSubmit={save}>
+  return <div className="billing-modal" role="dialog" aria-modal="true" aria-labelledby="period-form-title"><MutationForm onSubmit={save}>
     <div><h2 id="period-form-title">{editing ? 'Atur perhitungan periode' : 'Buat periode tagihan'}</h2><button type="button" onClick={close}>Tutup</button></div>
     {editing ? <p>{periodTime(period.starts_at)} — {periodTime(period.ends_at)}. Menyimpan aturan mengosongkan hasil pratinjau lama. Jalankan Hitung ulang setelahnya.</p> : <>
       <label>Awal periode<input required type="datetime-local" step="1" value={values.starts_at} onChange={event => change('starts_at', event.target.value)}/></label>
@@ -68,6 +69,6 @@ export function BillingPeriodForm({form, property, busy, close, submit}) {
     </> : <p>Perhitungan memakai satu jadwal tarif aktif yang mencakup seluruh periode. Tambahkan tarif operasional bila belum ada.</p>}
     <label>Alasan pencatatan<input required maxLength="500" value={values.reason} onChange={event => change('reason', event.target.value)}/></label>
     {error && <p className="error" role="alert">{error}</p>}
-    <button disabled={busy}>{busy ? 'Menyimpan…' : editing ? 'Simpan aturan' : 'Simpan periode'}</button>
-  </form></div>;
+    <MutationButton disabled={busy}>{busy ? 'Menyimpan…' : editing ? 'Simpan aturan' : 'Simpan periode'}</MutationButton>
+  </MutationForm></div>;
 }

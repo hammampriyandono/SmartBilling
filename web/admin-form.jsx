@@ -1,3 +1,4 @@
+import {MutationButton,MutationForm} from './access-mode.jsx';
 import React,{useEffect,useRef,useState} from 'react';
 import {adminSections,recordTitle} from './admin-data.js';
 import {actionFields,fieldsForValues,actionBody,newAction,sendAction,lifecycle} from './admin-mutations.js';
@@ -31,7 +32,7 @@ export function AdminForm({section,action,row,data,user,onClose,onSaved}){
  }
  function change(f,value){setValues(v=>{const next={...v,[f.key]:value};if(['property_id','_property','meter_asset_id'].includes(f.key))for(const other of fields)if(['ref','tenant'].includes(other.type)&&other.key!==f.key)next[other.key]='';return next;});}
  return <dialog className="admin-dialog" aria-labelledby="admin-form-title" ref={dialog} onCancel={e=>{e.preventDefault();close();}}><div className="admin-dialog-heading"><div><p className="eyebrow">ADMINISTRASI OWNER</p><h2 id="admin-form-title">{title}</h2></div><button type="button" disabled={busy} onClick={close} aria-label="Tutup form">Tutup</button></div>
-  {success?<section role="status"><h3>Berhasil disimpan</h3><p>Data berhasil disimpan. Riwayat perubahan tetap tersedia.</p>{success.token&&<div className="invitation-once"><strong>Tautan aktivasi — hanya ditampilkan sekarang</strong><p>Salin dan kirim tautan ini kepada penghuni sebelum menutup jendela. Tautan hanya dapat digunakan satu kali dan tidak dikirim otomatis melalui email.</p><label>Tautan aktivasi<input readOnly autoComplete="off" value={`${window.location.origin}/#/aktivasi?token=${encodeURIComponent(success.token)}`} onFocus={e=>e.target.select()}/></label><a href={`/#/aktivasi?token=${encodeURIComponent(success.token)}`} target="_blank" rel="noreferrer">Pratinjau halaman aktivasi</a></div>}<button type="button" onClick={close}>Selesai</button></section>:<form onSubmit={execute}>
+  {success?<section role="status"><h3>Berhasil disimpan</h3><p>Data berhasil disimpan. Riwayat perubahan tetap tersedia.</p>{success.token&&<div className="invitation-once"><strong>Tautan aktivasi — hanya ditampilkan sekarang</strong><p>Salin dan kirim tautan ini kepada penghuni sebelum menutup jendela. Tautan hanya dapat digunakan satu kali dan tidak dikirim otomatis melalui email.</p><label>Tautan aktivasi<input readOnly autoComplete="off" value={`${window.location.origin}/#/aktivasi?token=${encodeURIComponent(success.token)}`} onFocus={e=>e.target.select()}/></label><a href={`/#/aktivasi?token=${encodeURIComponent(success.token)}`} target="_blank" rel="noreferrer">Pratinjau halaman aktivasi</a></div>}<button type="button" onClick={close}>Selesai</button></section>:<MutationForm onSubmit={execute}>
    {row&&<p>{recordTitle(section,row)}</p>}
    <p className="admin-description">Waktu mengikuti zona perangkat Anda ({Intl.DateTimeFormat().resolvedOptions().timeZone}).</p>
    <fieldset disabled={locked}><div className="admin-form-grid">{fieldsForValues(fields,values).map(f=>{const choices=options(f);return <label key={f.key}>{f.label}{choices?<select name={f.key} required={!f.optional} value={values[f.key]??''} onChange={e=>change(f,e.target.value)}><option value="">Pilih…</option>{choices.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>:<input name={f.key} type={f.type} required={!f.optional} maxLength={f.maxLength||120} pattern={f.pattern} min={f.type==='number'?0:undefined} step={['number','datetime-local'].includes(f.type)?1:undefined} autoComplete="off" value={values[f.key]??''} onInput={f.type==='datetime-local'?e=>change(f,e.target.value):undefined} onChange={e=>change(f,e.target.value)}/>}</label>;})}</div>
@@ -39,7 +40,7 @@ export function AdminForm({section,action,row,data,user,onClose,onSaved}){
    {fields.some(f=>f.type==='ref'||f.type==='tenant')&&<p className="admin-description">Pilih data dari properti yang sama. Penghuni harus memiliki akun aktif.</p>}
    {error&&<p role="alert" className="error">{error.message}</p>}
    {uncertain&&<p>Hasil penyimpanan belum dapat dipastikan. Gunakan tombol ulangi untuk melanjutkan permintaan ini.</p>}
-   <div className="admin-form-actions">{uncertain?<button type="button" disabled={busy} onClick={()=>execute()}>Ulangi aksi yang sama</button>:<button type="submit" disabled={locked||!values.reason?.trim()}>{busy?'Menyimpan…':'Simpan perubahan'}</button>}<button type="button" disabled={busy} onClick={close}>Batal / tutup</button></div>
-  </form>}
+   <div className="admin-form-actions">{uncertain?<MutationButton type="button" disabled={busy} onClick={()=>execute()}>Ulangi aksi yang sama</MutationButton>:<MutationButton type="submit" disabled={locked||!values.reason?.trim()}>{busy?'Menyimpan…':'Simpan perubahan'}</MutationButton>}<button type="button" disabled={busy} onClick={close}>Batal / tutup</button></div>
+  </MutationForm>}
  </dialog>;
 }

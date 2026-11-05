@@ -102,7 +102,7 @@ export function roomRelayApi(pool,{csrf,idempotencySecret,enabled=false,now=Date
       reported_state:binding?.reported_state||null,last_reported_at:binding?.last_reported_at||null,
       gpio_pin:binding?.reported_gpio_level==null?null:3,gpio_level:binding?.reported_gpio_level??null,gpio_on_level:binding?.gpio_on_level??null,
       test_until:binding?.test_until||null,
-      fresh:relayFresh(binding,time),can_control:!reason&&!pending,blocked_reason:reason||(pending?'relay_command_pending':null),history}});
+      fresh:relayFresh(binding,time),can_control:!req.user.read_only&&!reason&&!pending,blocked_reason:req.user.read_only?'viewer_read_only':reason||(pending?'relay_command_pending':null),history}});
   });
   router.post('/owner/rooms/:roomId/relay/commands',owner,(req,res,next)=>{
     if(!csrf)return next(new HttpError(503,'csrf_unavailable'));csrf(req,res,next);

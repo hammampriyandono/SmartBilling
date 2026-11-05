@@ -14,6 +14,7 @@ Persiapan ESP RFID ke dashboard sebelum pendaftaran kartu: [panduan RFID](docs/R
 | --- | --- |
 | **Owner / pemilik kost** | Mengelola kamar, penghuni, perangkat dan tarif; memantau konsumsi; menyusun tagihan; mencatat pembayaran dan pembelian token; serta melihat laporan. |
 | **Tenant / penghuni** | Memantau konsumsi kamar, melihat riwayat penggunaan fasilitas bersama, serta mengakses tagihan final dan status pembayaran miliknya. |
+| **Pengunjung expo** | Melihat semua halaman owner dalam mode hanya baca melalui akun terpisah yang dapat kedaluwarsa atau dicabut. Persiapan: [akun pengunjung](docs/EXPO-VISITOR.md). |
 
 ## Fitur utama
 

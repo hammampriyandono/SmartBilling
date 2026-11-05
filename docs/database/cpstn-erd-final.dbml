@@ -44,8 +44,17 @@ Table users {
   name varchar(120) [not null]
   email varchar(254) [not null, unique]
   password_hash text [not null]
-  role varchar(16) [not null, note: 'owner atau tenant; validasi role saat menetapkan kepemilikan dan penghuni']
+  role varchar(16) [not null, note: 'owner, tenant atau viewer (migration034); viewer hanya membaca scope owner melalui grant, tidak menjadi penghuni/pemilik']
   is_active boolean [not null]
+  created_at timestamptz [not null]
+}
+
+Table owner_viewers {
+  Note: 'Migration034. Grant baca seluruh halaman/properti satu owner; scope immutable, expiry wajib, dapat dicabut. Role kedua referensi dan perlindungan perubahan role ditegakkan trigger SQL; daftar endpoint/mutasi diperiksa API.'
+  user_id uuid [pk, ref: > users.id]
+  owner_id uuid [not null, ref: > users.id]
+  expires_at timestamptz [not null]
+  revoked_at timestamptz
   created_at timestamptz [not null]
 }
 

@@ -2,9 +2,13 @@ import React,{useEffect,useState,useRef} from 'react';
 import {setAccountId} from './data.js';
 import {LoginScreen} from './login-screen.jsx';
 import {BrandLogo} from './brand-logo.jsx';
+import {trackIdleSession} from './idle-session.js';
 async function request(path,options={}) {
   const response=await fetch(`/api/auth/${path}`,{cache:'no-store',signal:AbortSignal.timeout(15000),...options});
-  if(!response.ok) throw Object.assign(new Error(response.status===401?'Email atau password salah, akun nonaktif, atau sesi berakhir.':response.status===429?'Terlalu banyak percobaan. Coba kembali setelah 15 menit.':'Layanan login belum tersedia. Coba lagi.'),{status:response.status});
+  if(!response.ok) {
+    const body=await response.json().catch(()=>({}));
+    throw Object.assign(new Error(body.error==='session_idle_expired'?'Anda otomatis keluar karena tidak aktif selama 15 menit. Silakan masuk kembali.':body.error==='viewer_access_expired'?'Akses pengunjung expo telah berakhir atau dicabut.':response.status===401?'Email atau password salah, akun nonaktif, atau sesi berakhir.':response.status===429?'Terlalu banyak percobaan. Coba kembali setelah 15 menit.':'Layanan login belum tersedia. Coba lagi.'),{status:response.status});
+  }
   return response.status===204?null:response.json();
 }
 function activationFromHash(){
@@ -20,18 +24,36 @@ const activationErrors={
 };
 export function AuthGate({Dashboard}) {
   const [user,setUser]=useState(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+  const [sessionInfo,setSessionInfo]=useState(null),idleTracker=useRef(null);
   const [activation,setActivation]=useState(activationFromHash),[activationBusy,setActivationBusy]=useState(false),[activationError,setActivationError]=useState(''),[activationSuccess,setActivationSuccess]=useState(false);
-  const generation=useRef(0);
-  function changeUser(next) {setAccountId(next?.id||null);setUser(next);}
+  const generation=useRef(0),authenticated=useRef(false);
+  function changeUser(next,session=null) {authenticated.current=Boolean(next);if(!next)idleTracker.current?.stop();setAccountId(next?.id||null);setUser(next);setSessionInfo(session);}
+  useEffect(()=>{
+    if(!user||!sessionInfo)return;
+    const id=user.id;
+    const tracker=trackIdleSession({target:window,visibilityTarget:document,session:sessionInfo,
+      sendActivity:async getAge=>{
+        const {csrf}=await request('csrf');const age=getAge();if(age>60000)return null;
+        return (await request('activity',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,'X-Account-ID':id},body:JSON.stringify({age_ms:age})})).session;
+      },
+      verify:async()=>{
+        const result=await request('me',{headers:{'X-Account-ID':id}});return result.session;
+      },
+      onExpire:()=>{generation.current++;changeUser(null);setLoading(false);setError('Anda otomatis keluar karena tidak aktif selama 15 menit atau sesi telah berakhir. Silakan masuk kembali.');},
+    });
+    idleTracker.current=tracker;
+    return()=>{tracker.stop();if(idleTracker.current===tracker)idleTracker.current=null;};
+  },[user?.id,sessionInfo?.issued_at]);
+  useEffect(()=>{if(sessionInfo)idleTracker.current?.update(sessionInfo);},[sessionInfo]);
   useEffect(()=>{if(activation.active)window.history.replaceState(null,'',`${window.location.pathname}${window.location.search}`);},[]);
   useEffect(()=>{
     let stopped=false,running=false;
     const expired=()=>{generation.current++;changeUser(null);setLoading(false);};
     window.addEventListener('session-expired',expired);
     async function check() {
-      if(running || stopped) return; running=true;const version=generation.current;
-      try {const result=await request('me');if(!stopped&&version===generation.current){changeUser(result.user);setError('');}}
-      catch(e) {if(!stopped&&version===generation.current){if(e.status===401)changeUser(null);else setError('Sesi belum dapat diperiksa. Periksa koneksi Anda lalu coba lagi.');}}
+      if(running || stopped) return; running=true;const version=generation.current,hadUser=authenticated.current;
+      try {const result=await request('me');if(!stopped&&version===generation.current){changeUser(result.user,result.session);setError('');}}
+      catch(e) {if(!stopped&&version===generation.current){if(e.status===401){changeUser(null);if(hadUser)setError(e.message);}else setError('Sesi belum dapat diperiksa. Periksa koneksi Anda lalu coba lagi.');}}
       finally {running=false;if(!stopped)setLoading(false);}
     }
     check();const timer=setInterval(check,5000);
@@ -43,7 +65,7 @@ export function AuthGate({Dashboard}) {
     try {
       const {csrf}=await request('csrf');
       await request('login',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({email:fields.get('email'),password:fields.get('password')})});
-      form.reset();const result=await request('me');changeUser(result.user);
+      form.reset();const result=await request('me');changeUser(result.user,result.session);
     } catch(e){setError(e.message);form.elements.password.value='';} finally {generation.current++;setBusy(false);}
   }
   async function logout() {

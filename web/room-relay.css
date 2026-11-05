@@ -102,6 +102,20 @@
 .room-relay caption { text-align: left; font-weight: 600; margin: 16px 0; }
 .room-relay td small { display: block; }
 
+.room-relay-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 0;
+  border-top: 1px solid var(--sb-line);
+  color: var(--sb-muted);
+  font-size: 12px;
+}
+
+.room-relay-pagination > div { display: flex; gap: 8px; }
+
 @media (max-width: 720px) {
   .room-relay { padding: 16px; }
   .room-relay-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -109,4 +123,6 @@
   .room-relay-confirm { padding: 14px; }
   .room-relay-confirm-actions > button { flex: 1 1 auto; }
   .room-relay caption { display: block; }
+  .room-relay-pagination > div { width: 100%; }
+  .room-relay-pagination button { flex: 1; }
 }

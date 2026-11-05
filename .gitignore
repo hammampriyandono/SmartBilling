@@ -147,3 +147,6 @@ vite.config.ts.timestamp-*
 
 # Firmware credentials must never be versioned.
 **/secrets.h
+
+# Local firmware sharing archives; source remains in the firmware folders.
+/firmware/*.zip
