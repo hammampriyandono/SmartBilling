@@ -6,7 +6,7 @@ Aplikasi ini dikembangkan sebagai proyek Capstone A05 untuk mendukung pengelolaa
 
 [Buka aplikasi SplitzBill](https://splitzbilla05.up.railway.app).
 
-Repository ini memuat source aplikasi, firmware ESP32, migration database, pengujian, dan dokumentasi teknis. Akun, kredensial perangkat, serta data pengamatan PostgreSQL disiapkan secara terpisah.
+Repository ini memuat source aplikasi, firmware ESP32, migration database, pengujian, dan panduan penggunaan pada README. Akun, kredensial perangkat, serta data pengamatan PostgreSQL disiapkan secara terpisah.
 
 ## Pengguna
 
@@ -14,7 +14,7 @@ Repository ini memuat source aplikasi, firmware ESP32, migration database, pengu
 | --- | --- |
 | **Owner / pemilik kost** | Mengelola kamar, penghuni, perangkat dan tarif; memantau konsumsi; menyusun tagihan; mencatat pembayaran dan pembelian token; serta melihat laporan. |
 | **Tenant / penghuni** | Memantau konsumsi kamar, melihat riwayat penggunaan fasilitas bersama, serta mengakses tagihan final dan status pembayaran miliknya. |
-| **Pengunjung expo** | Melihat semua halaman owner dalam mode hanya baca melalui akun terpisah yang dapat kedaluwarsa atau dicabut. Persiapan: [akun pengunjung](docs/EXPO-VISITOR.md). |
+| **Pengunjung expo** | Melihat semua halaman owner dalam mode hanya baca melalui akun terpisah yang dapat kedaluwarsa atau dicabut. |
 
 ## Fitur utama
 
@@ -77,7 +77,6 @@ Dashboard memperbarui pembacaan secara berkala. Akses setiap pengguna dibatasi s
 | `migrations/` | Perubahan skema PostgreSQL yang dijalankan berurutan |
 | `test/` | Pengujian backend dan integrasi; pengujian frontend juga ada di `web/` |
 | `scripts/` | Utilitas pengembangan, konfigurasi, provisioning, dan verifikasi |
-| `docs/` | Panduan teknis, kontrak data, serta rancangan sistem dan database |
 
 ## Firmware ESP32
 
@@ -105,7 +104,7 @@ docker compose up -d backend
 
 Buka `http://127.0.0.1:3000`. Database baru belum memiliki akun dan pemetaan perangkat; konfigurasi akun/data master dilakukan secara terpisah. Tidak ada seed atau simulator yang dijalankan otomatis. Lingkungan expo existing dapat menggunakan port 3001 dengan konfigurasi Compose tersendiri.
 
-Untuk konfigurasi Windows, akun pengembangan, simulator, dan lingkungan existing, ikuti [panduan lokal](docs/LOCAL-DEVELOPMENT.md). Gunakan panduan lingkungan yang sesuai sebelum menjalankan perintah pada instalasi yang sudah berisi data.
+Pada Windows, jika `docker` tidak ditemukan di PATH, gunakan `powershell -File scripts/docker.ps1` sebagai pengganti `docker` untuk menjalankan argumen Compose yang sama. Sesuaikan konfigurasi Compose dan berkas secret dengan lingkungan yang dipakai sebelum menjalankan perintah pada instalasi yang sudah berisi data.
 
 ## Pemeriksaan kode
 
@@ -121,20 +120,11 @@ Sebagian tes integrasi memerlukan PostgreSQL dan konfigurasi pengujian tersendir
 
 - `.env.example` dan `secrets.example.h` berisi contoh konfigurasi. `.env`, `secrets.h`, dan `.local/` merupakan berkas lokal yang tidak disertakan dalam source control.
 - Git menyimpan source dan migration, bukan isi database. Backup PostgreSQL dan pemulihannya dilakukan secara terpisah dari commit/push kode.
-- Deployment Railway menggunakan layanan backend, PostgreSQL, dan broker MQTT. Konfigurasi, urutan deployment, serta TLS perangkat dijelaskan pada [panduan Railway](docs/RAILWAY-DEPLOYMENT.md).
+- Deployment Railway menggunakan layanan backend, PostgreSQL, dan broker MQTT. Contoh variabel tersedia di [konfigurasi backend](deploy/railway-backend.env.example) dan [konfigurasi broker](deploy/railway-mqtt.env.example). Backend memakai `Dockerfile`, sedangkan broker cloud memakai `Dockerfile.mqtt`.
+- Koneksi MQTT publik untuk ESP32 memakai TLS dengan CA dan hostname yang sesuai. Port MQTT tanpa TLS hanya untuk jaringan privat yang dikonfigurasi untuk itu.
 
-## Dokumentasi
+## Panduan firmware
 
-Panduan pemasangan, konfigurasi perangkat, dan penggunaan lingkungan pengembangan tersedia pada dokumentasi berikut:
-
-- [Panduan pengembangan lokal](docs/LOCAL-DEVELOPMENT.md)
-- [Kebutuhan produk](docs/PRD.md)
-- [Arsitektur sistem](docs/ARCHITECTURE.md)
-- [Rancangan database](docs/database/cpstn-erd-final.md)
-- [Kontrak komunikasi ESP32](docs/ESP32-MQTT-CONTRACT.md)
-- [API monitoring](docs/API-MONITORING.md)
-- [Konfigurasi Wi-Fi ESP32](docs/PZEM-WIFI-SETUP.md)
-- [Kontrol relay kamar](docs/ROOM-RELAY-CONTROL.md)
-- [Sesi login](docs/AUTH-SESSIONS.md)
-- [Panduan billing](docs/FRONTEND-BILLING.md)
-- [Pembagian konsumsi bersama](docs/SHARED-BILLING.md)
+- [Monitoring PZEM](firmware/pzem-dashboard/README.md)
+- [Kontrol relay kamar](firmware/pzem-relay-trial/README.md)
+- [RFID dan sesi fasilitas](firmware/rfid-pzem-v42-sesi/README.md)

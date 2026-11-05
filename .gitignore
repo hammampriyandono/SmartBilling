@@ -151,14 +151,6 @@ vite.config.ts.timestamp-*
 # Local firmware sharing archives; source remains in the firmware folders.
 /firmware/*.zip
 
-# Local working notes and machine-specific references remain on this laptop.
+# Local reference documents remain on this laptop.
 /AGENTS.md
-/docs/HANDOFF.md
-/docs/PC-MASTER-EXPORT-PROMPT.md
-/docs/CLEAN-UI-NAMING-AUDIT.md
-/docs/DEPLOY-READINESS-2026-11-04.md
-/docs/LAPTOP-READY.md
-/docs/LAPTOP-MASTER-TRANSFER.md
-/docs/RFID-LOCAL-REVISION-REVIEW.md
-/docs/RFID-PZEM-V41-REVIEW.md
-/docs/RFID-TEAM-CODE-REVIEW.md
+/docs/
