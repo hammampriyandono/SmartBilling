@@ -6,9 +6,7 @@ Persiapan koneksi ESP RFID dan pembacaan kartu sebelum pendaftaran penghuni: [RF
 
 Rehearsal expo dengan database bersih dan arsip pengujian terpisah tersedia sejak 18 Oktober: [EXPO-PREPARATION.md](EXPO-PREPARATION.md). Dashboard baru port 3001; port 3000 tetap lingkungan pengujian lama. Tidak perlu seed/reset pada keduanya.
 
-Pemindahan data master dari PC ke laptop memakai ekspor privat, backup dan rencana konflik sebelum impor: [LAPTOP-MASTER-TRANSFER.md](LAPTOP-MASTER-TRANSFER.md). Git hanya membawa kode; jangan menjalankan bootstrap target-kosong terhadap database laptop existing.
-
-Status akun Nadia/Rozan, histori existing, konfigurasi firmware tiga ESP32 dan batas pengujian hotspot laptop29Oktober ada di [LAPTOP-READY.md](LAPTOP-READY.md).
+Pemindahan database antar mesin memakai ekspor privat, backup dan pemeriksaan konflik sebelum impor. Git hanya membawa kode; jangan menjalankan bootstrap target-kosong terhadap database existing. Konfigurasi serta catatan pemindahan tiap mesin disimpan terpisah dari repository.
 
 Frontend Administrasi owner mendukung mutasi sesuai API sejak 23 September 2026: form, invitation, lifecycle, CSRF, versi dan retry idempoten. Cara memakai data existing tanpa migration/seed dan memperbarui aset saja: [FRONTEND-ADMIN.md](FRONTEND-ADMIN.md).
 

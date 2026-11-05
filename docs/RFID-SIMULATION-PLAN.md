@@ -137,7 +137,7 @@ Pengguna menyetujui paket di atas pada 17 September 2026. Implementasi mengikuti
 
 Migration 007 melindungi identitas event/sesi, peserta dan konteks histori dari perubahan/destructive write. Belum ada UI/CLI pencabutan kartu, pemindahan penghuni, penyelesaian chain bercabang, atau koreksi sesi review; jangan mengedit histori/checkpoint secara manual untuk melewati review. Tindakan tersebut memerlukan alur administratif terpisah. MQTT listrik, broker/LAN dan billing tidak diubah.
 
-Cara menjalankan dan contoh API: [LOCAL-DEVELOPMENT](LOCAL-DEVELOPMENT.md#simulasi-sesi-rfid). Bukti pengujian dan batas yang belum diuji: [HANDOFF](HANDOFF.md).
+Cara menjalankan dan contoh API: [LOCAL-DEVELOPMENT](LOCAL-DEVELOPMENT.md#simulasi-sesi-rfid). Hasil pengujian backend pada tahap ini dirangkum di bagian berikut; hasil pengujian perangkat nyata dicatat terpisah.
 
 ## Verifikasi akhir backend — 19 September 2026
 

@@ -2,7 +2,7 @@
 
 Diperbarui 2 November 2026 sebagai persiapan isi dashboard sebelum deployment.
 
-Audit ulang 3 November 2026 dan hasil penggantian delapan nama yang disetujui pengguna tersedia di [CLEAN-UI-NAMING-AUDIT.md](CLEAN-UI-NAMING-AUDIT.md). Properti kini Kos-A05 dan fasilitas Peraga Mesin Cuci. Nama perangkat Kamar 2 yang sedang terpasang ditunda; nama Owner dipertahankan. Nama produk sekarang SplitzBill.
+Penamaan antarmuka diperbarui 3 November 2026. Properti kini Kos-A05 dan fasilitas Peraga Mesin Cuci. Nama perangkat Kamar 2 yang sedang terpasang ditunda; nama Owner dipertahankan. Nama produk sekarang SplitzBill.
 
 ## Pedoman
 

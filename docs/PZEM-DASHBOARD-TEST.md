@@ -134,7 +134,7 @@ Sinkronisasi Git dan konfigurasi broker tidak menyalin database PC. Akun, kamar,
 
 Exporter `export-expo-master.js` saat ini hanya membawa users, properties, rooms, property_tenants dan occupancies; belum devices, meter_assets atau meters. Importer `bootstrap-expo-master.js` juga hanya menerima lima tabel tersebut dan mewajibkan target kosong. Jangan menjalankan bootstrap ini terhadap database laptop yang sudah berisi data. Paket lengkap dari PC serta pemeriksaan konflik diperlukan sebelum menyamakan master, dan schema harus diselaraskan lebih dahulu. Tidak menjalankan seed untuk mengganti data PC yang belum tersedia.
 
-Alat transfer baru `pc-laptop-master.js` menyiapkan ekspor sembilan tabel beserta rencana konflik/backup sebelum impor. Gunakan [LAPTOP-MASTER-TRANSFER.md](LAPTOP-MASTER-TRANSFER.md); paket data PC tetap harus diekspor di PC, terpisah dari bundle alat.
+Alat transfer `pc-laptop-master.js` menyiapkan ekspor sembilan tabel beserta rencana konflik/backup sebelum impor. Periksa konfigurasi dan catatan pemindahan mesin yang bersangkutan sebelum menjalankannya; paket data PC tetap harus diekspor di PC, terpisah dari bundle alat.
 
 Hasil persiapan: kedua akun lulus auth/ACL pada broker terisolasi dan LAN aktual, termasuk penolakan silang Kamar1/Kamar2. Rozan dapat membuka latest meter Kamar2 (200, data null) dan ditolak pada Kamar1 (404). Belum ada pembacaan Kamar2; jangan menampilkan nol atau mengklaim pengukuran sensor berhasil. Foto rangkaian menunjukkan komunikasi PZEM belum siap dan ujung kabel terbuka. Pengujian USB tidak memerlukan daya AC; perakitan sensor/CT/catu dan beban diselesaikan tim elektro sebelum pengukuran fisik.
 
